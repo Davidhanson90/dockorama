@@ -23,6 +23,17 @@ workspaces, persistence, pop-out windows, a command palette and a layout minimap
 
 See [docs/API-DESIGN.md](docs/API-DESIGN.md) for the model and API.
 
+## Framework wrappers
+
+Optional subpath exports; each framework is an optional peer dependency.
+
+| Import | Export |
+|---|---|
+| `flexdock/react` | `<FlexdockLayout model onLayoutChange …>` (ref = element) |
+| `flexdock/vue` | `<FlexdockLayout v-model:model …>` |
+| `flexdock/angular` | `FlexdockLayoutComponent` (`<flexdock-layout [model] (layoutChange)>`), standalone |
+| `flexdock/svelte` | `use:flexdock={{ model, on: { change } }}` action |
+
 ## Development
 
 ```bash

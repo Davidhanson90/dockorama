@@ -8,7 +8,8 @@
     "skipLibCheck": true,
     "types": ["vite/client"],
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "paths": { "flexdock": ["../src/index.ts"] }
+    "experimentalDecorators": true,
+    "paths": { "flexdock": ["../src/index.ts"], "flexdock/*": ["../src/*.ts"] }
   },
   "include": ["./**/*.ts"]
 }

@@ -142,7 +142,9 @@ add({
   <p class="lead">A stack with one view shows a title bar; with several it shows tabs. A <code>docs</code> stack is an editor-style document area.</p>
   <ul><li>Click a tab to select it; drag along the strip to reorder; drag away to float or dock elsewhere.</li>
   <li>Document tabs have close buttons, close on middle-click, and the area stays even when empty.</li>
-  <li>The <b>⋯</b> menu lists every tab in the group (handy when they overflow).</li></ul>
+  <li>When tabs overflow, the strip scrolls: use the mouse wheel or trackpad over it, or the ‹ › buttons that appear at its ends.
+  The selected tab is always scrolled into view.</li>
+  <li>The <b>⋯</b> menu lists every tab in the group, so hidden tabs are one click away.</li></ul>
   ${ex("tabs")}`,
   examples: [{ id: "tabs", code: `${SETUP}
 const names = ["index.html", "styles.css", "app.ts", "router.ts", "store.ts", "api.ts", "utils.ts", "README.md"];
@@ -226,8 +228,12 @@ add({
   <tr><td>Centre</td><td>Join the group as a tab.</td></tr>
   <tr><td>Arrows around the centre</td><td>Split the group and put the view on that side.</td></tr>
   <tr><td>Outer edge arrows</td><td>Dock along the whole edge of the layout.</td></tr>
+  <tr><td>A splitter (gutter) between groups</td><td>Insert the view as a new group between the two neighbours.</td></tr>
+  <tr><td>Centre of an empty document area</td><td>Open the view there as a document.</td></tr>
   <tr><td>Anywhere else</td><td>Float in a new window.</td></tr></table>
-  <p>A translucent preview shows where the view will land. Cancel a drag with <span class="kbd">Esc</span>-free pointer cancel or by dropping back. Use <code>flexdock-beforemove</code> to veto a move.
+  <p>A translucent preview shows where the view will land. Press <span class="kbd">Esc</span> at any point to cancel: the layout goes back exactly as it was
+  (including live tab reordering and window moves) and <code>flexdock-dragcancel</code> fires. Use <code>flexdock-beforemove</code> to veto a move
+  (its <code>zone</code> is <code>"between"</code> for gutter drops). The same moves are available in code: <code>dropBetween(id, path, after)</code> and <code>dropIntoDocs(id, path)</code>.
   Pointer events are used throughout, so touch and pen work too.</p>
   ${ex("dnd")}`,
   examples: [{ id: "dnd", height: 460, code: `${SETUP}
@@ -293,7 +299,8 @@ add({
   <tr><td><code>flexdock-focus</code></td><td><code>{ id, previous }</code></td><td>The active view changed</td></tr>
   <tr><td><code>flexdock-viewshow</code></td><td><code>{ id }</code></td><td>A view is shown for the first time</td></tr>
   <tr><td><code>flexdock-beforeclose</code></td><td><code>{ id }</code></td><td>Before closing; <code>preventDefault()</code> to keep it</td></tr>
-  <tr><td><code>flexdock-beforemove</code></td><td><code>{ id, target?, zone }</code></td><td>Before a dock/move; cancellable</td></tr></table>
+  <tr><td><code>flexdock-beforemove</code></td><td><code>{ id, target?, zone }</code></td><td>Before a dock/move; cancellable (<code>zone</code> may be <code>"between"</code>)</td></tr>
+  <tr><td><code>flexdock-dragcancel</code></td><td><code>{ id }</code></td><td>A drag was cancelled (Esc or pointer cancel); layout restored</td></tr></table>
   ${ex("events")}`,
   examples: [{ id: "events", code: `${basic}
 for (const type of ["flexdock-change", "flexdock-focus", "flexdock-viewshow", "flexdock-beforeclose", "flexdock-beforemove"]) {
@@ -431,34 +438,109 @@ button("Français", () => { dock.labels = fr; });
 button("English", () => { dock.labels = {}; });` }]
 });
 
+const fwDemo = (id: string) => `<div class="demo"><div class="stage" style="height:340px" data-fw="${id}"></div></div>`;
+const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 add({
   slug: "guide/frameworks", title: "Frameworks", section: "Guides",
   body: `<h1>Frameworks</h1>
-  <p class="lead">flexdock is a standard custom element, so it works anywhere HTML does. Set <code>model</code> as a property and listen for DOM events.</p>
+  <p class="lead">flexdock is a standard custom element, and ships thin, typed wrappers as optional subpath exports:
+  <code>flexdock/react</code>, <code>flexdock/vue</code>, <code>flexdock/angular</code> and <code>flexdock/svelte</code>.
+  Each framework is an <em>optional</em> peer dependency, so nothing extra is installed unless you use it. Every demo below is live.</p>
   <h2>React</h2>
-  <pre><code>import "flexdock";
-export function Workspace({ model, onChange }) {
-  const ref = useRef(null);
-  useEffect(() =&gt; { ref.current.model = model; }, [model]);
-  useEffect(() =&gt; {
-    const el = ref.current, h = (e) =&gt; onChange?.(e.detail.model);
-    el.addEventListener("flexdock-change", h);
-    return () =&gt; el.removeEventListener("flexdock-change", h);
-  }, [onChange]);
-  return &lt;flexdock-manager ref={ref}&gt;
-    &lt;Explorer data-view="files" /&gt;&lt;Editor data-view="main" /&gt;
-  &lt;/flexdock-manager&gt;;
-}</code></pre>
-  <h2>Vue</h2>
-  <pre><code>&lt;flexdock-manager :model.prop="model" @flexdock-change="model = $event.detail.model"&gt;
-  &lt;FileTree data-view="files" /&gt;&lt;Editor data-view="main" /&gt;
-&lt;/flexdock-manager&gt;</code></pre>
-  <p>Tell Vue it is a custom element: <code>compilerOptions.isCustomElement = (t) =&gt; t.startsWith("flexdock-")</code>.</p>
+  <pre><code>${esc(`import { FlexdockLayout } from "flexdock/react";
+
+export function Workspace() {
+  const [model, setModel] = useState(initialModel);
+  const dock = useRef<FlexdockManager>(null); // dock.current.undo(), .detach(id) …
+  return (
+    <FlexdockLayout ref={dock} model={model} theme="auto"
+      onLayoutChange={(d) => setModel(d.model)}
+      onBeforeClose={(e) => { if (unsaved) e.preventDefault(); }}>
+      <Explorer data-view="files" />
+      <Editor data-view="main" />
+    </FlexdockLayout>
+  );
+}`)}</code></pre>
+  ${fwDemo("react")}
+  <p>Props: <code>model, theme, snap, storageKey, keepEmpty, labels, className, style</code>. Callbacks:
+  <code>onLayoutChange, onViewFocus, onViewShow, onBeforeClose, onBeforeMove, onDragCancel</code>.</p>
+  <h2>Vue 3</h2>
+  <pre><code>${esc(`<script setup lang="ts">
+import { FlexdockLayout } from "flexdock/vue";
+const model = ref(initialModel);
+</script>
+
+<template>
+  <FlexdockLayout v-model:model="model" theme="auto" @layout-change="(d) => console.log(d.reason)">
+    <FileTree data-view="files" />
+    <Editor data-view="main" />
+  </FlexdockLayout>
+</template>`)}</code></pre>
+  ${fwDemo("vue")}
+  <p>Emits <code>layout-change, update:model, view-focus, view-show, before-close, before-move, drag-cancel</code>; exposes <code>element</code>.
+  No <code>isCustomElement</code> setting is needed when you use the wrapper.</p>
   <h2>Angular</h2>
-  <pre><code>&lt;flexdock-manager [model]="model" (flexdock-change)="model = $event.detail.model"&gt;…&lt;/flexdock-manager&gt;</code></pre>
-  <p>Add <code>CUSTOM_ELEMENTS_SCHEMA</code> to the component or module.</p>
-  <h2>Svelte / Lit / plain HTML</h2>
-  <pre><code>&lt;flexdock-manager bind:this={dock} on:flexdock-change={save}&gt;…&lt;/flexdock-manager&gt;</code></pre>`
+  <pre><code>${esc(`import { FlexdockLayoutComponent } from "flexdock/angular";
+
+@Component({
+  selector: "app-workspace",
+  imports: [FlexdockLayoutComponent],
+  template: \`
+    <flexdock-layout [model]="model()" theme="auto" (layoutChange)="model.set($event.model)">
+      <app-explorer data-view="files" />
+      <app-editor data-view="main" />
+    </flexdock-layout>\`
+})
+export class Workspace {
+  model = signal(initialModel);
+}`)}</code></pre>
+  ${fwDemo("angular")}
+  <p>Standalone component, shipped partially compiled (works with the Angular CLI's linker, AOT and zoneless apps).
+  Inputs: <code>model, theme, snap, storageKey, keepEmpty, labels</code>. Outputs: <code>layoutChange, viewFocus, viewShow, beforeClose, beforeMove, dragCancel</code>.
+  The element is available as <code>element</code>.</p>
+  <h2>Svelte</h2>
+  <pre><code>${esc(`<script>
+  import { flexdock } from "flexdock/svelte";
+  let model = $state(initialModel);
+</script>
+
+<flexdock-manager use:flexdock={{ model, on: { change: (d) => (model = d.model) } }}>
+  <FileTree data-view="files" />
+</flexdock-manager>`)}</code></pre>
+  ${fwDemo("svelte")}
+  <p>The action has no Svelte import, so it also works as a plain helper: <code>flexdock(el, options)</code> returns <code>{ update, destroy }</code>.</p>
+  <h2>Plain HTML / Lit</h2>
+  <pre><code>${esc(`<flexdock-manager id="dock"></flexdock-manager>
+<script type="module">
+  import "flexdock";
+  dock.model = createModel(views, tree);
+  dock.addEventListener("flexdock-change", (e) => save(e.detail.model));
+</script>`)}</code></pre>`,
+  after: (el) => {
+    void import("./frameworks.js").then((fw) => {
+      const run: Record<string, (h: HTMLElement) => Promise<void>> = { react: fw.mountReact, vue: fw.mountVue, angular: fw.mountAngular, svelte: fw.mountSvelte };
+      for (const stage of Array.from(el.querySelectorAll<HTMLElement>("[data-fw]"))) {
+        void run[stage.dataset["fw"]!]?.(stage).catch((err: unknown) => { stage.textContent = `Demo failed to load: ${String(err)}`; });
+      }
+    });
+  }
+});
+
+add({
+  slug: "guide/gutter-drop", title: "Gutter & empty-area drops", section: "Guides",
+  body: `<h1>Gutter &amp; empty-area drops</h1>
+  <p class="lead">Drag a tab onto the splitter between two groups to slot it in between them. Close every document, then drag a panel
+  to the centre of the empty document area to open it there. Press <span class="kbd">Esc</span> during any drag to cancel.</p>
+  ${ex("gutter")}`,
+  examples: [{ id: "gutter", height: 460, code: `${SETUP}
+["one", "two", "three", "four"].forEach((id) => view(id, "<h3>Panel " + id + "</h3><p class='muted'>Drag my tab onto a splitter.</p>"));
+view("doc", "<h3>draft.md</h3><p>Close me to get an empty document area.</p>");
+dock.model = createModel(
+  { one: { title: "One" }, two: { title: "Two" }, three: { title: "Three" }, four: { title: "Four" }, doc: { title: "draft.md" } },
+  row([stack(["one", "two"]), docs(["doc"]), stack(["three", "four"])], [1, 2, 1])
+);
+dock.addEventListener("flexdock-change", (e) => log(e.detail.reason));
+dock.addEventListener("flexdock-dragcancel", (e) => log("drag cancelled: " + e.detail.id));` }]
 });
 
 // ---------------------------------------------------------------- examples
@@ -687,6 +769,9 @@ add({
   <tr><td><code>undo()</code> / <code>redo()</code></td><td>History.</td></tr>
   <tr><td><code>snapshot()</code> / <code>restore(model)</code></td><td>Copy out / apply (undoable).</td></tr>
   <tr><td><code>popOut(id)</code> / <code>popIn(id)</code></td><td>Separate browser window.</td></tr>
+  <tr><td><code>dropBetween(id, path, after, windowKey?)</code></td><td>Insert as a new group between two siblings (what a gutter drop does).</td></tr>
+  <tr><td><code>dropIntoDocs(id, path, windowKey?)</code></td><td>Put a view into an empty document area.</td></tr>
+  <tr><td><code>cancelDrag()</code></td><td>Abort the current drag and restore the layout (what <span class="kbd">Esc</span> does).</td></tr>
   <tr><td><code>openPalette()</code></td><td>Go-to-view palette.</td></tr>
   <tr><td><code>nudge(id, zone)</code>, <code>cycleTab(id, step)</code>, <code>focusNeighbour(zone)</code></td><td>Keyboard helpers.</td></tr></table>
   <h2>Model helpers (pure functions)</h2>

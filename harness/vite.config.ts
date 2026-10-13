@@ -6,7 +6,10 @@ export default defineConfig({
   root: "harness",
   base: "./",
   resolve: {
-    alias: [{ find: /^flexdock$/, replacement: fileURLToPath(new URL("../dist/index.js", import.meta.url)) }]
+    alias: [
+      { find: /^flexdock$/, replacement: fileURLToPath(new URL("../dist/index.js", import.meta.url)) },
+      { find: /^flexdock\/(react|vue|angular|svelte)$/, replacement: fileURLToPath(new URL("../dist/$1.js", import.meta.url)) }
+    ]
   },
   build: { outDir: "../harness-dist", emptyOutDir: true }
 });
