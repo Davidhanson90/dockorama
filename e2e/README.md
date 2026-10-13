@@ -24,5 +24,5 @@ Rules (full detail in [../docs/CLEAN-ROOM.md](../docs/CLEAN-ROOM.md)):
   site's terms of use and robots rules.
 - Write findings as a behavioural spec in our own words in `docs/specs/<feature>.md`, then implement
   from the spec without going back to the reference while coding.
-- This folder (and `docs/COMPARISON.md`) is the only place the reference product's names may appear;
+- This folder is the only place the reference product's names may appear;
   `npm run lint:naming` enforces it.

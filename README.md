@@ -1,47 +1,41 @@
 # flexdock
 
-A Lit-based web component **dock manager**: dockable, splittable, tabbed and floating panes for
-IDE-style application layouts. Framework-agnostic custom elements; `lit` is the only runtime dependency.
+A docking layout manager as a framework-agnostic web component, built with [Lit](https://lit.dev).
+Split, tab, float, auto-hide, zoom and rearrange views by drag and drop or keyboard — with undo/redo,
+workspaces, persistence, pop-out windows, a command palette and a layout minimap.
 
-> Status: early scaffold. Not yet published to npm.
-
-## Usage
+**Docs & live examples:** https://davidhanson90.github.io/flexdock/
 
 ```html
-<script type="module">
-  import "flexdock";
-</script>
-
-<flexdock-manager>
-  <div>Your content</div>
+<flexdock-manager id="dock" style="height: 600px">
+  <div data-view="files">File tree…</div>
+  <div data-view="main">Editor…</div>
+  <div data-view="log">Output…</div>
 </flexdock-manager>
+<script type="module">
+  import { createModel, row, column, stack, docs } from "flexdock";
+  document.getElementById("dock").model = createModel(
+    { files: { title: "Files" }, main: { title: "main.ts" }, log: { title: "Output" } },
+    row([stack(["files"]), column([docs(["main"]), stack(["log"])], [3, 1])], [1, 4])
+  );
+</script>
 ```
+
+See [docs/API-DESIGN.md](docs/API-DESIGN.md) for the model and API.
 
 ## Development
 
-```sh
+```bash
 npm install
-npm start              # build + harness dev server (harness/)
-npm test               # vitest unit tests (colocated *.spec.ts)
-npm run lint           # eslint
-npm run lint:naming    # clean-room naming guard
-npm run build          # tsc -> dist/
-npm run build:verify   # everything CI runs
-npm run test:e2e       # Playwright tests of our own harness
+npm start              # build + docs site dev server
+npm run build:verify   # naming guard, lint, type checks, unit tests with coverage, build
+npm run test:e2e       # Playwright tests of our own docs site
 ```
 
 ## Clean room
 
-flexdock is a clean-room build. The reference product is third-party third-party UI Dock Manager, which
-we only observe through its public docs and live demos. Read [docs/CLEAN-ROOM.md](docs/CLEAN-ROOM.md)
-before contributing, and see [e2e/README.md](e2e/README.md) for reference-exploration tests,
-[docs/specs/](docs/specs/) for behavioural specs and [docs/IP-AUDIT.md](docs/IP-AUDIT.md) for the
-release audit.
-
-## Trademarks
-
-third-party and third-party UI are trademarks of third-party, Inc. flexdock is not affiliated with,
-endorsed by or sponsored by third-party, Inc.
+flexdock is an independent, clean-room implementation of a well-known UI pattern. Read
+[docs/CLEAN-ROOM.md](docs/CLEAN-ROOM.md) before contributing.
 
 ## License
 

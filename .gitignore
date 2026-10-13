@@ -10,3 +10,4 @@ playwright-report/
 # Reference-product screenshots and recordings are local-only: never commit or publish them.
 e2e/reference/shots/
 e2e-results/reference-shots/
+e2e/reference/notes/
