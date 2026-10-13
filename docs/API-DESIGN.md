@@ -23,7 +23,7 @@ against a private avoid-list kept outside the repo).
    `flexdock-beforemove`; and `flexdock-focus`, `flexdock-viewshow` (first reveal, for lazy loading).
 7. **Theming through `--fd-*` custom properties** and `::part()` names describing *what* the element
    is in flexdock's own vocabulary: `bar`, `tab`, `gutter`, `compass`, `ghost`, `rail`, `drawer`,
-   `window`, `palette`.
+   `window`, `palette`. String `addView` bodies use `.flexdock-text` and `--fd-text-padding`.
 
 ## Model (v1)
 ```ts
@@ -53,7 +53,8 @@ Drop zones are named `"left" | "right" | "above" | "below" | "into"` plus `edge-
 
 ## Adding views from code
 `addView(id, content, { title?, icon?, hint?, caps?, at? })` sets `data-view`, appends the content and places
-the view as one undoable change (`reason: "add"`). `content` is an `Element`, a text `string`, or a factory
+the view as one undoable change (`reason: "add"`). `content` is an `Element`, a text `string` (wrapped in
+`<div class="flexdock-text">`, padded with `--fd-text-padding`, default `12px 14px`), or a factory
 `() => Element` run on first show. `at` is a `ViewSpot`, named for *where the view ends up*:
 `"auto"` (default) · `"docs"` · `"parked"` · `{ near, zone?, index? }` · `{ edge, weight? }` · `{ float }` · `{ stow }`.
 Errors are thrown before anything changes (duplicate id, target not in the layout, no document area).

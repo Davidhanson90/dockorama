@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FlexdockManager, FlexdockMinimap, VERSION, column, createModel, docs, locate, row, stack } from "./index.js";
 import type { FlexdockModel } from "./model.js";
+import { styles } from "./styles.js";
 
 const views = {
   files: { title: "Files", icon: "📁" },
@@ -375,7 +376,9 @@ describe("<flexdock-manager>", () => {
       expect(el.hasView("chart")).toBe(true);
 
       el.addView("note", "Plain text", { at: "parked" });
-      expect(el.getViewElement("note")!.textContent).toBe("Plain text");
+      const note = el.getViewElement("note") as HTMLElement;
+      expect(note.textContent).toBe("Plain text");
+      expect(note.classList.contains("flexdock-text")).toBe(true);
       expect(el.model.views["note"]!.title).toBe("note");
       expect(el.model.parked).toContain("note");
 
@@ -390,6 +393,26 @@ describe("<flexdock-manager>", () => {
       expect(make).toHaveBeenCalledTimes(1);
       expect(el.getViewElement("later")!.textContent).toBe("lazy!");
       expect(shownIds).toContain("later");
+    });
+
+    it("string content uses flexdock-text with themable padding", async () => {
+      const el = await mount();
+      el.addView("tip", "Hello\nworld", { title: "Tip" });
+      await el.updateComplete;
+      const node = el.getViewElement("tip") as HTMLElement;
+      expect(node.tagName).toBe("DIV");
+      expect(node.className).toBe("flexdock-text");
+      expect(node.textContent).toBe("Hello\nworld");
+      // Stylesheet defines the token and the slotted rule (jsdom does not resolve :host vars).
+      const css = String(styles);
+      expect(css).toMatch(/--fd-text-padding:\s*12px 14px/);
+      expect(css).toMatch(/::slotted\(\.flexdock-text\)/);
+      expect(css).toMatch(/padding:\s*var\(--fd-text-padding\)/);
+      expect(css).toMatch(/user-select:\s*text/);
+      el.style.setProperty("--fd-text-padding", "20px 24px");
+      expect(el.style.getPropertyValue("--fd-text-padding")).toBe("20px 24px");
+      node.classList.add("my-note");
+      expect(node.classList.contains("flexdock-text")).toBe(true);
     });
 
     it("floats, docks to edges and defaults into the document area", async () => {

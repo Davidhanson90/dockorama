@@ -425,7 +425,7 @@ const el = dock.removeView("chart");  // returns the element, taken out of the d
   <h2>Content</h2>
   <table><tr><th>Type</th><th>What happens</th></tr>
   <tr><td><code>Element</code></td><td>Appended to the manager (moved if it already lives elsewhere). It's kept alive as it moves between panes.</td></tr>
-  <tr><td><code>string</code></td><td>Wrapped in a <code>&lt;div&gt;</code> as text (never parsed as HTML).</td></tr>
+  <tr><td><code>string</code></td><td>Wrapped in a <code>&lt;div class="flexdock-text"&gt;</code> as text (never parsed as HTML). Default padding comes from <code>--fd-text-padding</code> (see below).</td></tr>
   <tr><td><code>() =&gt; Element</code></td><td>Lazy: called once, the first time the view is shown, just before <code>flexdock-viewshow</code>. The view gets <code>lazy: true</code>.</td></tr></table>
   <h2>Where it goes: <code>options.at</code></h2>
   <table><tr><th>Value</th><th>Placement</th></tr>
@@ -437,6 +437,11 @@ const el = dock.removeView("chart");  // returns the element, taken out of the d
   <tr><td><code>{ stow: side }</code></td><td>Auto-hidden on a rail: <code>start</code> | <code>end</code> | <code>top</code> | <code>bottom</code>.</td></tr>
   <tr><td><code>"parked"</code></td><td>Registered but closed; show it later with <code>reveal(id)</code>.</td></tr></table>
   <p>The other options are the view's own settings: <code>title</code> (defaults to the id), <code>icon</code>, <code>hint</code> and <code>caps</code>.</p>
+  <h2>Text views and padding</h2>
+  <p>String content is put in a <code>&lt;div class="flexdock-text"&gt;</code> with padding from <code>--fd-text-padding</code> (default <code>12px 14px</code>), plus comfortable line-height, <code>overflow: auto</code> and <code>user-select: text</code>. Theme it on the manager, or override the class from your own CSS:</p>
+  <pre><code>flexdock-manager { --fd-text-padding: 20px; }
+/* or */
+.flexdock-text { padding: 8px 12px; }</code></pre>
   <h2>Errors</h2>
   <p><code>addView</code> throws, and changes nothing, if the id is already registered, if <code>near</code> names a view that isn't in the layout, or if <code>"docs"</code> is asked for without a document area. Use <code>hasView(id)</code> to check first.</p>
   <h2>Removing and finding views</h2>
@@ -786,7 +791,7 @@ const vars: Array<[string, string, string]> = [
 add({
   slug: "playground", title: "Theming playground", section: "Reference",
   body: `<h1>Theming playground</h1>
-  <p class="lead">flexdock is styled with <code>--fd-*</code> custom properties and <code>::part()</code>. Tweak them live, then copy the CSS.</p>
+  <p class="lead">flexdock is styled with <code>--fd-*</code> custom properties and <code>::part()</code>. Tweak them live, then copy the CSS. Text views from <code>addView(id, "…")</code> use <code>--fd-text-padding</code> (default <code>12px 14px</code>) on the <code>.flexdock-text</code> class.</p>
   <div class="play"><div id="controls">
     ${vars.map(([v, d, l]) => `<label>${l}<input type="color" data-var="${v}" value="${d}"></label>`).join("")}
     <label>Radius <input type="range" min="0" max="16" value="8" data-var="--fd-radius" data-unit="px"></label>
@@ -796,6 +801,8 @@ add({
     <label>Preset <select id="preset"><option>Default</option><option>Dark</option><option>Ocean</option><option>Forest</option><option>Sunset</option></select></label>
   </div><div>${ex("play")}</div></div>
   <h2>Your CSS</h2><pre><code id="css"></code></pre>
+  <h2>Tokens</h2>
+  <p>Common <code>--fd-*</code> properties: <code>--fd-accent</code>, <code>--fd-canvas</code>, <code>--fd-surface</code>, <code>--fd-surface-2</code>, <code>--fd-ink</code>, <code>--fd-ink-soft</code>, <code>--fd-line</code>, <code>--fd-radius</code>, <code>--fd-gutter</code>, <code>--fd-bar-height</code>, <code>--fd-font-size</code>, <code>--fd-text-padding</code> (padding for string <code>addView</code> bodies; default <code>12px 14px</code>).</p>
   <h2>Parts</h2>
   <p><code>frame</code>, <code>main</code>, <code>split</code>, <code>gutter</code>, <code>group</code> (+ <code>docs</code>), <code>bar</code>, <code>tab</code> (+ <code>tab-current</code>), <code>tab-close</code>,
   <code>action</code> (+ <code>stow</code>/<code>zoom</code>/<code>more</code>/<code>close</code>/<code>unstow</code>), <code>body</code>, <code>rail</code>, <code>rail-item</code>, <code>drawer</code>, <code>window</code>, <code>grip</code>,
@@ -860,7 +867,7 @@ add({
   <tr><td><code>reveal(id)</code></td><td>Show wherever it is, or bring it back.</td></tr>
   <tr><td><code>toggleZoom(id?)</code></td><td>Zoom / restore.</td></tr>
   <tr><td><code>activate(id)</code></td><td>Focus a view.</td></tr>
-  <tr><td><code>addView(id, content, options?)</code></td><td>Add a view in one undoable change. <code>content</code>: <code>Element</code> | <code>string</code> | <code>() =&gt; Element</code> (lazy). <code>options</code>: <code>title</code>, <code>icon</code>, <code>hint</code>, <code>caps</code> and <code>at</code> (a <code>ViewSpot</code>). Throws on a duplicate id or unknown target. See <a href="#/guide/add-views">Adding views from code</a>.</td></tr>
+  <tr><td><code>addView(id, content, options?)</code></td><td>Add a view in one undoable change. <code>content</code>: <code>Element</code> | <code>string</code> (wrapped in <code>.flexdock-text</code>, padding via <code>--fd-text-padding</code>) | <code>() =&gt; Element</code> (lazy). <code>options</code>: <code>title</code>, <code>icon</code>, <code>hint</code>, <code>caps</code> and <code>at</code> (a <code>ViewSpot</code>). Throws on a duplicate id or unknown target. See <a href="#/guide/add-views">Adding views from code</a>.</td></tr>
   <tr><td><code>removeView(id, { keepElement? })</code></td><td>Remove a view; returns its element (or <code>null</code>).</td></tr>
   <tr><td><code>getViewElement(id)</code> / <code>hasView(id)</code></td><td>The content element (<code>null</code> if none yet) / whether the id is registered.</td></tr>
   <tr><td><code>addView(id, info, near?)</code> / <code>forget(id)</code></td><td>Register a view whose <code>data-view</code> child you add yourself / remove from the model only.</td></tr>

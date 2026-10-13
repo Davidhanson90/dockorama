@@ -25,7 +25,10 @@ test("addView places elements, text and lazy factories from code", async ({ page
   await expect(dock.locator('[slot][data-view="c3"]')).toHaveCount(0);
   await expect(demo.locator(".events")).not.toContainText("factory ran");
   await demo.getByRole("button", { name: "Text" }).click();
-  await expect(dock.locator('[slot][data-view="t4"]')).toHaveText("Just some text, added as a view.");
+  const textView = dock.locator('[slot][data-view="t4"]');
+  await expect(textView).toHaveText("Just some text, added as a view.");
+  await expect(textView).toHaveClass(/flexdock-text/);
+  await expect(textView).toHaveCSS("padding-top", "12px");
   await page.screenshot({ path: "e2e-results/4x-addview.png" });
 
   // Undo removes the last added view in one step.

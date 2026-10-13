@@ -17,6 +17,7 @@ export const styles = css`
     --fd-font-size: 13px;
     --fd-shadow: 0 10px 30px rgb(15 20 40 / 0.18), 0 2px 6px rgb(15 20 40 / 0.08);
     --fd-target: rgb(91 91 214 / 0.18);
+    --fd-text-padding: 12px 14px;
     display: block;
     position: relative;
     box-sizing: border-box;
@@ -116,6 +117,10 @@ export const styles = css`
   .body { position: relative; flex: 1 1 auto; min-height: 0; overflow: auto; display: flex; }
   .body > slot { display: contents; }
   .body ::slotted(*) { flex: 1 1 auto; min-width: 0; }
+  .body ::slotted(.flexdock-text) {
+    box-sizing: border-box; padding: var(--fd-text-padding); line-height: 1.5;
+    overflow: auto; user-select: text; white-space: pre-wrap; min-height: 0;
+  }
   .body[data-inert] { pointer-events: none; opacity: 0.55; }
   .empty, .away { margin: auto; color: var(--fd-ink-soft); padding: 16px; text-align: center; }
   .rail { display: flex; gap: 4px; padding: 4px; background: var(--fd-canvas); }

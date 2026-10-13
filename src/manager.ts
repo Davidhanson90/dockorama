@@ -22,6 +22,14 @@ const attr = (v: string) => JSON.stringify(v);
 const isContent = (v: unknown): v is ViewContent =>
   typeof v === "string" || typeof v === "function" || (typeof Element !== "undefined" && v instanceof Element);
 
+/** Plain-text view body: never HTML, padded via `.flexdock-text` / `--fd-text-padding`. */
+const textNode = (text: string): HTMLElement => {
+  const el = document.createElement("div");
+  el.className = "flexdock-text";
+  el.textContent = text;
+  return el;
+};
+
 interface DragState {
   id: string;
   mode: "pending" | "tab" | "loose" | "window";
@@ -212,7 +220,7 @@ export class FlexdockManager extends LitElement {
    * Add a view in one call: register it, attach its content and place it, as a single undoable change
    * (`flexdock-change` reason `"add"`).
    *
-   * `content` is an element, a string (shown as text), or a factory called the first time the view is
+   * `content` is an element, a string (wrapped in a padded `.flexdock-text` div), or a factory called the first time the view is
    * shown. `options.at` says where it goes (see `ViewSpot`); the default is the document area, else
    * the right edge. Throws if `id` is already registered or the `near` target is not in the layout.
    */
@@ -232,7 +240,7 @@ export class FlexdockManager extends LitElement {
     if (typeof content === "function") {
       this.factories.set(id, content);
     } else {
-      const el = typeof content === "string" ? Object.assign(document.createElement("div"), { textContent: content }) : content;
+      const el = typeof content === "string" ? textNode(content) : content;
       this.mount(id, el);
     }
     this.shown.delete(id);
