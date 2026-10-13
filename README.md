@@ -32,11 +32,6 @@ npm run build:verify   # naming guard, lint, type checks, unit tests with covera
 npm run test:e2e       # Playwright tests of our own docs site
 ```
 
-## Clean room
-
-flexdock is an independent, clean-room implementation of a well-known UI pattern. Read
-[docs/CLEAN-ROOM.md](docs/CLEAN-ROOM.md) before contributing.
-
 ## License
 
 MIT
