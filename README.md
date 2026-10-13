@@ -23,6 +23,14 @@ workspaces, persistence, pop-out windows, a command palette and a layout minimap
 
 See [docs/API-DESIGN.md](docs/API-DESIGN.md) for the model and API.
 
+## Components
+
+`<flexdock-manager>` owns the layout model and renders one Lit custom element per UI piece:
+`<flexdock-split>`, `<flexdock-gutter>`, `<flexdock-stack>`, `<flexdock-docs>`, `<flexdock-tabstrip>`, `<flexdock-tab>`,
+`<flexdock-toolbar>`, `<flexdock-view>`, `<flexdock-window>`, `<flexdock-drop-guide>`, `<flexdock-rail>`, `<flexdock-flyout>`,
+`<flexdock-menu>` and `<flexdock-palette>`, plus the standalone `<flexdock-minimap>`. Source lives in `src/components/`, one
+file per element with a colocated `*.spec.ts`. Several managers can share a page; give each its own `storage-key`.
+
 ## Framework wrappers
 
 Optional subpath exports; each framework is an optional peer dependency.

@@ -381,6 +381,40 @@ host.append(map);` }]
 });
 
 add({
+  slug: "guide/multiple", title: "Multiple docks", section: "Guides",
+  body: `<h1>Multiple docks</h1>
+  <p class="lead">Put as many <code>&lt;flexdock-manager&gt;</code> elements on a page as you like. Each one owns its own layout model, undo history, drag state, focus and saved layout.</p>
+  <p>Give each manager its own <code>storage-key</code> so their saved layouts don't overwrite each other. Events are dispatched by the manager they happened in, so listen on each element separately.</p>
+  <p><strong>Not supported yet:</strong> dragging a view from one manager into another. Drops only land inside the manager the drag started in; dropping outside floats the view in its own manager.</p>
+  ${ex("multiple")}`,
+  examples: [{ id: "multiple", height: 440, code: `host.style.cssText += ";display:flex;gap:8px";
+const make = (key, names) => {
+  const dock = document.createElement("flexdock-manager");
+  dock.dataset.dock = key;
+  dock.style.flex = "1 1 0";
+  dock.storageKey = "flexdock-demo-multi-" + key;
+  host.append(dock);
+  for (const n of names) dock.insertAdjacentHTML("beforeend", '<div class="v" data-view="' + n + '"><h3>' + n + "</h3></div>");
+  dock.model = createModel(
+    Object.fromEntries(names.map((n) => [n, { title: n }])),
+    row([stack([names[0]]), docs(names.slice(1))], [1, 2])
+  );
+  dock.addEventListener("flexdock-change", (e) => log(key + ": " + e.detail.reason));
+  log(key + (dock.restored ? ": restored its own saved layout" : ": fresh layout"));
+  return dock;
+};
+const mail = make("mail", ["Folders", "Inbox", "Draft"]);
+const desk = make("desk", ["Watchlist", "Chart", "Orders"]);
+button("Reset both", () => {
+  for (const d of [mail, desk]) {
+    localStorage.removeItem(d.storageKey);
+    const ids = Object.keys(d.model.views);
+    d.restore(createModel(d.model.views, row([stack([ids[0]]), docs(ids.slice(1))], [1, 2])));
+  }
+});` }]
+});
+
+add({
   slug: "guide/lazy", title: "Lazy content", section: "Guides",
   body: `<h1>Lazy content</h1>
   <p class="lead"><code>flexdock-viewshow</code> fires the first time a view becomes visible — create expensive content (charts, editors, iframes) only then.</p>
@@ -774,12 +808,61 @@ add({
   <tr><td><code>cancelDrag()</code></td><td>Abort the current drag and restore the layout (what <span class="kbd">Esc</span> does).</td></tr>
   <tr><td><code>openPalette()</code></td><td>Go-to-view palette.</td></tr>
   <tr><td><code>nudge(id, zone)</code>, <code>cycleTab(id, step)</code>, <code>focusNeighbour(zone)</code></td><td>Keyboard helpers.</td></tr></table>
+  <h2 id="components">UI components</h2>
+  <p>Every piece of the dock is its own Lit custom element, exported as a class and registered by <code>defineParts()</code> (importing <code>flexdock</code> does this for you).
+  <code>&lt;flexdock-manager&gt;</code> owns the layout model and renders the parts inside its shadow root. Parts are presentational: they get state through properties (<code>ctx</code> is a read-only <code>DockContext</code>)
+  and report user intent with a composed <code>flexdock-request</code> event, which the manager handles and stops, so it never reaches your listeners. Parts render without their own shadow root, so the manager's CSS custom properties and <code>::part()</code> names style them.
+  You normally don't create parts yourself; they're documented so you can style and test them.</p>
+  <h3 id="flexdock-split">&lt;flexdock-split&gt; <small><code>FlexdockSplit</code></small></h3>
+  <p>Lays out the children of a row or column node, with a <code>&lt;flexdock-gutter&gt;</code> between each pair. Each child sits in a <code>.cell</code> sized by the node's weights.</p>
+  <table><tr><th>Properties</th><td><code>node</code>, <code>path</code>, <code>win</code>, <code>ctx</code></td></tr><tr><th>Requests</th><td>—</td></tr><tr><th>CSS parts</th><td><code>split</code></td></tr><tr><th>State attributes</th><td><code>data-axis</code></td></tr></table>
+  <h3 id="flexdock-gutter">&lt;flexdock-gutter&gt; <small><code>FlexdockGutter</code></small></h3>
+  <p>The splitter between two cells. <code>role="separator"</code> with <code>aria-valuenow</code>; drag or use arrow keys, <span class="kbd">Home</span> and <span class="kbd">End</span>. Also a drop target during drags.</p>
+  <table><tr><th>Properties</th><td><code>path</code>, <code>index</code>, <code>win</code>, <code>axis</code>, <code>weights</code>, <code>value</code>, <code>label</code>, <code>drop</code></td></tr><tr><th>Requests</th><td><code>gutter-grab</code>, <code>gutter-key</code></td></tr><tr><th>CSS parts</th><td><code>gutter</code></td></tr><tr><th>State attributes</th><td><code>data-path</code>, <code>data-after</code>, <code>data-win</code>, <code>data-drop</code></td></tr></table>
+  <h3 id="flexdock-stack">&lt;flexdock-stack&gt; <small><code>FlexdockStack</code></small></h3>
+  <p>A group of views: a header bar (title, or a <code>&lt;flexdock-tabstrip&gt;</code> when it holds several views), a <code>&lt;flexdock-toolbar&gt;</code> and a <code>&lt;flexdock-view&gt;</code>. Drag the header to move a single view; double-click to zoom.</p>
+  <table><tr><th>Properties</th><td><code>group</code>, <code>path</code>, <code>win</code>, <code>ctx</code></td></tr><tr><th>Requests</th><td><code>activate</code>, <code>grab</code>, <code>zoom</code></td></tr><tr><th>CSS parts</th><td><code>group</code>, <code>bar</code></td></tr><tr><th>State attributes</th><td><code>data-stack</code>, <code>data-active</code>, <code>data-tabs</code>, <code>data-empty</code>, <code>data-path</code>, <code>data-win</code></td></tr></table>
+  <h3 id="flexdock-docs">&lt;flexdock-docs&gt; <small><code>FlexdockDocs</code></small></h3>
+  <p>The document host: a stack that always shows tabs, puts close buttons on the tabs and accepts document-only views. When empty it shows the “Drop a view here” zone, which takes a drop in its centre.</p>
+  <table><tr><th>Properties</th><td>Same as <code>&lt;flexdock-stack&gt;</code></td></tr><tr><th>Requests</th><td>Same as <code>&lt;flexdock-stack&gt;</code></td></tr><tr><th>CSS parts</th><td><code>group docs</code></td></tr><tr><th>State attributes</th><td><code>data-docs</code> plus the stack attributes</td></tr></table>
+  <h3 id="flexdock-tabstrip">&lt;flexdock-tabstrip&gt; <small><code>FlexdockTabstrip</code></small></h3>
+  <p>A <code>role="tablist"</code> of <code>&lt;flexdock-tab&gt;</code>s that scrolls when the tabs don't fit: wheel, or the arrow buttons. Keeps the selected tab in view. Methods: <code>scrollTabs(dir)</code>, <code>markOverflow()</code>.</p>
+  <table><tr><th>Properties</th><td><code>views</code>, <code>current</code>, <code>docs</code>, <code>win</code>, <code>ctx</code></td></tr><tr><th>Requests</th><td>—</td></tr><tr><th>CSS parts</th><td><code>tab-scroll</code></td></tr><tr><th>State attributes</th><td><code>data-overflow</code>, <code>data-can-back</code>, <code>data-can-fwd</code></td></tr></table>
+  <h3 id="flexdock-tab">&lt;flexdock-tab&gt; <small><code>FlexdockTab</code></small></h3>
+  <p>One <code>role="tab"</code>. Click to select, drag to move or reorder, middle-click or the close button to close.</p>
+  <table><tr><th>Properties</th><td><code>view</code>, <code>info</code>, <code>selected</code>, <code>closable</code>, <code>closeLabel</code>, <code>win</code></td></tr><tr><th>Requests</th><td><code>reveal</code>, <code>grab</code>, <code>dismiss</code></td></tr><tr><th>CSS parts</th><td><code>tab</code>, <code>tab-current</code>, <code>tab-close</code></td></tr><tr><th>State attributes</th><td><code>data-view</code>, <code>aria-selected</code></td></tr></table>
+  <h3 id="flexdock-toolbar">&lt;flexdock-toolbar&gt; <small><code>FlexdockToolbar</code></small></h3>
+  <p>The action buttons in a group header: auto-hide, zoom, more actions and close. Buttons follow the view's <code>caps</code>.</p>
+  <table><tr><th>Properties</th><td><code>view</code>, <code>docs</code>, <code>win</code>, <code>ctx</code></td></tr><tr><th>Requests</th><td><code>stow</code>, <code>zoom</code>, <code>menu</code>, <code>dismiss</code></td></tr><tr><th>CSS parts</th><td><code>action</code> plus <code>stow</code>, <code>zoom</code>, <code>more</code>, <code>close</code></td></tr><tr><th>State attributes</th><td>—</td></tr></table>
+  <h3 id="flexdock-view">&lt;flexdock-view&gt; <small><code>FlexdockView</code></small></h3>
+  <p>The content host. Projects the light-DOM element with the matching <code>data-view</code> through a named slot; shows a placeholder while the content is popped out, and the empty drop zone when there is no view.</p>
+  <table><tr><th>Properties</th><td><code>view</code>, <code>kind</code> (<code>region</code> | <code>tabpanel</code>), <code>labelledBy</code>, <code>label</code>, <code>ctx</code></td></tr><tr><th>Requests</th><td><code>popin</code></td></tr><tr><th>CSS parts</th><td><code>body</code></td></tr><tr><th>State attributes</th><td><code>data-inert</code></td></tr></table>
+  <h3 id="flexdock-window">&lt;flexdock-window&gt; <small><code>FlexdockWindow</code></small></h3>
+  <p>A floating <code>role="dialog"</code> with its own layout tree and a resize grip. Pressing on it brings it to the front.</p>
+  <table><tr><th>Properties</th><td><code>key</code>, <code>box</code>, <code>tree</code>, <code>layer</code>, <code>ctx</code></td></tr><tr><th>Requests</th><td><code>raise</code>, <code>grip</code></td></tr><tr><th>CSS parts</th><td><code>window</code>, <code>grip</code></td></tr><tr><th>State attributes</th><td><code>data-window</code></td></tr></table>
+  <h3 id="flexdock-drop-guide">&lt;flexdock-drop-guide&gt; <small><code>FlexdockDropGuide</code></small></h3>
+  <p>Drag feedback: the compass and edge drop targets, the gutter target, the landing preview and the ghost label that follows the pointer.</p>
+  <table><tr><th>Properties</th><td><code>spots</code> (<code>GuideSpot[]</code>), <code>preview</code>, <code>ghost</code></td></tr><tr><th>Requests</th><td>—</td></tr><tr><th>CSS parts</th><td><code>overlay</code>, <code>target</code>, <code>preview</code>, <code>ghost</code></td></tr><tr><th>State attributes</th><td><code>data-zone</code>, <code>data-hot</code> on targets</td></tr></table>
+  <h3 id="flexdock-rail">&lt;flexdock-rail&gt; <small><code>FlexdockRail</code></small></h3>
+  <p>The strip of auto-hidden views along one edge (<code>role="toolbar"</code>). Click, or hover with a mouse, to open a view's flyout.</p>
+  <table><tr><th>Properties</th><td><code>side</code>, <code>views</code>, <code>open</code>, <code>ctx</code></td></tr><tr><th>Requests</th><td><code>peek</code></td></tr><tr><th>CSS parts</th><td><code>rail</code>, <code>rail-item</code></td></tr><tr><th>State attributes</th><td><code>data-side</code></td></tr></table>
+  <h3 id="flexdock-flyout">&lt;flexdock-flyout&gt; <small><code>FlexdockFlyout</code></small></h3>
+  <p>The panel that slides over the layout to show an auto-hidden view, with “Keep open” and close buttons. <span class="kbd">Esc</span> closes it.</p>
+  <table><tr><th>Properties</th><td><code>view</code>, <code>side</code>, <code>ctx</code></td></tr><tr><th>Requests</th><td><code>unstow</code>, <code>dismiss</code>, <code>peek-close</code></td></tr><tr><th>CSS parts</th><td><code>drawer</code>, <code>action unstow</code></td></tr><tr><th>State attributes</th><td><code>data-side</code></td></tr></table>
+  <h3 id="flexdock-menu">&lt;flexdock-menu&gt; <small><code>FlexdockMenu</code></small></h3>
+  <p>The <code>role="menu"</code> popup behind ⋯: the group's tab list (as radio items) and the view's commands. Arrow keys move, <span class="kbd">Esc</span> closes.</p>
+  <table><tr><th>Properties</th><td><code>entries</code> (<code>MenuEntry[]</code>), <code>x</code>, <code>y</code></td></tr><tr><th>Requests</th><td>The chosen entry's action, <code>menu-close</code></td></tr><tr><th>CSS parts</th><td><code>menu</code></td></tr><tr><th>State attributes</th><td>—</td></tr></table>
+  <h3 id="flexdock-palette">&lt;flexdock-palette&gt; <small><code>FlexdockPalette</code></small></h3>
+  <p>The “go to view” search dialog (<span class="kbd">Ctrl</span>+<span class="kbd">.</span>). Arrow keys move, <span class="kbd">Enter</span> chooses, <span class="kbd">Esc</span> closes.</p>
+  <table><tr><th>Properties</th><td><code>items</code>, <code>query</code>, <code>index</code>, <code>label</code>, <code>placeholder</code>, <code>empty</code></td></tr><tr><th>Requests</th><td><code>palette-query</code>, <code>palette-index</code>, <code>palette-choose</code>, <code>palette-close</code></td></tr><tr><th>CSS parts</th><td><code>palette</code></td></tr><tr><th>State attributes</th><td>—</td></tr></table>
+  <h3 id="flexdock-minimap">&lt;flexdock-minimap&gt; <small><code>FlexdockMinimap</code></small></h3>
+  <p>A live miniature of a manager's layout, placed anywhere on the page with <code>for="manager-id"</code>, or connected with <code>attach(manager)</code>. Click a block to reveal that view. It has its own shadow root. CSS part: <code>map</code>.</p>
   <h2>Model helpers (pure functions)</h2>
   <p><code>createModel</code>, <code>row</code>, <code>column</code>, <code>stack</code>, <code>docs</code>, <code>normalize</code>, <code>isModel</code>, <code>locate</code>, <code>viewsIn</code>, <code>stacksOf</code>,
   <code>place</code>, <code>placeAtEdge</code>, <code>detach</code>, <code>stow</code>, <code>unstow</code>, <code>dismiss</code>, <code>reveal</code>, <code>forget</code>, <code>addView</code>,
   <code>select</code>, <code>reorder</code>, <code>setWeights</code>, <code>toggleZoom</code>, <code>catalogue</code>, <code>copy</code>, <code>emptyModel</code>.</p>
   <h2>Other exports</h2>
-  <p><code>FlexdockMinimap</code> (<code>&lt;flexdock-minimap for&gt;</code>), <code>Workspaces</code>, <code>Timeline</code>, <code>DEFAULT_LABELS</code>, <code>geometry</code>, <code>VERSION</code>.</p>
+  <p><code>FlexdockMinimap</code> (<code>&lt;flexdock-minimap for&gt;</code>), the UI component classes above, <code>FlexdockPart</code> (their base class), <code>PARTS</code> (tag → class), <code>defineParts()</code>, <code>Workspaces</code>, <code>Timeline</code>, <code>DEFAULT_LABELS</code>, <code>geometry</code>, <code>VERSION</code>.</p>
   <h2>Events</h2><p>See <a href="#/guide/events">Events</a>.</p>`
 });
 
