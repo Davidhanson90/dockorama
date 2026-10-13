@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+harness-dist/
+e2e-results/
+test-results/
+playwright-report/
+.tmp/
+
+# Reference-product screenshots and recordings are local-only: never commit or publish them.
+e2e/reference/shots/
+e2e-results/reference-shots/
