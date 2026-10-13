@@ -309,4 +309,43 @@ describe("<flexdock-manager>", () => {
     await el.updateComplete;
     expect(q(el, ".palette")).toBeNull();
   });
+
+  it("handles requests from its UI parts", async () => {
+    const el = await mount();
+    const ask = async (action: string, extra: Record<string, unknown> = {}) => {
+      q(el, ".main")!.dispatchEvent(new CustomEvent("flexdock-request", { detail: { action, ...extra }, bubbles: true, composed: true }));
+      await el.updateComplete;
+    };
+    await ask("stow", { id: "files" });
+    expect(locate(el.model, "files").place).toBe("drawer");
+    await ask("peek", { id: "files", toggle: false });
+    expect(q(el, "flexdock-flyout")).not.toBeNull();
+    await ask("peek-close");
+    expect(q(el, "flexdock-flyout")).toBeNull();
+    await ask("unstow", { id: "files" });
+    await ask("float", { id: "out" });
+    expect(locate(el.model, "out").place).toBe("tree");
+    expect(el.model.windows.length).toBe(1);
+    await ask("menu", { id: "out" });
+    expect(q(el, "flexdock-menu")).not.toBeNull();
+    await ask("dock", { id: "out", fromMenu: true });
+    expect(q(el, "flexdock-menu")).toBeNull();
+    expect(el.model.windows.length).toBe(0);
+    await ask("menu", { id: "out" });
+    await ask("menu-close");
+    expect(q(el, "flexdock-menu")).toBeNull();
+    el.openPalette();
+    await el.updateComplete;
+    await ask("palette-query", { query: "o" });
+    await ask("palette-index", { index: 1 });
+    expect(q(el, "flexdock-palette li[aria-selected=\"true\"]")!.textContent).toContain(el.paletteItems("o")[1]!.label);
+    await ask("palette-close");
+    expect(q(el, "flexdock-palette")).toBeNull();
+    await ask("palette-index", { index: 1 });
+    await ask("palette-choose", { index: 0 });
+    await ask("zoom", { id: "edit" });
+    expect(el.model.zoom).toBe("edit");
+    await ask("unknown");
+    expect(el.model.zoom).toBe("edit");
+  });
 });
