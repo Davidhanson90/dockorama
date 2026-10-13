@@ -1,11 +1,17 @@
 import { FlexdockManager } from "./manager.js";
 import { FlexdockMinimap } from "./minimap.js";
+import { defineParts } from "./components/index.js";
 
 /** Current package version. */
 export const VERSION = "0.1.0";
 
 export { FlexdockManager, FlexdockMinimap };
 export type { ChangeReason } from "./manager.js";
+export {
+  FlexdockDocs, FlexdockDropGuide, FlexdockFlyout, FlexdockGutter, FlexdockMenu, FlexdockPalette, FlexdockPart, FlexdockRail,
+  FlexdockSplit, FlexdockStack, FlexdockTab, FlexdockTabstrip, FlexdockToolbar, FlexdockView, FlexdockWindow, PARTS, defineParts,
+  type DockContext, type GuideSpot, type MenuEntry, type PartRequest
+} from "./components/index.js";
 export * from "./model.js";
 export {
   addView, catalogue, column, copy, createModel, detach, dismiss, docs, emptyModel, forget, isModel, locate,
@@ -17,6 +23,7 @@ export { Workspaces } from "./workspaces.js";
 export { DEFAULT_LABELS, type FlexdockLabels } from "./labels.js";
 export * as geometry from "./geometry.js";
 
+defineParts();
 if (!customElements.get("flexdock-manager")) customElements.define("flexdock-manager", FlexdockManager);
 if (!customElements.get("flexdock-minimap")) customElements.define("flexdock-minimap", FlexdockMinimap);
 

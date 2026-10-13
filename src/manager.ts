@@ -1,12 +1,14 @@
 import { LitElement, html, nothing, type PropertyValues, type TemplateResult } from "lit";
-import { icons } from "./icons.js";
 import { DEFAULT_LABELS, type FlexdockLabels } from "./labels.js";
 import { Timeline } from "./history.js";
 import { styles } from "./styles.js";
 import {
   clampBox, compassSpots, edgeSpots, hit, insertionIndex, previewFor, shareSpace, snapBox, type Rect, type Spot
 } from "./geometry.js";
-import type { Box, DockNode, DropZone, EdgeZone, FlexdockModel, Side, StackNode, ViewInfo } from "./model.js";
+import { FlexdockPart, defineParts, type DockContext, type GuideSpot, type MenuEntry, type PartRequest } from "./components/index.js";
+import { slotOf } from "./components/context.js";
+import { renderNode } from "./components/tree.js";
+import type { Box, DropZone, EdgeZone, FlexdockModel, Side, ViewInfo } from "./model.js";
 import * as ops from "./ops.js";
 
 /** Why the model changed (detail of `flexdock-change`). */
@@ -15,7 +17,6 @@ export type ChangeReason =
   | "reorder" | "resize" | "zoom" | "add" | "forget" | "undo" | "redo" | "focus" | "restore" | "cancel";
 
 const SILENT: ChangeReason[] = ["select", "focus", "cancel"];
-const slotOf = (id: string) => `v:${id}`;
 /** Quote a value for an attribute selector. */
 const attr = (v: string) => JSON.stringify(v);
 
@@ -46,6 +47,9 @@ interface DragState {
  * Content is light DOM: give each child `data-view="<id>"` matching an id in `model.views`.
  */
 export class FlexdockManager extends LitElement {
+  static {
+    defineParts();
+  }
   static override styles = styles;
   static override properties = {
     theme: { reflect: true },
@@ -110,6 +114,7 @@ export class FlexdockManager extends LitElement {
     this.observer = new MutationObserver(() => this.assignSlots());
     this.observer.observe(this, { childList: true, attributes: true, attributeFilter: ["data-view"] });
     this.addEventListener("keydown", this.onKey);
+    this.renderRoot.addEventListener("flexdock-request", this.onRequest);
     document.addEventListener("pointerdown", this.onOutside, true);
   }
 
@@ -117,6 +122,7 @@ export class FlexdockManager extends LitElement {
     super.disconnectedCallback();
     this.observer?.disconnect();
     this.removeEventListener("keydown", this.onKey);
+    this.renderRoot.removeEventListener("flexdock-request", this.onRequest);
     document.removeEventListener("pointerdown", this.onOutside, true);
   }
 
@@ -335,15 +341,20 @@ export class FlexdockManager extends LitElement {
     return clampBox(snapBox(b, this.snap), w, h);
   }
 
+  private settled: Promise<unknown> = Promise.resolve();
+
+  /** Resolves once the manager and all of its UI parts have rendered. */
+  protected override async getUpdateComplete(): Promise<boolean> {
+    let done = await super.getUpdateComplete();
+    await this.settled;
+    for (const el of Array.from(this.renderRoot.querySelectorAll("*"))) {
+      if (el instanceof FlexdockPart) done = (await el.updateComplete) && done;
+    }
+    return done;
+  }
+
   protected override updated(changed: PropertyValues): void {
     super.updated(changed);
-    if (this.keepFocus) {
-      this.keepFocus = false;
-      if (!this.hasFocus() && !this._palette && !this._menu) {
-        const active = this.renderRoot.querySelector<HTMLElement>("[data-stack][data-active]");
-        (active?.querySelector<HTMLElement>('.tab[aria-selected="true"]') ?? active)?.focus({ preventScroll: true });
-      }
-    }
     if (changed.has("storageKey") && this.storageKey && !this.restoredFromStorage) {
       const stored = this.loadStored(this._model);
       if (stored) {
@@ -351,15 +362,20 @@ export class FlexdockManager extends LitElement {
         this.commit(stored, "restore", false);
       }
     }
-    for (const strip of Array.from(this.renderRoot.querySelectorAll<HTMLElement>(".tabs"))) {
-      const sel = strip.querySelector<HTMLElement>('.tab[aria-selected="true"]');
-      if (sel && strip.scrollWidth > strip.clientWidth && !this._drag) {
-        const a = sel.offsetLeft;
-        const b = a + sel.offsetWidth;
-        if (a < strip.scrollLeft) strip.scrollLeft = a;
-        else if (b > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = b - strip.clientWidth;
+    this.settled = this.afterParts();
+  }
+
+  /** Work that needs the parts' DOM: focus restore and first-show events. */
+  private async afterParts(): Promise<void> {
+    for (const el of Array.from(this.renderRoot.querySelectorAll("*"))) {
+      if (el instanceof FlexdockPart) await el.updateComplete;
+    }
+    if (this.keepFocus) {
+      this.keepFocus = false;
+      if (!this.hasFocus() && !this._palette && !this._menu) {
+        const active = this.renderRoot.querySelector<HTMLElement>("[data-stack][data-active]");
+        (active?.querySelector<HTMLElement>('.tab[aria-selected="true"]') ?? active)?.focus({ preventScroll: true });
       }
-      this.markOverflow(strip);
     }
     for (const slot of Array.from(this.renderRoot.querySelectorAll<HTMLSlotElement>("slot[name]"))) {
       const id = slot.name.slice(2);
@@ -372,269 +388,108 @@ export class FlexdockManager extends LitElement {
 
   // ------------------------------------------------------------- rendering
 
+  private context(): DockContext {
+    const g = this._drag?.gap;
+    return {
+      model: this._model,
+      labels: this.t,
+      popped: new Set(this.popped.keys()),
+      gap: g ? { path: g.path.join("."), after: g.after, win: g.win ?? "" } : undefined,
+      dragging: Boolean(this._drag)
+    };
+  }
+
   override render(): TemplateResult {
     const m = this._model;
+    const ctx = this.context();
     const zoomed = m.zoom ? ops.locate(m, m.zoom) : undefined;
     const body = zoomed?.place === "tree"
-      ? this.renderStack(zoomed.stack, [], zoomed.window)
+      ? renderNode(zoomed.stack, [], zoomed.window, ctx)
       : m.root
-        ? this.renderNode(m.root, [])
+        ? renderNode(m.root, [], undefined, ctx)
         : html`<div class="empty">${this.t.emptyDocs}</div>`;
+    const rail = (side: Side) => m.drawers[side].length
+      ? html`<flexdock-rail .side=${side} .views=${m.drawers[side]} .open=${this._peek} .ctx=${ctx}></flexdock-rail>`
+      : nothing;
     return html`<div class="frame" part="frame" dir=${getComputedStyle(this).direction || "ltr"}>
-      ${this.renderRail("top")}
+      ${rail("top")}
       <div class="middle">
-        ${this.renderRail("start")}
-        <div class="main" part="main">${body}${this.renderDrawer()}</div>
-        ${this.renderRail("end")}
+        ${rail("start")}
+        <div class="main" part="main">${body}${this.renderFlyout(ctx)}</div>
+        ${rail("end")}
       </div>
-      ${this.renderRail("bottom")}
-      ${m.windows.map((w, i) => this.renderWindow(w.key, w.box, w.tree, i))}
-      ${this.renderOverlay()}
+      ${rail("bottom")}
+      ${m.windows.map((w, i) => html`<flexdock-window .key=${w.key} .box=${w.box} .tree=${w.tree} .layer=${i} .ctx=${ctx}></flexdock-window>`)}
+      ${this.renderGuide()}
       ${this.renderMenu()}
       ${this.renderPalette()}
       <div class="sr" role="status" aria-live="polite">${this._say}</div>
     </div>`;
   }
 
-  private renderNode(node: DockNode, path: number[], win?: string): TemplateResult {
-    if (node.kind === "stack") return this.renderStack(node, path, win);
-    const total = node.weights.reduce((a, b) => a + b, 0) || 1;
-    const parts: TemplateResult[] = [];
-    node.children.forEach((child, i) => {
-      if (i > 0) {
-        const pct = Math.round((node.weights.slice(0, i).reduce((a, b) => a + b, 0) / total) * 100);
-        parts.push(html`<div class="gutter" part="gutter" role="separator" tabindex="0"
-          data-path=${path.join(".")} data-after=${i - 1} data-win=${win ?? ""}
-          ?data-drop=${this._drag?.gap?.path.join(".") === path.join(".") && this._drag?.gap?.after === i - 1 && (this._drag?.gap?.win ?? "") === (win ?? "")}
-          aria-orientation=${node.axis === "row" ? "vertical" : "horizontal"} aria-label=${this.t.resize}
-          aria-valuemin="0" aria-valuemax="100" aria-valuenow=${pct}
-          @pointerdown=${(e: PointerEvent) => this.startGutter(e, path, i - 1, node.axis, win)}
-          @keydown=${(e: KeyboardEvent) => this.keyGutter(e, path, i - 1, node, win)}></div>`);
-      }
-      parts.push(html`<div class="cell" style="flex: ${node.weights[i] ?? 1} 1 0px">${this.renderNode(child, [...path, i], win)}</div>`);
-    });
-    return html`<div class="split" part="split" data-axis=${node.axis}>${parts}</div>`;
-  }
-
-  private renderStack(s: StackNode, path: number[], win?: string): TemplateResult {
-    const m = this._model;
-    const active = s.views.includes(m.focus ?? "\u0000");
-    const tabbed = s.docs || s.views.length > 1;
-    const cur = s.current;
-    const info = m.views[cur];
-    const key = s.views[0] ?? `docs-${path.join(".")}`;
-    return html`<section class="stack" part="group${s.docs ? " docs" : ""}" data-stack=${key} data-win=${win ?? ""} data-path=${path.join(".")}
-      ?data-empty=${!s.views.length} ?data-docs=${Boolean(s.docs)} tabindex="-1" role="group"
-      ?data-active=${active} ?data-tabs=${tabbed} aria-label=${info?.title ?? this.t.emptyDocs}
-      @pointerdown=${(e: PointerEvent) => this.onStackPointer(e, cur)}>
-      <div class="bar" part="bar" @pointerdown=${(e: PointerEvent) => !tabbed && cur && this.startDrag(e, cur, win)}
-        @dblclick=${() => cur && this.toggleZoom(cur)}>
-        ${tabbed
-          ? html`<button class="btn scroll" part="tab-scroll" data-dir="-1" tabindex="-1" aria-hidden="true"
-              @pointerdown=${(e: Event) => e.stopPropagation()} @click=${(e: Event) => this.scrollTabs(e, -1)}>${icons.arrow(-90)}</button>
-            <div class="tabs" role="tablist" aria-label=${info?.title ?? ""}
-              @wheel=${(e: WheelEvent) => this.wheelTabs(e)} @scroll=${(e: Event) => this.markOverflow((e.currentTarget as HTMLElement))}>${s.views.map((v) => this.renderTab(v, v === cur, s, win))}</div>
-            <button class="btn scroll" part="tab-scroll" data-dir="1" tabindex="-1" aria-hidden="true"
-              @pointerdown=${(e: Event) => e.stopPropagation()} @click=${(e: Event) => this.scrollTabs(e, 1)}>${icons.arrow(90)}</button>`
-          : html`<span class="title" id="t-${cur}">${info?.icon ? html`<span class="glyph">${info.icon}</span>` : nothing}${info?.title ?? cur}</span>`}
-        ${cur ? this.renderActions(cur, s, win) : nothing}
-      </div>
-      <div class="body" part="body" role=${tabbed ? "tabpanel" : "region"} aria-labelledby=${cur ? `${tabbed ? "tab" : "t"}-${cur}` : nothing}
-        ?data-inert=${Boolean(info?.caps?.inert)}>
-        ${cur ? this.renderContent(cur) : html`<div class="empty">${this.t.emptyDocs}</div>`}
-      </div>
-    </section>`;
-  }
-
-  private wheelTabs(e: WheelEvent): void {
-    const strip = e.currentTarget as HTMLElement;
-    if (strip.scrollWidth <= strip.clientWidth) return;
-    const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
-    if (!delta) return;
-    e.preventDefault();
-    strip.scrollLeft += delta * (getComputedStyle(this).direction === "rtl" ? -1 : 1);
-    this.markOverflow(strip);
-  }
-
-  private scrollTabs(e: Event, dir: number): void {
-    e.stopPropagation();
-    const strip = (e.currentTarget as HTMLElement).parentElement?.querySelector<HTMLElement>(".tabs");
-    if (!strip) return;
-    const rtl = getComputedStyle(this).direction === "rtl" ? -1 : 1;
-    strip.scrollLeft += dir * rtl * Math.max(80, strip.clientWidth * 0.6);
-    this.markOverflow(strip);
-  }
-
-  /** Flag a tab strip's bar with which scroll directions are available. */
-  private markOverflow(strip: HTMLElement): void {
-    const bar = strip.parentElement;
-    if (!bar) return;
-    const over = strip.scrollWidth > strip.clientWidth + 1;
-    const pos = Math.abs(strip.scrollLeft);
-    bar.toggleAttribute("data-overflow", over);
-    bar.toggleAttribute("data-can-back", over && pos > 1);
-    bar.toggleAttribute("data-can-fwd", over && pos < strip.scrollWidth - strip.clientWidth - 1);
-  }
-
-  private onStackPointer(e: PointerEvent, id: string): void {
-    if (id) this.activate(id);
-    const first = e.composedPath()[0] as HTMLElement | undefined;
-    const focusable = first?.closest?.("button, a, input, select, textarea, [tabindex], [contenteditable]");
-    if (focusable && focusable !== this && (this.contains(focusable) || this.renderRoot.contains(focusable))) return;
-    const section = e.currentTarget as HTMLElement;
-    // Run after the browser's own mousedown focus handling.
-    setTimeout(() => {
-      if (!this.hasFocus()) section.focus({ preventScroll: true });
-    });
-  }
-
-  private renderContent(id: string): TemplateResult {
-    if (this.popped.has(id)) {
-      return html`<div class="away"><p>${this.t.poppedOut}</p><button class="btn" style="width:auto;padding:0 10px" @click=${() => this.popIn(id)}>${this.t.popin}</button></div>`;
-    }
-    return html`<slot name=${slotOf(id)}></slot>`;
-  }
-
-  private renderTab(id: string, selected: boolean, s: StackNode, win?: string): TemplateResult {
-    const info = this._model.views[id];
-    return html`<div class="tab" part="tab${selected ? " tab-current" : ""}" role="tab" id="tab-${id}" data-view=${id}
-      aria-selected=${selected ? "true" : "false"} tabindex=${selected ? "0" : "-1"}
-      @click=${() => this.reveal(id)} @pointerdown=${(e: PointerEvent) => this.startDrag(e, id, win)}
-      @auxclick=${(e: MouseEvent) => e.button === 1 && this.dismiss(id)}>
-      ${info?.icon ? html`<span class="glyph">${info.icon}</span>` : nothing}<span class="label">${info?.title ?? id}</span>
-      ${s.docs && info?.caps?.dismiss !== false
-        ? html`<button class="btn" part="tab-close" tabindex="-1" aria-label="${this.t.dismiss} ${info?.title ?? id}"
-            @pointerdown=${(e: Event) => e.stopPropagation()} @click=${(e: Event) => { e.stopPropagation(); this.dismiss(id); }}>${icons.close}</button>`
-        : nothing}
-    </div>`;
-  }
-
-  private renderActions(id: string, s: StackNode, win?: string): TemplateResult {
-    const c = this.caps(id);
-    const zoomed = Boolean(this._model.zoom);
-    const stop = (e: Event) => e.stopPropagation();
-    const b = (label: string, icon: unknown, fn: () => void, part: string) =>
-      html`<button class="btn" part="action ${part}" title=${label} aria-label=${label} @pointerdown=${stop} @click=${(e: Event) => { stop(e); fn(); }}>${icon}</button>`;
-    return html`
-      ${!win && !s.docs && c.hide !== false && !zoomed ? b(this.t.stow, icons.stow, () => this.stow(id), "stow") : nothing}
-      ${c.zoom !== false ? b(zoomed ? this.t.unzoom : this.t.zoom, zoomed ? icons.unzoom : icons.zoom, () => this.toggleZoom(id), "zoom") : nothing}
-      ${b(this.t.more, icons.more, () => this.openMenu(id), "more")}
-      ${!s.docs && c.dismiss !== false ? b(this.t.dismiss, icons.close, () => this.dismiss(id), "close") : nothing}`;
-  }
-
-  private renderRail(side: Side): TemplateResult | typeof nothing {
-    const ids = this._model.drawers[side];
-    if (!ids.length) return nothing;
-    return html`<div class="rail" part="rail" data-side=${side} role="toolbar" aria-label=${side}>
-      ${ids.map((id) => html`<button class="rail-item" part="rail-item" aria-expanded=${this._peek === id ? "true" : "false"}
-        @click=${() => this.togglePeek(id)}
-        @pointerenter=${(e: PointerEvent) => { if (e.pointerType === "mouse" && this._peek !== id) this.openPeek(id); }}>
-        ${this._model.views[id]?.title ?? id}</button>`)}
-    </div>`;
-  }
-
-  private peekAt = 0;
-  private openPeek(id: string): void {
-    this._peek = id;
-    this.peekAt = Date.now();
-  }
-  private togglePeek(id: string): void {
-    if (this._peek === id && Date.now() - this.peekAt > 400) this._peek = undefined;
-    else this.openPeek(id);
-  }
-
-  private renderDrawer(): TemplateResult | typeof nothing {
+  private renderFlyout(ctx: DockContext): TemplateResult | typeof nothing {
     const id = this._peek;
     if (!id) return nothing;
     const where = ops.locate(this._model, id);
     if (where.place !== "drawer") return nothing;
-    const info = this._model.views[id];
-    return html`<div class="drawer" part="drawer" data-side=${where.side} @keydown=${(e: KeyboardEvent) => e.key === "Escape" && (this._peek = undefined)}>
-      <section class="stack" data-active data-stack=${id}>
-        <div class="bar" part="bar"><span class="title">${info?.title ?? id}</span>
-          <button class="btn" part="action unstow" aria-label=${this.t.unstow} title=${this.t.unstow} @click=${() => this.unstow(id)}>${icons.unstow}</button>
-          ${info?.caps?.dismiss !== false ? html`<button class="btn" part="action close" aria-label=${this.t.dismiss} @click=${() => this.dismiss(id)}>${icons.close}</button>` : nothing}
-        </div>
-        <div class="body" part="body" role="region" aria-label=${info?.title ?? id}>${this.renderContent(id)}</div>
-      </section>
-    </div>`;
+    return html`<flexdock-flyout .view=${id} .side=${where.side} .ctx=${ctx}></flexdock-flyout>`;
   }
 
-  private renderWindow(key: string, box: Box, tree: DockNode, i: number): TemplateResult {
-    const title = ops.viewsIn(tree).map((v) => this._model.views[v]?.title ?? v).join(", ");
-    return html`<div class="window" part="window" role="dialog" aria-label=${title} data-window=${key}
-      style="left:${box.x}px;top:${box.y}px;width:${box.w}px;height:${box.h}px;z-index:${30 + i}"
-      @pointerdown=${() => this.raise(key)}>
-      <div class="content">${this.renderNode(tree, [], key)}</div>
-      <div class="grip" part="grip" @pointerdown=${(e: PointerEvent) => this.startGrip(e, key)}></div>
-    </div>`;
-  }
-
-  private renderOverlay(): TemplateResult | typeof nothing {
+  private renderGuide(): TemplateResult | typeof nothing {
     const d = this._drag;
     if (!d || d.mode === "pending" || d.mode === "tab") return nothing;
     const host = this.getBoundingClientRect();
-    const rel = (x: number, y: number) => `left:${x - host.left}px;top:${y - host.top}px`;
     const main = this.mainRect();
-    const arrow: Record<string, number> = { left: -90, right: 90, above: 0, below: 180 };
+    const rel = (s: Spot<string>, hot: boolean): GuideSpot => ({ zone: s.zone, x: s.x - host.left, y: s.y - host.top, hot });
     const compass = d.target ? compassSpots(d.target.rect).filter((c) => !d.fill || c.zone === "into") : [];
-    const gap = d.gap ? { zone: "between", x: d.gap.rect.left + d.gap.rect.width / 2, y: d.gap.rect.top + d.gap.rect.height / 2 } : undefined;
-    const edges = main ? edgeSpots(main) : [];
-    const spot = (s: Spot<string>, hot: boolean) => {
-      const dir = s.zone.replace("edge-", "");
-      return html`<div class="target" part="target" data-zone=${s.zone} ?data-hot=${hot} style=${rel(s.x, s.y)}>
-        ${dir === "into" ? icons.join : icons.arrow(arrow[dir] ?? 0)}</div>`;
-    };
-    return html`<div class="overlay" part="overlay">
-      ${d.preview ? html`<div class="preview" part="preview" style="${rel(d.preview.left, d.preview.top)};width:${d.preview.width}px;height:${d.preview.height}px"></div>` : nothing}
-      ${compass.map((s) => spot(s, s.zone === d.target?.zone))}
-      ${edges.map((s) => spot(s, s.zone === d.edge))}
-      ${gap ? html`<div class="target" part="target" data-zone="between" data-hot style=${rel(gap.x, gap.y)}>${icons.join}</div>` : nothing}
-      ${d.mode === "loose" ? html`<div class="ghost" part="ghost" style=${rel(d.x, d.y)}>${this._model.views[d.id]?.title ?? d.id}</div>` : nothing}
-    </div>`;
+    const spots = [
+      ...compass.map((s) => rel(s, s.zone === d.target?.zone)),
+      ...(main ? edgeSpots(main) : []).map((s) => rel(s, s.zone === d.edge))
+    ];
+    if (d.gap) {
+      const r = d.gap.rect;
+      spots.push(rel({ zone: "between", x: r.left + r.width / 2, y: r.top + r.height / 2 }, true));
+    }
+    const p = d.preview;
+    const preview = p ? { left: p.left - host.left, top: p.top - host.top, width: p.width, height: p.height } : undefined;
+    const ghost = d.mode === "loose" ? { x: d.x - host.left, y: d.y - host.top, label: this._model.views[d.id]?.title ?? d.id } : undefined;
+    return html`<flexdock-drop-guide .spots=${spots} .preview=${preview} .ghost=${ghost}></flexdock-drop-guide>`;
   }
 
   private openMenu(id: string): void {
-    const btn = this.renderRoot.querySelector<HTMLElement>(`[data-stack] [part~="more"]`);
     const host = this.getBoundingClientRect();
     const stackEl = Array.from(this.renderRoot.querySelectorAll<HTMLElement>("[data-stack]")).find((el) =>
       el.querySelector(`[id=${attr(`t-${id}`)}], [id=${attr(`tab-${id}`)}]`));
-    const anchor = stackEl?.querySelector<HTMLElement>('[part~="more"]') ?? btn;
+    const anchor = stackEl?.querySelector<HTMLElement>('[part~="more"]') ?? this.renderRoot.querySelector<HTMLElement>(`[data-stack] [part~="more"]`);
     const r = anchor?.getBoundingClientRect();
     this._menu = { id, x: r ? Math.min(r.left - host.left, host.width - 200) : 20, y: r ? r.bottom - host.top + 4 : 20 };
     void this.updateComplete.then(() => this.renderRoot.querySelector<HTMLButtonElement>(".menu button")?.focus());
   }
 
+  /** Entries of the "more actions" menu for a view. */
+  private menuEntries(id: string): MenuEntry[] {
+    const c = this.caps(id);
+    const t = this.t;
+    const where = ops.locate(this._model, id);
+    const s = where.place === "tree" ? where.stack : undefined;
+    const floating = where.place === "tree" && Boolean(where.window);
+    const out: MenuEntry[] = [];
+    if (s && s.views.length > 1) {
+      for (const v of s.views) out.push({ label: this._model.views[v]?.title ?? v, action: "reveal", id: v, checked: v === s.current });
+      out.push("separator");
+    }
+    if (floating) out.push({ label: t.dock, action: "dock", id });
+    else if (c.float !== false) out.push({ label: t.float, action: "float", id });
+    if (c.popout !== false) out.push({ label: t.popout, action: "popout", id });
+    if (s && !s.docs && !floating && c.hide !== false) out.push({ label: t.stow, action: "stow", id });
+    if (c.dismiss !== false) out.push({ label: t.dismiss, action: "dismiss", id });
+    return out;
+  }
+
   private renderMenu(): TemplateResult | typeof nothing {
     const menu = this._menu;
     if (!menu) return nothing;
-    const id = menu.id;
-    const c = this.caps(id);
-    const where = ops.locate(this._model, id);
-    const s = where.place === "tree" ? where.stack : undefined;
-    const run = (fn: () => void) => () => { this._menu = undefined; fn(); };
-    return html`<div class="menu" part="menu" role="menu" style="left:${menu.x}px;top:${menu.y}px"
-      @keydown=${(e: KeyboardEvent) => this.menuKeys(e)}>
-      ${s && s.views.length > 1 ? html`${s.views.map((v) => html`<button role="menuitemradio" aria-checked=${v === s.current ? "true" : "false"}
-        @click=${run(() => this.reveal(v))}>${this._model.views[v]?.title ?? v}</button>`)}<hr>` : nothing}
-      ${where.place === "tree" && where.window
-        ? html`<button role="menuitem" @click=${run(() => this.dockToEdge(id, "edge-right"))}>${this.t.dock}</button>`
-        : c.float !== false ? html`<button role="menuitem" @click=${run(() => this.detach(id))}>${this.t.float}</button>` : nothing}
-      ${c.popout !== false ? html`<button role="menuitem" @click=${run(() => this.popOut(id))}>${this.t.popout}</button>` : nothing}
-      ${s && !s.docs && !(where.place === "tree" && where.window) && c.hide !== false ? html`<button role="menuitem" @click=${run(() => this.stow(id))}>${this.t.stow}</button>` : nothing}
-      ${c.dismiss !== false ? html`<button role="menuitem" @click=${run(() => this.dismiss(id))}>${this.t.dismiss}</button>` : nothing}
-    </div>`;
-  }
-
-  private menuKeys(e: KeyboardEvent): void {
-    const items = Array.from(this.renderRoot.querySelectorAll<HTMLButtonElement>(".menu button"));
-    const i = items.indexOf(this.renderRoot.querySelector(".menu button:focus") as HTMLButtonElement);
-    if (e.key === "Escape") this._menu = undefined;
-    else if (e.key === "ArrowDown") items[(i + 1) % items.length]?.focus();
-    else if (e.key === "ArrowUp") items[(i - 1 + items.length) % items.length]?.focus();
-    else return;
-    e.preventDefault();
-    e.stopPropagation();
+    return html`<flexdock-menu .entries=${this.menuEntries(menu.id)} .x=${menu.x} .y=${menu.y}></flexdock-menu>`;
   }
 
   /** Palette entries: views + commands. */
@@ -654,28 +509,72 @@ export class FlexdockManager extends LitElement {
   private renderPalette(): TemplateResult | typeof nothing {
     const p = this._palette;
     if (!p) return nothing;
-    const items = this.paletteItems(p.query);
-    const index = Math.min(p.index, Math.max(0, items.length - 1));
-    const choose = (n: number) => { const it = items[n]; this._palette = undefined; it?.run(); };
-    return html`<div class="palette" part="palette" role="dialog" aria-label=${this.t.palette}>
-      <input role="combobox" aria-expanded="true" aria-controls="fd-pal" aria-label=${this.t.palette}
-        placeholder=${this.t.palettePlaceholder} .value=${p.query}
-        @input=${(e: Event) => { this._palette = { query: (e.target as HTMLInputElement).value, index: 0 }; }}
-        @keydown=${(e: KeyboardEvent) => {
-          if (e.key === "ArrowDown") this._palette = { ...p, index: Math.min(index + 1, items.length - 1) };
-          else if (e.key === "ArrowUp") this._palette = { ...p, index: Math.max(index - 1, 0) };
-          else if (e.key === "Enter") choose(index);
-          else if (e.key === "Escape") this._palette = undefined;
-          else return;
-          e.preventDefault();
-          e.stopPropagation();
-        }}>
-      <ul id="fd-pal" role="listbox">
-        ${items.length ? items.map((it, n) => html`<li role="option" aria-selected=${n === index ? "true" : "false"}
-          @pointerdown=${(e: Event) => { e.preventDefault(); choose(n); }}>${it.label}<small>${it.detail}</small></li>`)
-          : html`<li aria-disabled="true">${this.t.noMatches}</li>`}
-      </ul>
-    </div>`;
+    return html`<flexdock-palette .items=${this.paletteItems(p.query)} .query=${p.query} .index=${p.index}
+      .label=${this.t.palette} .placeholder=${this.t.palettePlaceholder} .empty=${this.t.noMatches}></flexdock-palette>`;
+  }
+
+  // ------------------------------------------------------------- part requests
+
+  private onRequest = (e: Event): void => {
+    const r = (e as CustomEvent<PartRequest>).detail;
+    e.stopPropagation();
+    const id = r.id ?? "";
+    if (r.fromMenu) this._menu = undefined;
+    switch (r.action) {
+      case "activate": return this.onStackPointer(r["event"] as PointerEvent, id, r["source"] as HTMLElement);
+      case "grab": return this.startDrag(r["event"] as PointerEvent, id, r["win"] as string | undefined, r["source"] as HTMLElement);
+      case "reveal": return this.reveal(id);
+      case "dismiss": return this.dismiss(id);
+      case "zoom": return this.toggleZoom(id);
+      case "stow": return this.stow(id);
+      case "unstow": return this.unstow(id);
+      case "float": return this.detach(id);
+      case "dock": return this.dockToEdge(id, "edge-right");
+      case "popout": void this.popOut(id); return;
+      case "popin": return this.popIn(id);
+      case "menu": return this.openMenu(id);
+      case "menu-close": this._menu = undefined; return;
+      case "peek": return r["toggle"] ? this.togglePeek(id) : this.openPeek(id);
+      case "peek-close": this._peek = undefined; return;
+      case "raise": return this.raise(r["key"] as string);
+      case "grip": return this.startGrip(r["event"] as PointerEvent, r["key"] as string);
+      case "gutter-grab":
+        return this.startGutter(r["event"] as PointerEvent, r["path"] as number[], r["after"] as number, r["axis"] as "row" | "column",
+          r["win"] as string | undefined, r["source"] as HTMLElement);
+      case "gutter-key":
+        return this.keyGutter(r["event"] as KeyboardEvent, r["path"] as number[], r["after"] as number, r["axis"] as "row" | "column",
+          r["weights"] as number[], r["win"] as string | undefined);
+      case "palette-query": this._palette = { query: String(r["query"] ?? ""), index: 0 }; return;
+      case "palette-index": if (this._palette) this._palette = { ...this._palette, index: Number(r["index"]) }; return;
+      case "palette-close": this._palette = undefined; return;
+      case "palette-choose": {
+        const it = this.paletteItems(this._palette?.query)[Number(r["index"])];
+        this._palette = undefined;
+        it?.run();
+        return;
+      }
+    }
+  };
+
+  private peekAt = 0;
+  private openPeek(id: string): void {
+    this._peek = id;
+    this.peekAt = Date.now();
+  }
+  private togglePeek(id: string): void {
+    if (this._peek === id && Date.now() - this.peekAt > 400) this._peek = undefined;
+    else this.openPeek(id);
+  }
+
+  private onStackPointer(e: PointerEvent, id: string, section: HTMLElement): void {
+    if (id) this.activate(id);
+    const first = e.composedPath()[0] as HTMLElement | undefined;
+    const focusable = first?.closest?.("button, a, input, select, textarea, [tabindex], [contenteditable]");
+    if (focusable && focusable !== this && (this.contains(focusable) || this.renderRoot.contains(focusable))) return;
+    // Run after the browser's own mousedown focus handling.
+    setTimeout(() => {
+      if (!this.hasFocus()) section.focus({ preventScroll: true });
+    });
   }
 
   // ------------------------------------------------------------- pointer interactions
@@ -699,15 +598,14 @@ export class FlexdockManager extends LitElement {
     if (next !== this._model) this.commit(next, "focus", false);
   }
 
-  private startDrag(e: PointerEvent, id: string, win?: string): void {
+  private startDrag(e: PointerEvent, id: string, win: string | undefined, target: HTMLElement): void {
     if (e.button !== 0 || this.caps(id).move === false) return;
-    const target = e.currentTarget as HTMLElement;
     const w = win ? this._model.windows.find((x) => x.key === win) : undefined;
     const soleInWindow = w && ops.viewsIn(w.tree).length === 1;
     this._drag = {
       id, mode: "pending", startX: e.clientX, startY: e.clientY, x: e.clientX, y: e.clientY, pointerId: e.pointerId,
       windowKey: soleInWindow ? win : undefined, windowStart: soleInWindow ? { ...w!.box } : undefined,
-      strip: target.classList.contains("tab") ? (target.parentElement as HTMLElement) : undefined,
+      strip: target.classList.contains("tab") ? (target.closest<HTMLElement>(".tabs") ?? undefined) : undefined,
       origin: this._model
     };
     window.addEventListener("pointermove", this.onDragMove);
@@ -869,10 +767,9 @@ export class FlexdockManager extends LitElement {
     window.removeEventListener("keydown", this.onDragKey, true);
   }
 
-  private startGutter(e: PointerEvent, path: number[], index: number, axis: "row" | "column", win?: string): void {
+  private startGutter(e: PointerEvent, path: number[], index: number, axis: "row" | "column", win: string | undefined, gutter: HTMLElement): void {
     if (e.button !== 0) return;
     e.preventDefault();
-    const gutter = e.currentTarget as HTMLElement;
     const cells = Array.from(gutter.parentElement!.children).filter((c) => c.classList.contains("cell")) as HTMLElement[];
     const sizes = cells.map((c) => (axis === "row" ? c.getBoundingClientRect().width : c.getBoundingClientRect().height));
     const start = axis === "row" ? e.clientX : e.clientY;
@@ -898,8 +795,8 @@ export class FlexdockManager extends LitElement {
     window.addEventListener("pointerup", up);
   }
 
-  private keyGutter(e: KeyboardEvent, path: number[], index: number, node: DockNode, win?: string): void {
-    if (node.kind !== "split") return;
+  private keyGutter(e: KeyboardEvent, path: number[], index: number, axis: "row" | "column", weights: number[], win?: string): void {
+    const node = { axis, weights };
     const grow = node.axis === "row" ? ["ArrowRight"] : ["ArrowDown"];
     const shrink = node.axis === "row" ? ["ArrowLeft"] : ["ArrowUp"];
     const total = node.weights.reduce((a, b) => a + b, 0);

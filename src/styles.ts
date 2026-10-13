@@ -54,6 +54,10 @@ export const styles = css`
     }
   }
   *, *::before, *::after { box-sizing: border-box; }
+  /* UI parts render in this shadow root; class rules below give each its layout. */
+  flexdock-split, flexdock-gutter, flexdock-stack, flexdock-docs, flexdock-view, flexdock-window, flexdock-drop-guide,
+  flexdock-rail, flexdock-flyout, flexdock-menu, flexdock-palette, flexdock-tab { display: block; }
+  flexdock-tabstrip, flexdock-toolbar { display: contents; }
   .frame { position: absolute; inset: 0; display: flex; flex-direction: column; }
   .middle { flex: 1 1 auto; display: flex; min-height: 0; position: relative; }
   .main { flex: 1 1 auto; position: relative; min-width: 0; min-height: 0; padding: 4px; display: flex; }
@@ -92,10 +96,10 @@ export const styles = css`
   }
   .tabs::-webkit-scrollbar { display: none; }
   .tab { flex: 0 0 auto; }
-  .bar > .scroll { display: none; flex: 0 0 auto; width: 20px; }
-  .bar[data-overflow] > .scroll { display: inline-grid; }
-  .bar[data-overflow]:not([data-can-back]) > .scroll[data-dir="-1"],
-  .bar[data-overflow]:not([data-can-fwd]) > .scroll[data-dir="1"] { opacity: 0.3; pointer-events: none; }
+  flexdock-tabstrip > .scroll { display: none; flex: 0 0 auto; width: 20px; }
+  flexdock-tabstrip[data-overflow] > .scroll { display: inline-grid; }
+  flexdock-tabstrip[data-overflow]:not([data-can-back]) > .scroll[data-dir="-1"],
+  flexdock-tabstrip[data-overflow]:not([data-can-fwd]) > .scroll[data-dir="1"] { opacity: 0.3; pointer-events: none; }
   .gutter[data-drop]::after { background: var(--fd-accent); inset: 0; }
   .tab > .label { overflow: hidden; text-overflow: ellipsis; }
   .tab:hover { color: var(--fd-ink); background: color-mix(in srgb, var(--fd-surface) 60%, transparent); }
