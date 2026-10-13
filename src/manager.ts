@@ -12,9 +12,9 @@ import * as ops from "./ops.js";
 /** Why the model changed (detail of `flexdock-change`). */
 export type ChangeReason =
   | "set" | "place" | "edge" | "detach" | "window" | "stow" | "unstow" | "dismiss" | "reveal" | "select"
-  | "reorder" | "resize" | "zoom" | "add" | "forget" | "undo" | "redo" | "focus" | "restore";
+  | "reorder" | "resize" | "zoom" | "add" | "forget" | "undo" | "redo" | "focus" | "restore" | "cancel";
 
-const SILENT: ChangeReason[] = ["select", "focus"];
+const SILENT: ChangeReason[] = ["select", "focus", "cancel"];
 const slotOf = (id: string) => `v:${id}`;
 /** Quote a value for an attribute selector. */
 const attr = (v: string) => JSON.stringify(v);
@@ -30,7 +30,13 @@ interface DragState {
   windowStart?: Box;
   strip?: HTMLElement;
   target?: { view: string; rect: Rect; zone?: DropZone };
+  /** Drop onto a gutter between two siblings. */
+  gap?: { path: number[]; after: number; win?: string; rect: Rect };
+  /** Drop into an empty document area. */
+  fill?: { path: number[]; win?: string; rect: Rect };
   edge?: EdgeZone;
+  /** Model when the drag started (restored by Escape). */
+  origin: FlexdockModel;
   preview?: Rect;
   pointerId: number;
 }
@@ -133,6 +139,18 @@ export class FlexdockManager extends LitElement {
     if (this.caps(id).docsOnly) return;
     if (!this.emitBefore("flexdock-beforemove", { id, zone })) return;
     this.commit(ops.placeAtEdge(this._model, id, zone), "edge");
+  }
+  /** Insert a view as a new group between child `after` and `after + 1` of the split at `path`. */
+  dropBetween(id: string, path: number[], after: number, windowKey?: string): void {
+    if (this.caps(id).move === false || this.caps(id).docsOnly) return;
+    if (!this.emitBefore("flexdock-beforemove", { id, zone: "between" })) return;
+    this.commit(ops.insertBetween(this._model, id, path, after, windowKey), "place");
+  }
+  /** Put a view into an empty document area. */
+  dropIntoDocs(id: string, path: number[], windowKey?: string): void {
+    if (this.caps(id).move === false) return;
+    if (!this.emitBefore("flexdock-beforemove", { id, zone: "into" })) return;
+    this.commit(ops.fillDocs(this._model, id, path, windowKey), "place");
   }
   /** Float a view in its own window. */
   detach(id: string, box?: Box): void {
@@ -333,6 +351,16 @@ export class FlexdockManager extends LitElement {
         this.commit(stored, "restore", false);
       }
     }
+    for (const strip of Array.from(this.renderRoot.querySelectorAll<HTMLElement>(".tabs"))) {
+      const sel = strip.querySelector<HTMLElement>('.tab[aria-selected="true"]');
+      if (sel && strip.scrollWidth > strip.clientWidth && !this._drag) {
+        const a = sel.offsetLeft;
+        const b = a + sel.offsetWidth;
+        if (a < strip.scrollLeft) strip.scrollLeft = a;
+        else if (b > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = b - strip.clientWidth;
+      }
+      this.markOverflow(strip);
+    }
     for (const slot of Array.from(this.renderRoot.querySelectorAll<HTMLSlotElement>("slot[name]"))) {
       const id = slot.name.slice(2);
       if (!this.shown.has(id)) {
@@ -376,6 +404,8 @@ export class FlexdockManager extends LitElement {
       if (i > 0) {
         const pct = Math.round((node.weights.slice(0, i).reduce((a, b) => a + b, 0) / total) * 100);
         parts.push(html`<div class="gutter" part="gutter" role="separator" tabindex="0"
+          data-path=${path.join(".")} data-after=${i - 1} data-win=${win ?? ""}
+          ?data-drop=${this._drag?.gap?.path.join(".") === path.join(".") && this._drag?.gap?.after === i - 1 && (this._drag?.gap?.win ?? "") === (win ?? "")}
           aria-orientation=${node.axis === "row" ? "vertical" : "horizontal"} aria-label=${this.t.resize}
           aria-valuemin="0" aria-valuemax="100" aria-valuenow=${pct}
           @pointerdown=${(e: PointerEvent) => this.startGutter(e, path, i - 1, node.axis, win)}
@@ -393,13 +423,19 @@ export class FlexdockManager extends LitElement {
     const cur = s.current;
     const info = m.views[cur];
     const key = s.views[0] ?? `docs-${path.join(".")}`;
-    return html`<section class="stack" part="group${s.docs ? " docs" : ""}" data-stack=${key} data-win=${win ?? ""} tabindex="-1" role="group"
+    return html`<section class="stack" part="group${s.docs ? " docs" : ""}" data-stack=${key} data-win=${win ?? ""} data-path=${path.join(".")}
+      ?data-empty=${!s.views.length} ?data-docs=${Boolean(s.docs)} tabindex="-1" role="group"
       ?data-active=${active} ?data-tabs=${tabbed} aria-label=${info?.title ?? this.t.emptyDocs}
       @pointerdown=${(e: PointerEvent) => this.onStackPointer(e, cur)}>
       <div class="bar" part="bar" @pointerdown=${(e: PointerEvent) => !tabbed && cur && this.startDrag(e, cur, win)}
         @dblclick=${() => cur && this.toggleZoom(cur)}>
         ${tabbed
-          ? html`<div class="tabs" role="tablist" aria-label=${info?.title ?? ""}>${s.views.map((v) => this.renderTab(v, v === cur, s, win))}</div>`
+          ? html`<button class="btn scroll" part="tab-scroll" data-dir="-1" tabindex="-1" aria-hidden="true"
+              @pointerdown=${(e: Event) => e.stopPropagation()} @click=${(e: Event) => this.scrollTabs(e, -1)}>${icons.arrow(-90)}</button>
+            <div class="tabs" role="tablist" aria-label=${info?.title ?? ""}
+              @wheel=${(e: WheelEvent) => this.wheelTabs(e)} @scroll=${(e: Event) => this.markOverflow((e.currentTarget as HTMLElement))}>${s.views.map((v) => this.renderTab(v, v === cur, s, win))}</div>
+            <button class="btn scroll" part="tab-scroll" data-dir="1" tabindex="-1" aria-hidden="true"
+              @pointerdown=${(e: Event) => e.stopPropagation()} @click=${(e: Event) => this.scrollTabs(e, 1)}>${icons.arrow(90)}</button>`
           : html`<span class="title" id="t-${cur}">${info?.icon ? html`<span class="glyph">${info.icon}</span>` : nothing}${info?.title ?? cur}</span>`}
         ${cur ? this.renderActions(cur, s, win) : nothing}
       </div>
@@ -408,6 +444,36 @@ export class FlexdockManager extends LitElement {
         ${cur ? this.renderContent(cur) : html`<div class="empty">${this.t.emptyDocs}</div>`}
       </div>
     </section>`;
+  }
+
+  private wheelTabs(e: WheelEvent): void {
+    const strip = e.currentTarget as HTMLElement;
+    if (strip.scrollWidth <= strip.clientWidth) return;
+    const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+    if (!delta) return;
+    e.preventDefault();
+    strip.scrollLeft += delta * (getComputedStyle(this).direction === "rtl" ? -1 : 1);
+    this.markOverflow(strip);
+  }
+
+  private scrollTabs(e: Event, dir: number): void {
+    e.stopPropagation();
+    const strip = (e.currentTarget as HTMLElement).parentElement?.querySelector<HTMLElement>(".tabs");
+    if (!strip) return;
+    const rtl = getComputedStyle(this).direction === "rtl" ? -1 : 1;
+    strip.scrollLeft += dir * rtl * Math.max(80, strip.clientWidth * 0.6);
+    this.markOverflow(strip);
+  }
+
+  /** Flag a tab strip's bar with which scroll directions are available. */
+  private markOverflow(strip: HTMLElement): void {
+    const bar = strip.parentElement;
+    if (!bar) return;
+    const over = strip.scrollWidth > strip.clientWidth + 1;
+    const pos = Math.abs(strip.scrollLeft);
+    bar.toggleAttribute("data-overflow", over);
+    bar.toggleAttribute("data-can-back", over && pos > 1);
+    bar.toggleAttribute("data-can-fwd", over && pos < strip.scrollWidth - strip.clientWidth - 1);
   }
 
   private onStackPointer(e: PointerEvent, id: string): void {
@@ -511,7 +577,8 @@ export class FlexdockManager extends LitElement {
     const rel = (x: number, y: number) => `left:${x - host.left}px;top:${y - host.top}px`;
     const main = this.mainRect();
     const arrow: Record<string, number> = { left: -90, right: 90, above: 0, below: 180 };
-    const compass = d.target ? compassSpots(d.target.rect) : [];
+    const compass = d.target ? compassSpots(d.target.rect).filter((c) => !d.fill || c.zone === "into") : [];
+    const gap = d.gap ? { zone: "between", x: d.gap.rect.left + d.gap.rect.width / 2, y: d.gap.rect.top + d.gap.rect.height / 2 } : undefined;
     const edges = main ? edgeSpots(main) : [];
     const spot = (s: Spot<string>, hot: boolean) => {
       const dir = s.zone.replace("edge-", "");
@@ -522,6 +589,7 @@ export class FlexdockManager extends LitElement {
       ${d.preview ? html`<div class="preview" part="preview" style="${rel(d.preview.left, d.preview.top)};width:${d.preview.width}px;height:${d.preview.height}px"></div>` : nothing}
       ${compass.map((s) => spot(s, s.zone === d.target?.zone))}
       ${edges.map((s) => spot(s, s.zone === d.edge))}
+      ${gap ? html`<div class="target" part="target" data-zone="between" data-hot style=${rel(gap.x, gap.y)}>${icons.join}</div>` : nothing}
       ${d.mode === "loose" ? html`<div class="ghost" part="ghost" style=${rel(d.x, d.y)}>${this._model.views[d.id]?.title ?? d.id}</div>` : nothing}
     </div>`;
   }
@@ -639,11 +707,32 @@ export class FlexdockManager extends LitElement {
     this._drag = {
       id, mode: "pending", startX: e.clientX, startY: e.clientY, x: e.clientX, y: e.clientY, pointerId: e.pointerId,
       windowKey: soleInWindow ? win : undefined, windowStart: soleInWindow ? { ...w!.box } : undefined,
-      strip: target.classList.contains("tab") ? (target.parentElement as HTMLElement) : undefined
+      strip: target.classList.contains("tab") ? (target.parentElement as HTMLElement) : undefined,
+      origin: this._model
     };
     window.addEventListener("pointermove", this.onDragMove);
     window.addEventListener("pointerup", this.onDragEnd);
     window.addEventListener("pointercancel", this.onDragCancel);
+    window.addEventListener("keydown", this.onDragKey, true);
+  }
+
+  /** Escape while dragging: put everything back the way it was. */
+  private onDragKey = (e: KeyboardEvent): void => {
+    if (e.key !== "Escape" || !this._drag) return;
+    e.preventDefault();
+    e.stopPropagation();
+    this.cancelDrag();
+  };
+
+  /** Abort the current drag and restore the layout from before it started. */
+  cancelDrag(): void {
+    const d = this._drag;
+    if (!d) return;
+    this.endDragListeners();
+    this._drag = undefined;
+    if (this._model !== d.origin) this.commit(d.origin, "cancel", false);
+    else this.requestUpdate();
+    this.dispatchEvent(new CustomEvent("flexdock-dragcancel", { detail: { id: d.id }, bubbles: true, composed: true }));
   }
 
   private onDragMove = (e: PointerEvent): void => {
@@ -680,6 +769,8 @@ export class FlexdockManager extends LitElement {
 
   private findTarget(d: DragState): void {
     d.target = undefined;
+    d.gap = undefined;
+    d.fill = undefined;
     d.edge = undefined;
     d.preview = undefined;
     const main = this.mainRect();
@@ -691,6 +782,31 @@ export class FlexdockManager extends LitElement {
         return;
       }
     }
+    const inWindow = (el: HTMLElement) => el.closest<HTMLElement>("[data-window]");
+    const overWindow = Array.from(this.renderRoot.querySelectorAll<HTMLElement>("[data-window]")).some((w) => {
+      if (w.dataset["window"] === d.windowKey) return false;
+      const r = w.getBoundingClientRect();
+      return d.x >= r.left && d.x <= r.right && d.y >= r.top && d.y <= r.bottom;
+    });
+    if (!this.caps(d.id).docsOnly) {
+      const gutters = Array.from(this.renderRoot.querySelectorAll<HTMLElement>(".gutter[data-path]"))
+        .filter((g) => (overWindow ? inWindow(g) : !inWindow(g)) && g.dataset["win"] !== d.windowKey);
+      for (const g of gutters.reverse()) {
+        const r = g.getBoundingClientRect();
+        const pad = 6;
+        if (d.x >= r.left - pad && d.x <= r.right + pad && d.y >= r.top - pad && d.y <= r.bottom + pad) {
+          const path = (g.dataset["path"] ?? "").split(".").filter(Boolean).map(Number);
+          const rect = { left: r.left, top: r.top, width: r.width, height: r.height };
+          d.gap = { path, after: Number(g.dataset["after"]), win: g.dataset["win"] || undefined, rect };
+          const vertical = r.height > r.width;
+          const size = 80;
+          d.preview = vertical
+            ? { left: r.left + r.width / 2 - size / 2, top: r.top, width: size, height: r.height }
+            : { left: r.left, top: r.top + r.height / 2 - size / 2, width: r.width, height: size };
+          return;
+        }
+      }
+    }
     const stacks = Array.from(this.renderRoot.querySelectorAll<HTMLElement>("[data-stack]"))
       .filter((el) => !el.closest(".drawer") && (!d.windowKey || el.dataset["win"] !== d.windowKey));
     // Prefer windows (topmost) over docked groups.
@@ -699,6 +815,16 @@ export class FlexdockManager extends LitElement {
       return d.x >= r.left && d.x <= r.right && d.y >= r.top && d.y <= r.bottom;
     });
     if (!under) return;
+    if (under.hasAttribute("data-empty")) {
+      const r = under.getBoundingClientRect();
+      const rect = { left: r.left, top: r.top, width: r.width, height: r.height };
+      d.fill = { path: (under.dataset["path"] ?? "").split(".").filter(Boolean).map(Number), win: under.dataset["win"] || undefined, rect };
+      const s = compassSpots(rect)[0]!;
+      d.target = { view: "", rect, zone: hit([s], d.x, d.y) ?? undefined };
+      if (d.target.zone) d.preview = rect;
+      return;
+    }
+    if (this.caps(d.id).docsOnly && !under.hasAttribute("data-docs")) return;
     const first = under.querySelector<HTMLElement>(".tab")?.dataset["view"] ?? under.dataset["stack"]!;
     const rect = under.getBoundingClientRect();
     const zone = hit(compassSpots(rect), d.x, d.y);
@@ -718,6 +844,8 @@ export class FlexdockManager extends LitElement {
       return;
     }
     if (d.edge) return this.dockToEdge(d.id, d.edge);
+    if (d.gap) return this.dropBetween(d.id, d.gap.path, d.gap.after, d.gap.win);
+    if (d.fill && d.target?.zone) return this.dropIntoDocs(d.id, d.fill.path, d.fill.win);
     if (d.target?.zone) return this.place(d.id, d.target.view, d.target.zone);
     if (d.mode === "window" && d.windowKey && d.windowStart) {
       const w = this._model.windows.find((x) => x.key === d.windowKey);
@@ -732,18 +860,13 @@ export class FlexdockManager extends LitElement {
     this.detach(d.id, { x: d.x - host.left - 40, y: d.y - host.top - 12, w: 360, h: 240 });
   };
 
-  private onDragCancel = (): void => {
-    const d = this._drag;
-    this.endDragListeners();
-    this._drag = undefined;
-    if (d?.windowKey && d.windowStart) this._model = ops.moveWindow(this._model, d.windowKey, d.windowStart);
-    this.requestUpdate();
-  };
+  private onDragCancel = (): void => this.cancelDrag();
 
   private endDragListeners(): void {
     window.removeEventListener("pointermove", this.onDragMove);
     window.removeEventListener("pointerup", this.onDragEnd);
     window.removeEventListener("pointercancel", this.onDragCancel);
+    window.removeEventListener("keydown", this.onDragKey, true);
   }
 
   private startGutter(e: PointerEvent, path: number[], index: number, axis: "row" | "column", win?: string): void {
@@ -905,6 +1028,7 @@ declare global {
     "flexdock-focus": CustomEvent<{ id: string; previous?: string }>;
     "flexdock-viewshow": CustomEvent<{ id: string }>;
     "flexdock-beforeclose": CustomEvent<{ id: string }>;
-    "flexdock-beforemove": CustomEvent<{ id: string; target?: string; zone: DropZone | EdgeZone }>;
+    "flexdock-beforemove": CustomEvent<{ id: string; target?: string; zone: DropZone | EdgeZone | "between" }>;
+    "flexdock-dragcancel": CustomEvent<{ id: string }>;
   }
 }

@@ -9,8 +9,9 @@ export default defineConfig({
       reporter: ["text", "html", "json-summary"],
       reportsDirectory: "coverage",
       include: ["src/**/*.ts"],
-      exclude: ["src/**/*.spec.ts"],
-      thresholds: { statements: 75, branches: 65, functions: 75, lines: 75 }
+      // angular.ts is exercised through its compiled output in dist/ (see angular.spec.ts).
+      exclude: ["src/**/*.spec.ts", "src/angular.ts"],
+      thresholds: { statements: 90, branches: 85, functions: 88, lines: 90 }
     }
   }
 });

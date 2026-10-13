@@ -369,3 +369,68 @@ export function isModel(value: unknown): value is FlexdockModel {
   const m = value as Partial<FlexdockModel>;
   return m.v === 1 && typeof m.views === "object" && m.views !== null && Array.isArray(m.windows ?? []);
 }
+
+function treeOf(m: FlexdockModel, windowKey?: string): DockNode | null {
+  return windowKey ? m.windows.find((w) => w.key === windowKey)?.tree ?? null : m.root;
+}
+
+/**
+ * Insert a view as a new group between two siblings of the split at `path`
+ * (a drop onto the gutter that follows child `after`).
+ */
+export function insertBetween(model: FlexdockModel, id: string, path: number[], after: number, windowKey?: string): FlexdockModel {
+  const split = nodeAt(treeOf(model, windowKey), path);
+  if (split?.kind !== "split" || after < 0 || after >= split.children.length - 1) return model;
+  // Mark the split so it can be found again after the view is taken out.
+  const marked = copy(model);
+  const ms = nodeAt(treeOf(marked, windowKey), path) as SplitNode & { __mark?: true };
+  ms.__mark = true;
+  const neighbours = [ms.children[after]!, ms.children[after + 1]!].map((c) => viewsIn(c));
+  if (neighbours.some((v) => v.length === 1 && v[0] === id)) return model;
+  const m = unplace(marked, id, true);
+  const find = (n: DockNode | null): (SplitNode & { __mark?: true }) | undefined => {
+    if (!n || n.kind !== "split") return undefined;
+    if ((n as SplitNode & { __mark?: true }).__mark) return n;
+    for (const c of n.children) { const f = find(c); if (f) return f; }
+    return undefined;
+  };
+  const roots = windowKey ? m.windows.filter((w) => w.key === windowKey).map((w) => w.tree) : [m.root];
+  const target = roots.map(find).find(Boolean);
+  if (!target) return model;
+  delete target.__mark;
+  // The split may have lost a child that held only the dragged view: locate the gutter by neighbour content.
+  const leftViews = neighbours[0]!.filter((v) => v !== id);
+  let at = target.children.findIndex((c) => leftViews.length && viewsIn(c).some((v) => leftViews.includes(v)));
+  at = at < 0 ? 0 : at + 1;
+  const ws = target.weights;
+  const share = ((ws[Math.max(0, at - 1)] ?? 1) + (ws[at] ?? ws[at - 1] ?? 1)) / 4;
+  if (at > 0) ws[at - 1] = Math.max(0.01, (ws[at - 1] ?? 1) - share / 2);
+  if (at < ws.length) ws[at] = Math.max(0.01, (ws[at] ?? 1) - share / 2);
+  target.children.splice(at, 0, stack([id]));
+  ws.splice(at, 0, share);
+  const out = normalize(m);
+  out.focus = id;
+  return out;
+}
+
+/** Put a view into an empty document area at `path` (in the root, or a window). */
+export function fillDocs(model: FlexdockModel, id: string, path: number[], windowKey?: string): FlexdockModel {
+  const area = nodeAt(treeOf(model, windowKey), path);
+  if (area?.kind !== "stack" || !area.docs) return model;
+  const marked = copy(model);
+  (nodeAt(treeOf(marked, windowKey), path) as StackNode & { __mark?: true }).__mark = true;
+  const m = unplace(marked, id, true);
+  const fill = (s: StackNode): DockNode => {
+    const t = s as StackNode & { __mark?: true };
+    if (!t.__mark) return s;
+    const { __mark: _drop, ...rest } = t;
+    void _drop;
+    return { ...rest, views: [...rest.views.filter((v) => v !== id), id], current: id };
+  };
+  if (windowKey) m.windows = m.windows.map((w) => (w.key === windowKey ? { ...w, tree: mapTree(w.tree, fill)! } : w));
+  else m.root = mapTree(m.root, fill);
+  const out = normalize(m);
+  out.focus = id;
+  return out;
+}
+

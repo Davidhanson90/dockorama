@@ -83,13 +83,20 @@ export const styles = css`
   .stack[data-active] > .bar .title { color: var(--fd-accent); }
   .title { flex: 1 1 auto; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: grab; }
   .glyph { margin-inline-end: 6px; }
-  .tabs { display: flex; flex: 1 1 auto; min-width: 0; overflow: hidden; align-self: stretch; padding-top: 4px; gap: 2px; }
+  .tabs { display: flex; flex: 1 1 auto; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; scroll-behavior: smooth; align-self: stretch; padding-top: 4px; gap: 2px; }
   .stack[data-tabs] > .bar { padding-inline-start: 4px; }
   .tab {
     display: inline-flex; align-items: center; gap: 4px; padding: 0 6px 0 10px; max-width: 200px; flex: 0 0 auto;
     border-radius: 6px 6px 0 0; color: var(--fd-ink-soft); cursor: pointer; touch-action: none; white-space: nowrap; outline: none;
     border: 1px solid transparent; border-bottom: none;
   }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex: 0 0 auto; }
+  .bar > .scroll { display: none; flex: 0 0 auto; width: 20px; }
+  .bar[data-overflow] > .scroll { display: inline-grid; }
+  .bar[data-overflow]:not([data-can-back]) > .scroll[data-dir="-1"],
+  .bar[data-overflow]:not([data-can-fwd]) > .scroll[data-dir="1"] { opacity: 0.3; pointer-events: none; }
+  .gutter[data-drop]::after { background: var(--fd-accent); inset: 0; }
   .tab > .label { overflow: hidden; text-overflow: ellipsis; }
   .tab:hover { color: var(--fd-ink); background: color-mix(in srgb, var(--fd-surface) 60%, transparent); }
   .tab[aria-selected="true"] { color: var(--fd-ink); background: var(--fd-surface); border-color: var(--fd-line); margin-bottom: -1px; }

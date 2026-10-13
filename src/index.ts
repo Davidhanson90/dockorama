@@ -9,7 +9,7 @@ export type { ChangeReason } from "./manager.js";
 export * from "./model.js";
 export {
   addView, catalogue, column, copy, createModel, detach, dismiss, docs, emptyModel, forget, isModel, locate,
-  normalize, place, placeAtEdge, reorder, reveal, row, select, setWeights, stack, stacksOf, stow, toggleZoom,
+  fillDocs, insertBetween, normalize, place, placeAtEdge, reorder, reveal, row, select, setWeights, stack, stacksOf, stow, toggleZoom,
   unplace, unstow, viewsIn
 } from "./ops.js";
 export { Timeline } from "./history.js";

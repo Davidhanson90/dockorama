@@ -208,3 +208,26 @@ describe("select / reorder / setWeights / zoom", () => {
     expect(o.toggleZoom(o.dismiss(base(), "a"), "a").zoom).toBeUndefined();
   });
 });
+
+describe("insertBetween / fillDocs", () => {
+  const v = { a: { title: "A" }, b: { title: "B" }, c: { title: "C" }, d: { title: "D" } };
+  it("inserts between siblings, in windows too, and ignores bad targets", async () => {
+    const { createModel, row, column, stack, docs, insertBetween, fillDocs, detach, viewsIn } = await import("./index.js");
+    const m = createModel(v, row([stack(["a"]), stack(["b"]), column([stack(["c"]), stack(["d"])])]));
+    const r = insertBetween(m, "d", [], 0);
+    expect(viewsIn(r.root)).toEqual(["a", "d", "b", "c"]);
+    expect(insertBetween(m, "a", [], 0)).toBe(m);
+    expect(insertBetween(m, "a", [], 5)).toBe(m);
+    expect(insertBetween(m, "a", [0], 0)).toBe(m);
+    expect(insertBetween(m, "a", [2], 0).root).toMatchObject({ kind: "split" });
+    const w = detach(createModel(v, row([stack(["a"]), stack(["b"])])), "c", { x: 0, y: 0, w: 1, h: 1 });
+    const key = w.windows[0]!.key;
+    const w2 = { ...w, windows: [{ ...w.windows[0]!, tree: row([stack(["c"]), stack(["d"])]) }] };
+    expect(viewsIn(insertBetween(w2, "a", [], 0, key).windows[0]!.tree)).toEqual(["c", "a", "d"]);
+    const e = createModel(v, row([stack(["a"]), docs([])]));
+    expect(fillDocs(e, "a", [0])).toBe(e);
+    expect(fillDocs(e, "a", [1]).root).toMatchObject({ kind: "stack", docs: true, views: ["a"] });
+    const ew = { ...w, windows: [{ ...w.windows[0]!, tree: row([stack(["c"]), docs([])]) }] };
+    expect(fillDocs(ew, "a", [1], key).windows[0]!.tree).toMatchObject({ children: [{ views: ["c"] }, { views: ["a"] }] });
+  });
+});
