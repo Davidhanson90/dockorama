@@ -35,6 +35,17 @@ describe("angular wrapper", () => {
     expect(el.theme).toBe("dark");
     el.place("a", "b", "into");
     expect(seen).toEqual(expect.arrayContaining(["place", "focus"]));
+    // The component's view API delegates to its element; drive it on a bare instance bound to this element.
+    const layout = Object.assign(Object.create(FlexdockLayoutComponent.prototype), { host: { nativeElement: el } }) as InstanceType<typeof FlexdockLayoutComponent>;
+    layout.addView("c", "C", { at: { near: "b" } });
+    expect(layout.hasView("c")).toBe(true);
+    expect(layout.getViewElement("c")!.textContent).toBe("C");
+    expect(layout.removeView("c")!.textContent).toBe("C");
+    expect(layout.hasView("c")).toBe(false);
+    const bare = Object.create(FlexdockLayoutComponent.prototype) as InstanceType<typeof FlexdockLayoutComponent>;
+    expect(bare.hasView("a")).toBe(false);
+    expect(bare.getViewElement("a")).toBeNull();
+    expect(() => bare.addView("x", "X")).toThrow(/not initialised/);
     app.destroy();
   });
 });

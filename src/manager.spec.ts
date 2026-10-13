@@ -348,4 +348,88 @@ describe("<flexdock-manager>", () => {
     await ask("unknown");
     expect(el.model.zoom).toBe("edit");
   });
+
+  describe("addView (content)", () => {
+    it("adds an element, string or factory as one undoable change", async () => {
+      const el = await mount();
+      const changes: string[] = [];
+      const shownIds: string[] = [];
+      el.addEventListener("flexdock-change", (e) => changes.push(e.detail.reason));
+      el.addEventListener("flexdock-viewshow", (e) => shownIds.push(e.detail.id));
+      const chart = document.createElement("section");
+      el.addView("chart", chart, { title: "Chart", icon: "📈", caps: { float: false }, at: { near: "out", zone: "right" } });
+      expect(chart.getAttribute("data-view")).toBe("chart");
+      expect(chart.slot).toBe("v:chart");
+      expect(chart.parentElement).toBe(el);
+      expect(el.model.views["chart"]).toEqual({ title: "Chart", icon: "📈", caps: { float: false } });
+      expect(locate(el.model, "chart").place).toBe("tree");
+      expect(el.hasView("chart")).toBe(true);
+      expect(el.getViewElement("chart")).toBe(chart);
+      expect(changes).toEqual(["add"]);
+      await el.updateComplete;
+      expect(shownIds).toContain("chart");
+
+      el.undo();
+      expect(el.hasView("chart")).toBe(false);
+      el.redo();
+      expect(el.hasView("chart")).toBe(true);
+
+      el.addView("note", "Plain text", { at: "parked" });
+      expect(el.getViewElement("note")!.textContent).toBe("Plain text");
+      expect(el.model.views["note"]!.title).toBe("note");
+      expect(el.model.parked).toContain("note");
+
+      const make = vi.fn(() => Object.assign(document.createElement("p"), { textContent: "lazy!" }));
+      el.addView("later", make, { title: "Later", at: { stow: "start" } });
+      expect(el.model.views["later"]!.lazy).toBe(true);
+      expect(el.getViewElement("later")).toBeNull();
+      await el.updateComplete;
+      expect(make).not.toHaveBeenCalled();
+      el.reveal("later");
+      await el.updateComplete;
+      expect(make).toHaveBeenCalledTimes(1);
+      expect(el.getViewElement("later")!.textContent).toBe("lazy!");
+      expect(shownIds).toContain("later");
+    });
+
+    it("floats, docks to edges and defaults into the document area", async () => {
+      const el = await mount();
+      el.addView("f1", document.createElement("div"), { at: { float: true } });
+      el.addView("f2", document.createElement("div"), { at: { float: { x: 40, y: 50 } } });
+      expect(el.model.windows).toHaveLength(2);
+      expect(el.model.windows[1]!.box).toMatchObject({ x: 40, y: 50 });
+      el.addView("e", document.createElement("div"), { at: { edge: "edge-below" } });
+      expect(locate(el.model, "e").place).toBe("tree");
+      el.addView("d", document.createElement("div"));
+      expect(locate(el.model, "d")).toMatchObject({ stack: { docs: true } });
+    });
+
+    it("throws for duplicate ids and unknown targets without touching the DOM", async () => {
+      const el = await mount();
+      const extra = document.createElement("div");
+      expect(() => el.addView("files", extra)).toThrow(/already exists/);
+      expect(() => el.addView("x", extra, { at: { near: "ghost", zone: "left" } })).toThrow(/"ghost"/);
+      expect(extra.parentElement).toBeNull();
+      expect(el.hasView("x")).toBe(false);
+    });
+
+    it("removeView returns the element and can keep it", async () => {
+      const el = await mount();
+      const box = document.createElement("div");
+      el.addView("tmp", box);
+      const changes: string[] = [];
+      el.addEventListener("flexdock-change", (e) => changes.push(e.detail.reason));
+      expect(el.removeView("tmp")).toBe(box);
+      expect(box.parentElement).toBeNull();
+      expect(el.hasView("tmp")).toBe(false);
+      expect(changes).toEqual(["forget"]);
+      expect(el.removeView("files", { keepElement: true })!.parentElement).toBe(el);
+      expect(el.removeView("nothing")).toBeNull();
+      el.addView("lazy", () => document.createElement("div"), { at: "parked" });
+      expect(el.removeView("lazy")).toBeNull();
+      el.addView("lazy", box);
+      expect(el.getViewElement("lazy")).toBe(box);
+    });
+  });
 });
+

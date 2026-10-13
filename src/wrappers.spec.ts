@@ -87,7 +87,18 @@ describe("vue", () => {
     expect(el.theme).toBe("dark");
     el.place("a", "b", "into");
     expect(seen).toEqual(expect.arrayContaining(["place", "update", "focus"]));
+    const api = comp.value as unknown as {
+      addView(id: string, c: Element | string): void; removeView(id: string): Element | null;
+      getViewElement(id: string): Element | null; hasView(id: string): boolean;
+    };
+    api.addView("c", "C");
+    expect(api.hasView("c")).toBe(true);
+    expect(api.getViewElement("c")!.textContent).toBe("C");
+    expect(api.removeView("c")!.textContent).toBe("C");
     app.unmount();
+    expect(api.hasView("c")).toBe(false);
+    expect(api.getViewElement("c")).toBeNull();
+    expect(() => api.addView("d", "D")).toThrow(/not mounted/);
   });
 });
 

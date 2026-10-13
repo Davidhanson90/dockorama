@@ -8,7 +8,7 @@ import {
 import { FlexdockPart, defineParts, type DockContext, type GuideSpot, type MenuEntry, type PartRequest } from "./components/index.js";
 import { slotOf } from "./components/context.js";
 import { renderNode } from "./components/tree.js";
-import type { Box, DropZone, EdgeZone, FlexdockModel, Side, ViewInfo } from "./model.js";
+import type { Box, DropZone, EdgeZone, FlexdockModel, Side, ViewContent, ViewInfo, ViewOptions } from "./model.js";
 import * as ops from "./ops.js";
 
 /** Why the model changed (detail of `flexdock-change`). */
@@ -19,6 +19,8 @@ export type ChangeReason =
 const SILENT: ChangeReason[] = ["select", "focus", "cancel"];
 /** Quote a value for an attribute selector. */
 const attr = (v: string) => JSON.stringify(v);
+const isContent = (v: unknown): v is ViewContent =>
+  typeof v === "string" || typeof v === "function" || (typeof Element !== "undefined" && v instanceof Element);
 
 interface DragState {
   id: string;
@@ -84,6 +86,7 @@ export class FlexdockManager extends LitElement {
   private _say = "";
   private readonly popped = new Map<string, Window>();
   private readonly shown = new Set<string>();
+  private readonly factories = new Map<string, () => Element>();
   private observer?: MutationObserver;
   private restoredFromStorage = false;
 
@@ -161,8 +164,7 @@ export class FlexdockManager extends LitElement {
   /** Float a view in its own window. */
   detach(id: string, box?: Box): void {
     if (this.caps(id).float === false) return;
-    const r = this.getBoundingClientRect();
-    const b = box ?? { x: Math.max(20, r.width / 2 - 180), y: Math.max(20, r.height / 2 - 120), w: 360, h: 240 };
+    const b = box ?? this.defaultBox();
     this.commit(ops.detach(this._model, id, this.fitBox(b)), "detach");
   }
   /** Auto-hide a view into an edge drawer. */
@@ -206,9 +208,57 @@ export class FlexdockManager extends LitElement {
     const m = where.place === "tree" ? ops.select(this._model, id) : { ...this._model, focus: id };
     this.commit(m, "focus", false);
   }
-  /** Register a new view and show it. */
-  addView(id: string, info: ViewInfo, near?: { view: string; zone: DropZone }): void {
-    this.commit(ops.addView(this._model, id, info, near), "add");
+  /**
+   * Add a view in one call: register it, attach its content and place it, as a single undoable change
+   * (`flexdock-change` reason `"add"`).
+   *
+   * `content` is an element, a string (shown as text), or a factory called the first time the view is
+   * shown. `options.at` says where it goes (see `ViewSpot`); the default is the document area, else
+   * the right edge. Throws if `id` is already registered or the `near` target is not in the layout.
+   */
+  addView(id: string, content: ViewContent, options?: ViewOptions): void;
+  /** Register a view whose `data-view` content is already (or will be) a child, and show it. */
+  addView(id: string, info: ViewInfo, near?: { view: string; zone: DropZone }): void;
+  addView(id: string, content: ViewContent | ViewInfo, extra?: ViewOptions | { view: string; zone: DropZone }): void {
+    if (!isContent(content)) {
+      this.commit(ops.addView(this._model, id, content, extra as { view: string; zone: DropZone } | undefined), "add");
+      return;
+    }
+    const { at = "auto", ...rest } = (extra ?? {}) as ViewOptions;
+    const info: ViewInfo = { ...rest, title: rest.title ?? id };
+    if (typeof content === "function") info.lazy = true;
+    const spot = typeof at === "object" && "float" in at ? { float: this.fitBox({ ...this.defaultBox(), ...(at.float === true ? {} : at.float) }) } : at;
+    const next = ops.enlist(this._model, id, info, spot);
+    if (typeof content === "function") {
+      this.factories.set(id, content);
+    } else {
+      const el = typeof content === "string" ? Object.assign(document.createElement("div"), { textContent: content }) : content;
+      this.mount(id, el);
+    }
+    this.shown.delete(id);
+    this.commit(next, "add");
+  }
+  /**
+   * Remove a view completely (undoable for the layout). Returns its content element, taken out of
+   * the manager unless `keepElement` is true, or null if it never had one (or `id` is unknown).
+   */
+  removeView(id: string, options: { keepElement?: boolean } = {}): Element | null {
+    this.popIn(id);
+    const el = this.getViewElement(id);
+    this.factories.delete(id);
+    this.shown.delete(id);
+    if (id in this._model.views) this.commit(ops.forget(this._model, id), "forget");
+    if (el && !options.keepElement) el.remove();
+    return el;
+  }
+  /** The content element of a view (null if unknown, or lazy and not yet shown). */
+  getViewElement(id: string): Element | null {
+    const win = this.popped.get(id);
+    return win?.document.querySelector(`[data-view=${attr(id)}]`) ?? this.querySelector(`:scope > [data-view=${attr(id)}]`);
+  }
+  /** True when a view with this id is registered (wherever it is, including parked). */
+  hasView(id: string): boolean {
+    return Object.prototype.hasOwnProperty.call(this._model.views, id);
   }
   /** Remove a view from the model entirely. */
   forget(id: string): void {
@@ -273,6 +323,17 @@ export class FlexdockManager extends LitElement {
   }
 
   // ------------------------------------------------------------- internals
+
+  private defaultBox(): Box {
+    const r = this.getBoundingClientRect();
+    return { x: Math.max(20, r.width / 2 - 180), y: Math.max(20, r.height / 2 - 120), w: 360, h: 240 };
+  }
+
+  private mount(id: string, el: Element): void {
+    el.setAttribute("data-view", id);
+    el.setAttribute("slot", slotOf(id));
+    if (el.parentNode !== this) this.append(el);
+  }
 
   private caps(id: string) {
     return this._model.views[id]?.caps ?? {};
@@ -381,6 +442,11 @@ export class FlexdockManager extends LitElement {
       const id = slot.name.slice(2);
       if (!this.shown.has(id)) {
         this.shown.add(id);
+        const make = this.factories.get(id);
+        if (make) {
+          this.factories.delete(id);
+          this.mount(id, make());
+        }
         this.dispatchEvent(new CustomEvent("flexdock-viewshow", { detail: { id }, bubbles: true, composed: true }));
       }
     }

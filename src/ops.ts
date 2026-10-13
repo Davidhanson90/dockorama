@@ -1,4 +1,4 @@
-import type {
+import type { ViewSpot,
   Box, DockNode, DropZone, EdgeZone, FlexdockModel, Side, SplitNode, StackNode, ViewInfo, Whereabouts
 } from "./model.js";
 
@@ -356,6 +356,35 @@ export function addView(model: FlexdockModel, id: string, info: ViewInfo, near?:
   m.parked = m.parked.filter((v) => v !== id);
   if (near && locate(m, near.view).place === "tree") return place(m, id, near.view, near.zone);
   return reveal(m, id);
+}
+
+/**
+ * Register a new view and put it at `spot`, as one change. Throws when `id` is taken, the `near`
+ * target is not in the layout, or `"docs"` is asked for without a document area.
+ * A `float` spot needs a complete box here (the element fills in defaults).
+ */
+export function enlist(model: FlexdockModel, id: string, info: ViewInfo, spot: Exclude<ViewSpot, { float: Partial<Box> | true }> | { float: Box } = "auto"): FlexdockModel {
+  if (!id) throw new TypeError("flexdock: a view needs a non-empty id");
+  if (id in model.views) throw new Error(`flexdock: a view with id "${id}" already exists`);
+  if (typeof spot === "object" && "near" in spot && locate(model, spot.near).place !== "tree") {
+    throw new Error(`flexdock: cannot place "${id}" near "${spot.near}": that view is not in the layout`);
+  }
+  if (spot === "docs" && !stacksOf(model.root).some((s) => s.stack.docs)) {
+    throw new Error(`flexdock: cannot place "${id}" in the document area: the layout has none`);
+  }
+  const m = copy(model);
+  m.views[id] = { ...info };
+  if (spot === "parked") {
+    m.parked.push(id);
+    return m;
+  }
+  if (spot === "auto" || spot === "docs") return reveal(m, id);
+  if ("near" in spot) return place(m, id, spot.near, spot.zone ?? "into", spot.index);
+  if ("edge" in spot) return placeAtEdge(m, id, spot.edge, spot.weight);
+  if ("float" in spot) return detach(m, id, spot.float);
+  const out = normalize(m);
+  out.drawers[spot.stow] = [...out.drawers[spot.stow], id];
+  return out;
 }
 
 /** Every registered view with a short description of its location. */

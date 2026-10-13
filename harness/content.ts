@@ -415,6 +415,67 @@ button("Reset both", () => {
 });
 
 add({
+  slug: "guide/add-views", title: "Adding views from code", section: "Guides",
+  body: `<h1>Adding views from code</h1>
+  <p class="lead"><code>dock.addView(id, content, options?)</code> adds a view in one call: it sets <code>data-view</code>, appends the content, registers the view and places it. All of that is a single undoable change (<code>flexdock-change</code> with reason <code>"add"</code>).</p>
+  <pre><code>dock.addView("chart", chartElement, { title: "Revenue", icon: "📈", at: { near: "orders", zone: "right" } });
+dock.addView("help", "Plain text works too", { at: "parked" });
+dock.addView("report", () =&gt; buildReport(), { title: "Report", at: { float: { w: 420, h: 300 } } }); // created on first show
+const el = dock.removeView("chart");  // returns the element, taken out of the dock</code></pre>
+  <h2>Content</h2>
+  <table><tr><th>Type</th><th>What happens</th></tr>
+  <tr><td><code>Element</code></td><td>Appended to the manager (moved if it already lives elsewhere). It's kept alive as it moves between panes.</td></tr>
+  <tr><td><code>string</code></td><td>Wrapped in a <code>&lt;div&gt;</code> as text (never parsed as HTML).</td></tr>
+  <tr><td><code>() =&gt; Element</code></td><td>Lazy: called once, the first time the view is shown, just before <code>flexdock-viewshow</code>. The view gets <code>lazy: true</code>.</td></tr></table>
+  <h2>Where it goes: <code>options.at</code></h2>
+  <table><tr><th>Value</th><th>Placement</th></tr>
+  <tr><td><code>"auto"</code> (default)</td><td>The document area if there is one, otherwise the right edge.</td></tr>
+  <tr><td><code>"docs"</code></td><td>The document area (throws if the layout has none).</td></tr>
+  <tr><td><code>{ near: id, zone?, index? }</code></td><td>Beside or into the group holding another view. <code>zone</code>: <code>left</code> | <code>right</code> | <code>above</code> | <code>below</code> | <code>into</code> (default).</td></tr>
+  <tr><td><code>{ edge, weight? }</code></td><td>At an outer edge: <code>edge-left</code> | <code>edge-right</code> | <code>edge-above</code> | <code>edge-below</code>.</td></tr>
+  <tr><td><code>{ float: true | { x?, y?, w?, h? } }</code></td><td>In its own floating window.</td></tr>
+  <tr><td><code>{ stow: side }</code></td><td>Auto-hidden on a rail: <code>start</code> | <code>end</code> | <code>top</code> | <code>bottom</code>.</td></tr>
+  <tr><td><code>"parked"</code></td><td>Registered but closed; show it later with <code>reveal(id)</code>.</td></tr></table>
+  <p>The other options are the view's own settings: <code>title</code> (defaults to the id), <code>icon</code>, <code>hint</code> and <code>caps</code>.</p>
+  <h2>Errors</h2>
+  <p><code>addView</code> throws, and changes nothing, if the id is already registered, if <code>near</code> names a view that isn't in the layout, or if <code>"docs"</code> is asked for without a document area. Use <code>hasView(id)</code> to check first.</p>
+  <h2>Removing and finding views</h2>
+  <p><code>removeView(id, { keepElement? })</code> forgets the view and returns its element (taken out of the dock unless <code>keepElement</code> is true). <code>getViewElement(id)</code> returns the content element (null for a lazy view that hasn't been shown yet).</p>
+  ${ex("add-views")}`,
+  examples: [{ id: "add-views", height: 460, code: `${SETUP}
+view("orders", "<h3>Orders</h3><p class='muted'>Use the buttons to add views.</p>");
+view("main", "<h3>Dashboard</h3>");
+dock.model = createModel({ orders: { title: "Orders" }, main: { title: "Dashboard" } }, row([stack(["orders"]), docs(["main"])], [1, 2]));
+dock.addEventListener("flexdock-change", (e) => log("change: " + e.detail.reason));
+dock.addEventListener("flexdock-viewshow", (e) => log("shown: " + e.detail.id));
+let n = 0;
+const chart = () => {
+  const values = Array.from({ length: 8 }, () => 15 + Math.round(Math.random() * 80));
+  const el = document.createElement("div");
+  el.className = "v";
+  el.innerHTML = '<svg viewBox="0 0 160 100" width="100%" height="100%" preserveAspectRatio="none">' +
+    values.map((v, i) => '<rect x="' + (i * 20 + 3) + '" y="' + (100 - v) + '" width="14" height="' + v + '" rx="2" fill="#4f7cff"></rect>').join("") + "</svg>";
+  return el;
+};
+const next = (label) => label + " " + ++n;
+button("Chart beside Orders", () => dock.addView("c" + n, chart(), { title: next("Chart"), icon: "📊", at: { near: "orders", zone: "below" } }));
+button("Into documents", () => dock.addView("c" + n, chart(), { title: next("Chart"), at: "docs" }));
+button("Right edge", () => dock.addView("c" + n, chart(), { title: next("Chart"), at: { edge: "edge-right", weight: 0.3 } }));
+button("Floating", () => dock.addView("c" + n, chart(), { title: next("Chart"), at: { float: { w: 300, h: 200 } } }));
+button("Rail (lazy)", () => {
+  const id = "c" + n;
+  dock.addView(id, () => { log("factory ran for " + id); return chart(); }, { title: next("Lazy chart"), at: { stow: "end" } });
+});
+button("Text", () => dock.addView("t" + n, "Just some text, added as a view.", { title: next("Note") }));
+button("Remove last", () => {
+  const ids = Object.keys(dock.model.views).filter((id) => id !== "orders" && id !== "main");
+  const id = ids[ids.length - 1];
+  if (id) log("removed " + id + " (" + (dock.removeView(id) ? "element returned" : "never created") + ")");
+});
+button("Undo", () => dock.undo());` }]
+});
+
+add({
   slug: "guide/lazy", title: "Lazy content", section: "Guides",
   body: `<h1>Lazy content</h1>
   <p class="lead"><code>flexdock-viewshow</code> fires the first time a view becomes visible — create expensive content (charts, editors, iframes) only then.</p>
@@ -799,7 +860,10 @@ add({
   <tr><td><code>reveal(id)</code></td><td>Show wherever it is, or bring it back.</td></tr>
   <tr><td><code>toggleZoom(id?)</code></td><td>Zoom / restore.</td></tr>
   <tr><td><code>activate(id)</code></td><td>Focus a view.</td></tr>
-  <tr><td><code>addView(id, info, near?)</code> / <code>forget(id)</code></td><td>Register &amp; show / remove completely.</td></tr>
+  <tr><td><code>addView(id, content, options?)</code></td><td>Add a view in one undoable change. <code>content</code>: <code>Element</code> | <code>string</code> | <code>() =&gt; Element</code> (lazy). <code>options</code>: <code>title</code>, <code>icon</code>, <code>hint</code>, <code>caps</code> and <code>at</code> (a <code>ViewSpot</code>). Throws on a duplicate id or unknown target. See <a href="#/guide/add-views">Adding views from code</a>.</td></tr>
+  <tr><td><code>removeView(id, { keepElement? })</code></td><td>Remove a view; returns its element (or <code>null</code>).</td></tr>
+  <tr><td><code>getViewElement(id)</code> / <code>hasView(id)</code></td><td>The content element (<code>null</code> if none yet) / whether the id is registered.</td></tr>
+  <tr><td><code>addView(id, info, near?)</code> / <code>forget(id)</code></td><td>Register a view whose <code>data-view</code> child you add yourself / remove from the model only.</td></tr>
   <tr><td><code>undo()</code> / <code>redo()</code></td><td>History.</td></tr>
   <tr><td><code>snapshot()</code> / <code>restore(model)</code></td><td>Copy out / apply (undoable).</td></tr>
   <tr><td><code>popOut(id)</code> / <code>popIn(id)</code></td><td>Separate browser window.</td></tr>

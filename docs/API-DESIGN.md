@@ -46,9 +46,18 @@ interface Caps { dismiss?, hide?, float?, move?, zoom?, popout?: boolean; docsOn
 Properties: `model`, `theme` (`light|dark|auto`), `snap` (px grid for windows), `storageKey`
 (auto-persist), `labels` (i18n), `keepEmpty`.
 Methods: `place(viewId, target, where)`, `detach(viewId, box?)`, `stow(viewId, side?)`, `unstow`,
-`dismiss(viewId)`, `reveal(viewId)`, `toggleZoom`, `activate`, `addView(id, info, near?)`,
+`dismiss(viewId)`, `reveal(viewId)`, `toggleZoom`, `activate`, `addView(id, content, options?)`,
+`removeView(id, { keepElement? })`, `getViewElement(id)`, `hasView(id)`, `addView(id, info, near?)` (info-only form),
 `undo/redo/canUndo/canRedo`, `snapshot()`, `restore(model)`, `popOut(viewId)`, `openPalette()`.
 Drop zones are named `"left" | "right" | "above" | "below" | "into"` plus `edge-*` for the outer edge.
+
+## Adding views from code
+`addView(id, content, { title?, icon?, hint?, caps?, at? })` sets `data-view`, appends the content and places
+the view as one undoable change (`reason: "add"`). `content` is an `Element`, a text `string`, or a factory
+`() => Element` run on first show. `at` is a `ViewSpot`, named for *where the view ends up*:
+`"auto"` (default) · `"docs"` · `"parked"` · `{ near, zone?, index? }` · `{ edge, weight? }` · `{ float }` · `{ stow }`.
+Errors are thrown before anything changes (duplicate id, target not in the layout, no document area).
+The pure counterpart is `enlist(model, id, info, spot)`.
 
 ## Keyboard (flexdock's own scheme)
 `Ctrl+.` palette · `Alt+ArrowKeys` focus neighbouring view · `Alt+Shift+ArrowKeys` move focused view

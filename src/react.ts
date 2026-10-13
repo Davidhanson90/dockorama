@@ -27,7 +27,10 @@ function handlersOf(p: FlexdockLayoutProps): FlexdockHandlers {
   };
 }
 
-/** React wrapper around `<flexdock-manager>`. The ref gives you the element (methods like `undo()`). */
+/**
+ * React wrapper around `<flexdock-manager>`. The ref gives you the element, with methods like `undo()`,
+ * `addView(id, content, options)`, `removeView(id)`, `getViewElement(id)` and `hasView(id)`.
+ */
 export const FlexdockLayout = forwardRef<FlexdockManager | null, FlexdockLayoutProps>(function FlexdockLayout(props, ref) {
   const el = useRef<FlexdockManager | null>(null);
   const latest = useRef(props);

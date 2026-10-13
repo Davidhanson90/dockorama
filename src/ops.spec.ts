@@ -231,3 +231,28 @@ describe("insertBetween / fillDocs", () => {
     expect(fillDocs(ew, "a", [1], key).windows[0]!.tree).toMatchObject({ children: [{ views: ["c"] }, { views: ["a"] }] });
   });
 });
+
+describe("enlist", () => {
+  it("registers and places at every kind of spot", () => {
+    const at = (spot: Parameters<typeof o.enlist>[3]) => o.enlist(base(), "x", { title: "X" }, spot);
+    expect(o.locate(at(undefined), "x")).toMatchObject({ place: "tree", stack: { docs: true } });
+    expect(o.locate(at("docs"), "x")).toMatchObject({ place: "tree", stack: { docs: true } });
+    expect(at("parked").parked).toEqual(["x"]);
+    const near = at({ near: "d", zone: "below" });
+    expect(o.locate(near, "x").place).toBe("tree");
+    expect(near.focus).toBe("x");
+    expect(o.locate(at({ near: "a" }), "x")).toMatchObject({ stack: { views: ["a", "x"] } });
+    expect((at({ edge: "edge-left", weight: 0.2 }).root as SplitNode).weights[0]).toBeCloseTo(0.2);
+    expect(at({ float: { x: 1, y: 2, w: 3, h: 4 } }).windows[0]!.box).toEqual({ x: 1, y: 2, w: 3, h: 4 });
+    expect(at({ stow: "end" }).drawers.end).toEqual(["x"]);
+    expect(at("auto").views["x"]).toEqual({ title: "X" });
+  });
+  it("throws clear errors", () => {
+    expect(() => o.enlist(base(), "a", { title: "A" })).toThrow(/already exists/);
+    expect(() => o.enlist(base(), "", { title: "?" })).toThrow(/non-empty id/);
+    expect(() => o.enlist(base(), "x", { title: "X" }, { near: "nope" })).toThrow(/"nope".*not in the layout/);
+    const plain = o.createModel(views, o.row([o.stack(["a"])]));
+    expect(() => o.enlist(plain, "x", { title: "X" }, "docs")).toThrow(/document area/);
+    expect(o.locate(o.enlist(plain, "x", { title: "X" }), "x").place).toBe("tree");
+  });
+});

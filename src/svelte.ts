@@ -11,6 +11,7 @@ export interface FlexdockActionOptions extends FlexdockProps {
 
 /**
  * Svelte action for a `<flexdock-manager>` element: `<flexdock-manager use:flexdock={{ model, on: { change } }}>`.
+ * Call `addView` / `removeView` / `getViewElement` / `hasView` on the element itself (`bind:this`).
  * Framework-free (no Svelte import), so it also works with any code that calls actions by hand.
  */
 export function flexdock(node: FlexdockManager, options: FlexdockActionOptions = {}) {

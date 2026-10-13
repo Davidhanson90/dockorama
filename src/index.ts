@@ -14,7 +14,7 @@ export {
 } from "./components/index.js";
 export * from "./model.js";
 export {
-  addView, catalogue, column, copy, createModel, detach, dismiss, docs, emptyModel, forget, isModel, locate,
+  addView, catalogue, enlist, column, copy, createModel, detach, dismiss, docs, emptyModel, forget, isModel, locate,
   fillDocs, insertBetween, normalize, place, placeAtEdge, reorder, reveal, row, select, setWeights, stack, stacksOf, stow, toggleZoom,
   unplace, unstow, viewsIn
 } from "./ops.js";

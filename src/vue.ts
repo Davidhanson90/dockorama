@@ -1,7 +1,7 @@
 import { defineComponent, h, onBeforeUnmount, onMounted, ref, watch, type PropType } from "vue";
 import "./index.js";
 import type { FlexdockManager } from "./manager.js";
-import type { FlexdockModel } from "./model.js";
+import type { FlexdockModel, ViewContent, ViewOptions } from "./model.js";
 import type { FlexdockLabels } from "./labels.js";
 import type { ChangeReason } from "./manager.js";
 import { applyProps, bindEvents, type FlexdockHandlers } from "./bridge.js";
@@ -11,7 +11,7 @@ export type { FlexdockHandlers, FlexdockProps } from "./bridge.js";
 /**
  * Vue 3 wrapper around `<flexdock-manager>`. Supports `v-model:model`.
  * Emits: `layout-change`, `update:model`, `view-focus`, `view-show`, `before-close`, `before-move`, `drag-cancel`.
- * Exposes `element` (the underlying `<flexdock-manager>`).
+ * Exposes `element` (the underlying `<flexdock-manager>`) plus `addView`, `removeView`, `getViewElement` and `hasView`.
  */
 export const FlexdockLayout = defineComponent({
   name: "FlexdockLayout",
@@ -50,7 +50,17 @@ export const FlexdockLayout = defineComponent({
     });
     watch(() => ({ ...props }), sync, { deep: false });
     onBeforeUnmount(() => off?.());
-    expose({ element });
+    const need = (): FlexdockManager => {
+      if (!element.value) throw new Error("flexdock: the layout is not mounted yet");
+      return element.value;
+    };
+    expose({
+      element,
+      addView: (id: string, content: ViewContent, options?: ViewOptions) => need().addView(id, content, options),
+      removeView: (id: string, options?: { keepElement?: boolean }) => need().removeView(id, options),
+      getViewElement: (id: string) => element.value?.getViewElement(id) ?? null,
+      hasView: (id: string) => element.value?.hasView(id) ?? false
+    });
     return () => h("flexdock-manager", { ref: element }, slots["default"]?.());
   }
 });

@@ -78,3 +78,30 @@ export type Whereabouts =
   | { place: "drawer"; side: Side }
   | { place: "parked" }
   | { place: "nowhere" };
+
+/**
+ * Where `addView` puts a new view.
+ * - `"auto"` (default): the first document area, else the right edge.
+ * - `"docs"`: the first document area (throws if there is none).
+ * - `"parked"`: registered but closed; show it later with `reveal(id)`.
+ * - `{ near, zone }`: beside / into the group holding another view (`zone` defaults to `"into"`).
+ * - `{ edge }`: at an outer edge of the main layout, taking `weight` (0..1) of it.
+ * - `{ float }`: in its own floating window (`box` fields are optional).
+ * - `{ stow }`: auto-hidden on a side rail.
+ */
+export type ViewSpot =
+  | "auto"
+  | "docs"
+  | "parked"
+  | { near: string; zone?: DropZone; index?: number }
+  | { edge: EdgeZone; weight?: number }
+  | { float: Partial<Box> | true }
+  | { stow: Side };
+
+/** Content for `addView`: an element, a text string, or a factory called on first show. */
+export type ViewContent = Element | string | (() => Element);
+
+/** Options for `addView`. Every `ViewInfo` field plus where to put the view. */
+export interface ViewOptions extends Partial<ViewInfo> {
+  at?: ViewSpot;
+}

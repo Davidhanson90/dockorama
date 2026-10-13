@@ -4,7 +4,7 @@ import {
 } from "@angular/core";
 import "./index.js";
 import type { ChangeReason, FlexdockManager } from "./manager.js";
-import type { DropZone, EdgeZone, FlexdockModel } from "./model.js";
+import type { DropZone, EdgeZone, FlexdockModel, ViewContent, ViewOptions } from "./model.js";
 import type { FlexdockLabels } from "./labels.js";
 import { applyProps, bindEvents } from "./bridge.js";
 
@@ -47,6 +47,27 @@ export class FlexdockLayoutComponent implements AfterViewInit, OnChanges, OnDest
   /** The underlying `<flexdock-manager>` element. */
   get element(): FlexdockManager | undefined {
     return this.host?.nativeElement;
+  }
+
+  /** Add a view in one call (see `FlexdockManager.addView`). */
+  addView(id: string, content: ViewContent, options?: ViewOptions): void {
+    this.need().addView(id, content, options);
+  }
+  /** Remove a view and return its content element. */
+  removeView(id: string, options?: { keepElement?: boolean }): Element | null {
+    return this.need().removeView(id, options);
+  }
+  getViewElement(id: string): Element | null {
+    return this.element?.getViewElement(id) ?? null;
+  }
+  hasView(id: string): boolean {
+    return this.element?.hasView(id) ?? false;
+  }
+
+  private need(): FlexdockManager {
+    const el = this.element;
+    if (!el) throw new Error("flexdock: the layout is not initialised yet");
+    return el;
   }
 
   ngOnChanges(): void {
