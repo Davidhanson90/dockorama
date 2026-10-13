@@ -164,7 +164,7 @@ export class FlexdockManager extends LitElement {
   reveal(id: string): void {
     const where = ops.locate(this._model, id);
     if (where.place === "drawer") {
-      this._peek = id;
+      this.openPeek(id);
       this.commit(this._model, "focus", false);
       return;
     }
@@ -267,8 +267,16 @@ export class FlexdockManager extends LitElement {
     return this.dispatchEvent(new CustomEvent(type, { detail, cancelable: true, bubbles: true, composed: true }));
   }
 
+  private keepFocus = false;
+
+  /** Whether focus is inside the component (shadow or light DOM). */
+  private hasFocus(): boolean {
+    return Boolean(this.shadowRoot?.activeElement) || (document.activeElement !== this && this.contains(document.activeElement));
+  }
+
   private commit(next: FlexdockModel, reason: ChangeReason, record = true): void {
     const prev = this._model;
+    this.keepFocus = this.keepFocus || this.hasFocus();
     if (record && next !== prev && !SILENT.includes(reason)) this.timeline.push(prev);
     this._model = next;
     if (this.storageKey && reason !== "set") {
@@ -311,6 +319,13 @@ export class FlexdockManager extends LitElement {
 
   protected override updated(changed: PropertyValues): void {
     super.updated(changed);
+    if (this.keepFocus) {
+      this.keepFocus = false;
+      if (!this.hasFocus() && !this._palette && !this._menu) {
+        const active = this.renderRoot.querySelector<HTMLElement>("[data-stack][data-active]");
+        (active?.querySelector<HTMLElement>('.tab[aria-selected="true"]') ?? active)?.focus({ preventScroll: true });
+      }
+    }
     if (changed.has("storageKey") && this.storageKey && !this.restoredFromStorage) {
       const stored = this.loadStored(this._model);
       if (stored) {
@@ -378,9 +393,9 @@ export class FlexdockManager extends LitElement {
     const cur = s.current;
     const info = m.views[cur];
     const key = s.views[0] ?? `docs-${path.join(".")}`;
-    return html`<section class="stack" part="group${s.docs ? " docs" : ""}" data-stack=${key} data-win=${win ?? ""}
+    return html`<section class="stack" part="group${s.docs ? " docs" : ""}" data-stack=${key} data-win=${win ?? ""} tabindex="-1" role="group"
       ?data-active=${active} ?data-tabs=${tabbed} aria-label=${info?.title ?? this.t.emptyDocs}
-      @pointerdown=${() => cur && this.activate(cur)}>
+      @pointerdown=${(e: PointerEvent) => this.onStackPointer(e, cur)}>
       <div class="bar" part="bar" @pointerdown=${(e: PointerEvent) => !tabbed && cur && this.startDrag(e, cur, win)}
         @dblclick=${() => cur && this.toggleZoom(cur)}>
         ${tabbed
@@ -388,11 +403,23 @@ export class FlexdockManager extends LitElement {
           : html`<span class="title" id="t-${cur}">${info?.icon ? html`<span class="glyph">${info.icon}</span>` : nothing}${info?.title ?? cur}</span>`}
         ${cur ? this.renderActions(cur, s, win) : nothing}
       </div>
-      <div class="body" part="body" role=${tabbed ? "tabpanel" : "region"} aria-labelledby=${cur ? `tab-${cur}` : nothing}
+      <div class="body" part="body" role=${tabbed ? "tabpanel" : "region"} aria-labelledby=${cur ? `${tabbed ? "tab" : "t"}-${cur}` : nothing}
         ?data-inert=${Boolean(info?.caps?.inert)}>
         ${cur ? this.renderContent(cur) : html`<div class="empty">${this.t.emptyDocs}</div>`}
       </div>
     </section>`;
+  }
+
+  private onStackPointer(e: PointerEvent, id: string): void {
+    if (id) this.activate(id);
+    const first = e.composedPath()[0] as HTMLElement | undefined;
+    const focusable = first?.closest?.("button, a, input, select, textarea, [tabindex], [contenteditable]");
+    if (focusable && focusable !== this && (this.contains(focusable) || this.renderRoot.contains(focusable))) return;
+    const section = e.currentTarget as HTMLElement;
+    // Run after the browser's own mousedown focus handling.
+    setTimeout(() => {
+      if (!this.hasFocus()) section.focus({ preventScroll: true });
+    });
   }
 
   private renderContent(id: string): TemplateResult {
@@ -434,10 +461,20 @@ export class FlexdockManager extends LitElement {
     if (!ids.length) return nothing;
     return html`<div class="rail" part="rail" data-side=${side} role="toolbar" aria-label=${side}>
       ${ids.map((id) => html`<button class="rail-item" part="rail-item" aria-expanded=${this._peek === id ? "true" : "false"}
-        @click=${() => { this._peek = this._peek === id ? undefined : id; }}
-        @pointerenter=${(e: PointerEvent) => { if (e.pointerType === "mouse") this._peek = id; }}>
+        @click=${() => this.togglePeek(id)}
+        @pointerenter=${(e: PointerEvent) => { if (e.pointerType === "mouse" && this._peek !== id) this.openPeek(id); }}>
         ${this._model.views[id]?.title ?? id}</button>`)}
     </div>`;
+  }
+
+  private peekAt = 0;
+  private openPeek(id: string): void {
+    this._peek = id;
+    this.peekAt = Date.now();
+  }
+  private togglePeek(id: string): void {
+    if (this._peek === id && Date.now() - this.peekAt > 400) this._peek = undefined;
+    else this.openPeek(id);
   }
 
   private renderDrawer(): TemplateResult | typeof nothing {

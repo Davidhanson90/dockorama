@@ -11,7 +11,7 @@ export default defineConfig({
     {
       name: "own",
       testDir: "e2e/own",
-      use: { baseURL: "http://localhost:4173" }
+      use: { baseURL: "http://localhost:4173", viewport: { width: 1400, height: 1000 } }
     },
     {
       name: "reference",

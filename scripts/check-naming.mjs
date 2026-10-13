@@ -14,6 +14,7 @@ const allowed = [
   `docs${sep}specs${sep}`,
   `e2e${sep}reference${sep}`,
   `e2e${sep}README.md`,
+  `e2e${sep}own${sep}site-hygiene.spec.ts`,
   `scripts${sep}check-naming.mjs`,
   `scripts${sep}check-api-overlap.mjs`
 ];

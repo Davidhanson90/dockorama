@@ -74,6 +74,7 @@ export const styles = css`
     flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; min-height: 0;
     background: var(--fd-surface); border: 1px solid var(--fd-line); border-radius: var(--fd-radius); overflow: hidden;
   }
+  .stack:focus { outline: none; }
   .stack[data-active] { border-color: color-mix(in srgb, var(--fd-accent) 55%, var(--fd-line)); }
   .bar {
     flex: 0 0 var(--fd-bar-height); display: flex; align-items: center; gap: 2px; padding: 0 4px 0 10px;
