@@ -2,7 +2,7 @@
 
 Designed from first principles for flexdock. It intentionally shares no element, property, event,
 enum or layout-key names with any other dock manager (checked by `scripts/check-api-overlap.mjs`
-against a local, gitignored list of identifiers we must avoid).
+against a private avoid-list kept outside the repo).
 
 ## Principles
 1. **Views are registered once, placed by id.** The model has a flat `views` registry (title, icon,

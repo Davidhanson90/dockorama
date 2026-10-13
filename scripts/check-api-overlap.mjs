@@ -1,14 +1,14 @@
-// Compares flexdock's public API identifiers with identifiers seen on the reference product's public
-// docs pages (collected during observation into a gitignored local list). Generic platform / English
-// identifiers are ignored. Fails on any remaining overlap. Skips (with a notice) where the list is absent (CI).
+// Compares flexdock's public API identifiers with an avoid-list of identifiers kept in the private records
+// folder (FLEXDOCK_RECORDS, default ../flexdock-records). Generic platform / English identifiers
+// are ignored. Fails on any remaining overlap. Skips (with a notice) where the list is absent (CI).
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const listPath = join(root, "e2e/reference/notes/ref-identifiers.txt");
+const listPath = join(process.env.FLEXDOCK_RECORDS ?? join(root, "..", "flexdock-records"), "avoid-identifiers.txt");
 if (!existsSync(listPath)) {
-  console.log("check-api-overlap: no local reference identifier list; skipped");
+  console.log("check-api-overlap: no avoid-list found; skipped");
   process.exit(0);
 }
 const ref = new Set(readFileSync(listPath, "utf8").split("\n").map((s) => s.trim()).filter(Boolean));
@@ -48,7 +48,7 @@ const keyOverlap = [...modelKeys].filter((k) => ref.has(k) && !genericKeys.has(k
 if (keyOverlap.length) overlap.push(...keyOverlap.map((k) => `model key/value: ${k}`));
 console.log(`  layout-model keys/values checked: ${modelKeys.size}`);
 const plainWords = [...ids].filter((id) => ref.has(id) && !/[A-Z-]/.test(id.slice(1)));
-console.log(`check-api-overlap: ${ids.size} identifiers in src, ${ref.size} reference identifiers.`);
+console.log(`check-api-overlap: ${ids.size} identifiers in src, ${ref.size} avoid-list identifiers.`);
 console.log(`  single plain words shared (ignored as generic English): ${plainWords.length}`);
 if (overlap.length) {
   console.error("  non-generic overlaps — rename these:\n  " + overlap.join("\n  "));
