@@ -1,6 +1,6 @@
 {
   "name": "flexdock",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "A Lit-based web component dock manager: dockable, splittable, tabbed and floating panes.",
   "type": "module",
   "main": "./dist/index.js",
@@ -21,7 +21,7 @@
   "scripts": {
     "prebuild": "rimraf dist",
     "build": "tsc -p tsconfig.build.json",
-    "build:verify": "npm run lint:naming && npm run lint && npm run test:check && npm run test:coverage && npm run build",
+    "build:verify": "npm run lint:naming && npm run check:api && npm run lint && npm run test:check && npm run test:coverage && npm run build",
     "prepublishOnly": "npm run build:verify",
     "pack:check": "npm pack --dry-run",
     "start": "npm run build && vite --config harness/vite.config.ts",
@@ -34,7 +34,8 @@
     "test:check": "tsc -p tsconfig.json --noEmit && tsc -p harness/tsconfig.json && tsc -p e2e/tsconfig.json",
     "test:watch": "vitest",
     "test:e2e": "playwright test --project=own",
-    "test:e2e:reference": "playwright test --project=reference"
+    "test:e2e:reference": "playwright test --project=reference",
+    "check:api": "node scripts/check-api-overlap.mjs"
   },
   "keywords": [
     "dock-manager",
