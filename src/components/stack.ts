@@ -59,13 +59,13 @@ export class FlexdockStack extends FlexdockPart {
     const onBar = (event: PointerEvent) => {
       if (!tabbed && cur) this.request("grab", { id: cur, win, event, source: event.currentTarget });
     };
-    return html`<div class="bar" part="bar" @pointerdown=${onBar} @dblclick=${() => cur && this.request("zoom", { id: cur })}>
-        ${tabbed
-          ? html`<flexdock-tabstrip .views=${s.views} .current=${cur} .pinned=${s.pinned ?? []} .preview=${s.preview} .docs=${Boolean(s.docs)} .win=${win} .ctx=${ctx}></flexdock-tabstrip>`
-          : html`<span class="title" id="t-${cur}">${info?.icon ? html`<span class="glyph">${info.icon}</span>` : nothing}${info?.title ?? cur}${ctx.dirty?.has(cur) ? html`<span class="dirty" part="tab-dirty" role="img" aria-label=${ctx.labels.unsaved}></span>` : nothing}</span>`}
-        ${cur ? html`<flexdock-toolbar .view=${cur} .docs=${Boolean(s.docs)} .win=${win} .ctx=${ctx}></flexdock-toolbar>` : nothing}
-      </div>
-      <flexdock-view .view=${cur} .kind=${tabbed ? "tabpanel" : "region"} .labelledBy=${cur ? `${tabbed ? "tab" : "t"}-${cur}` : ""}
+    const title = tabbed
+      ? html`<flexdock-tabstrip .views=${s.views} .current=${cur} .pinned=${s.pinned ?? []} .preview=${s.preview} .docs=${Boolean(s.docs)} .win=${win} .ctx=${ctx}></flexdock-tabstrip>`
+      : this.paint("group-title", { id: cur, title: info?.title ?? cur, ...(info?.icon ? { icon: info.icon } : {}), dirty: Boolean(ctx.dirty?.has(cur)), dirtyLabel: ctx.labels.unsaved });
+    const toolbar = cur ? html`<flexdock-toolbar .view=${cur} .docs=${Boolean(s.docs)} .win=${win} .ctx=${ctx}></flexdock-toolbar>` : nothing;
+    const bar = this.paint("group-bar", { title, toolbar, tabbed, grab: onBar, zoom: () => cur && this.request("zoom", { id: cur }) });
+    const body = html`<flexdock-view .view=${cur} .kind=${tabbed ? "tabpanel" : "region"} .labelledBy=${cur ? `${tabbed ? "tab" : "t"}-${cur}` : ""}
         .ctx=${ctx}></flexdock-view>`;
+    return html`${this.paint("group", { bar, body, docs: Boolean(s.docs) })}`;
   }
 }

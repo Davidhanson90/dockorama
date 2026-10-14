@@ -10,6 +10,7 @@ import { slotOf } from "./components/context.js";
 import { renderNode } from "./components/tree.js";
 import type { Box, Caps, DropZone, EdgeZone, FlexdockModel, LayoutMigrations, LayoutSource, OutsideWindow, Side, SizeLimits, SplitNode, ViewContent, ViewInfo, ViewOptions } from "./model.js";
 import * as ops from "./ops.js";
+import { activeSkin, cssFor, skinNamed, watchSkins, type Skin, type SkinPatch, type SkinScope } from "./skins/core.js";
 import { stateEvents, type BeforeAddDetail, type CommandDetail, type CommandSource, type DragKind, type DragOverDetail, type DropDetail, type FlexdockStateEvents, type ResizeDetail } from "./events.js";
 
 /** Why the model changed (detail of `flexdock-change`). */
@@ -107,6 +108,8 @@ export class FlexdockManager extends LitElement {
     layoutVersion: { type: Number, attribute: "layout-version" },
     migrations: { attribute: false },
     retain: { reflect: true },
+    skin: { converter: { fromAttribute: (v: string | null) => v ?? undefined, toAttribute: (v: unknown) => (typeof v === "string" ? v : (v as Skin | undefined)?.name) } },
+    skinPatch: { attribute: false },
     _confirm: { state: true },
     _keyMove: { state: true },
     _peek: { state: true },
@@ -118,6 +121,48 @@ export class FlexdockManager extends LitElement {
     _tabMenu: { state: true },
     _blocked: { state: true }
   };
+
+  /**
+   * This dock's skin: a skin object or the name of a registered one (attribute `skin`). When unset the
+   * page-wide skin (`useSkin`) is used.
+   */
+  skin?: Skin | string;
+  /** Template and/or CSS overrides for this dock only, layered over its skin and any page-wide overrides. */
+  skinPatch?: SkinPatch;
+  private unwatchSkins?: () => void;
+  private skinStyle?: HTMLStyleElement;
+  private skinSheet?: CSSStyleSheet;
+
+  /** @internal What this dock's UI parts render with. */
+  skinScope(): SkinScope {
+    const skin = typeof this.skin === "string" ? skinNamed(this.skin) : this.skin;
+    return { ...(skin ? { skin } : {}), ...(this.skinPatch ? { patch: this.skinPatch } : {}) };
+  }
+
+  /** Apply skin CSS after the built-in styles and re-render every part. */
+  private applySkin(): void {
+    const root = this.shadowRoot;
+    if (!root) return;
+    const cssText = cssFor(this.skinScope());
+    const canAdopt = "adoptedStyleSheets" in root && typeof CSSStyleSheet !== "undefined" && "replaceSync" in CSSStyleSheet.prototype;
+    if (canAdopt) {
+      if (!this.skinSheet) {
+        this.skinSheet = new CSSStyleSheet();
+        root.adoptedStyleSheets = [...root.adoptedStyleSheets, this.skinSheet];
+      }
+      this.skinSheet.replaceSync(cssText);
+    } else {
+      if (!this.skinStyle) {
+        this.skinStyle = document.createElement("style");
+        this.skinStyle.dataset["skin"] = "";
+        root.append(this.skinStyle);
+      }
+      this.skinStyle.textContent = cssText;
+    }
+    this.dataset["skinName"] = (this.skinScope().skin ?? activeSkin()).name;
+    for (const el of Array.from(root.querySelectorAll("*"))) if (el instanceof FlexdockPart) el.requestUpdate();
+    this.requestUpdate();
+  }
 
   /** `light` (default), `dark` or `auto` (follows the OS). */
   theme: "light" | "dark" | "auto" = "light";
@@ -222,6 +267,7 @@ export class FlexdockManager extends LitElement {
     document.addEventListener("pointerdown", this.onOutside, true);
     window.addEventListener("pagehide", this.onUnload);
     managers.add(this);
+    this.unwatchSkins = watchSkins(() => this.applySkin());
     this.reconcileOutside(true);
   }
 
@@ -234,6 +280,7 @@ export class FlexdockManager extends LitElement {
     document.removeEventListener("pointerdown", this.onOutside, true);
     window.removeEventListener("pagehide", this.onUnload);
     managers.delete(this);
+    this.unwatchSkins?.();
   }
 
   private assignSlots(): void {
@@ -972,6 +1019,7 @@ export class FlexdockManager extends LitElement {
 
   protected override updated(changed: PropertyValues): void {
     super.updated(changed);
+    if (changed.has("skin") || changed.has("skinPatch") || !this.skinStyle && !this.skinSheet) this.applySkin();
     if (changed.has("storageKey") && this.storageKey && !this.restoredFromStorage) {
       const stored = this.loadStored(this._model);
       if (stored) {

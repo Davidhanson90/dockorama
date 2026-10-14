@@ -1163,6 +1163,155 @@ flexdock-manager::part(gutter) { background: repeating-linear-gradient(45deg, #0
   }
 });
 
+add({
+  slug: "guide/skins", title: "Skins", section: "Guides",
+  body: `<h1>Skins</h1>
+  <p class="lead">Every visual part of every flexdock component renders through a named, typed template looked up in a skin.
+  A skin is a set of templates plus CSS; anything it leaves out comes from the built-in skin. Swap the whole look with one import,
+  or replace a single part — page-wide or for one dock — without forking anything.</p>
+  <pre><code>// pick a look for the whole page (the import applies it)
+import "flexdock/skins/nimbus";
+
+// or choose at runtime
+import { useSkin, nimbus, ledger, phosphor } from "flexdock/skins";
+useSkin(phosphor);
+
+// or per dock
+&lt;flexdock-manager skin="ledger"&gt;…&lt;/flexdock-manager&gt;</code></pre>
+  <h2>Live skin switcher</h2>
+  <p>The switcher calls <code>useSkin</code>, so every demo on this site follows it (it is remembered while you browse).</p>
+  ${ex("skins")}
+  <h2>Built-in skins</h2>
+  <table><tr><th>Skin</th><th>Import</th><th>Look</th></tr>
+  <tr><td><code>default</code></td><td><code>flexdock/skins/default</code></td><td>Clean, neutral, rounded; applied automatically</td></tr>
+  <tr><td><code>nimbus</code></td><td><code>flexdock/skins/nimbus</code></td><td>Soft and airy: pill tabs, floating cards, dotted splitters, gradient canvas</td></tr>
+  <tr><td><code>ledger</code></td><td><code>flexdock/skins/ledger</code></td><td>Bold and graphic: thick ink borders, square corners, uppercase, text toolbar</td></tr>
+  <tr><td><code>phosphor</code></td><td><code>flexdock/skins/phosphor</code></td><td>Retro terminal: monospace green on black, ASCII icons and drop targets</td></tr></table>
+  <h2>Different skins on one page</h2>
+  <p>Set <code>skin</code> (a registered name, or a skin object) on a dock to override the page-wide skin for that dock only.</p>
+  ${ex("skins-per-dock")}
+  <h2>Overriding single parts</h2>
+  <p>Each part has a template key with a typed context (see the table below). <code>overrideSkin(patch)</code> layers a partial map of templates
+  and/or CSS over whatever skin is active, for every dock; it returns a function that removes it. <code>dock.skinPatch</code> does the same for one dock.
+  Lookup order: dock patch → page-wide overrides (newest first) → dock skin or page skin → the skins it extends → built-in.</p>
+  ${ex("skins-override-global")}
+  ${ex("skins-override-dock")}
+  <h2>Writing a custom skin</h2>
+  <ol>
+    <li>Make a folder, e.g. <code>my-skin/</code>, with <code>css.ts</code> and <code>templates.ts</code>.</li>
+    <li>Start from the CSS variables (<code>--fd-accent</code>, <code>--fd-surface</code>, <code>--fd-line</code>, <code>--fd-radius</code>, <code>--fd-gutter</code>, <code>--fd-bar-height</code>, <code>--fd-font</code> …),
+    then add rules for the classes the templates use (<code>.stack</code>, <code>.bar</code>, <code>.tab</code>, <code>.btn</code>, <code>.target</code>, <code>.window</code> …). Your CSS is added after the built-in styles, so equal-specificity rules win.</li>
+    <li>Write only the templates you want to change. Each is <code>(ctx, kit) =&gt; TemplateResult</code>; <code>kit.paint(key, ctx)</code> renders another (overridable) template and <code>kit.icons</code> holds the built-in icons.
+    Call the callbacks in the context (<code>close()</code>, <code>press()</code>, <code>choose()</code>) to act, and stop propagation on buttons inside tabs or headers so the click does not also select or drag.</li>
+    <li>Keep the class names the behaviour code looks for: <code>.tabs</code> around the tab elements, <code>.btn</code> on buttons, <code>.grip</code> on the window grip, <code>data-cancel</code>/<code>data-primary</code> in the confirm dialog.</li>
+    <li>Create it with <code>defineSkin(name, { templates, css })</code> (extends the built-in skin) or <code>extendSkin(base, name, patch)</code> (extends another skin), then <code>useSkin</code> it or set it on a dock.</li>
+  </ol>
+  <pre><code>import { html, css } from "lit";
+import { defineSkin, type SkinTemplates } from "flexdock/skins";
+
+const templates: Partial&lt;SkinTemplates&gt; = {
+  // ctx is typed: { title: string; selected: boolean; preview: boolean }
+  "tab-label": (ctx) =&gt; html\`&lt;span class="label"&gt;\${ctx.selected ? "▸ " : ""}\${ctx.title}&lt;/span&gt;\`
+};
+export const sunset = defineSkin("sunset", { templates, css: css\`:host { --fd-accent: #f2542d; --fd-radius: 4px; }\` });</code></pre>
+  ${ex("skins-custom")}
+  <h2>Template keys</h2>
+  <table><tr><th>Key</th><th>Context</th><th>Part</th></tr>
+  <tr><td><code>tab</code></td><td><code>view, title, info?, selected, pinned, preview, dirty, closable, compact, closeLabel, dirtyLabel, close()</code></td><td>Inside each tab; composes the five tab-* keys</td></tr>
+  <tr><td><code>tab-glyph</code></td><td><code>icon</code></td><td>The tab's icon</td></tr>
+  <tr><td><code>tab-label</code></td><td><code>title, selected, preview</code></td><td>The tab's title</td></tr>
+  <tr><td><code>tab-dirty-dot</code></td><td><code>label</code></td><td>Unsaved-changes mark</td></tr>
+  <tr><td><code>tab-pin-mark</code></td><td><code>title</code></td><td>Pinned-tab mark</td></tr>
+  <tr><td><code>tab-close-button</code></td><td><code>title, label, close()</code></td><td>A tab's close button</td></tr>
+  <tr><td><code>tabstrip</code></td><td><code>tabs, label, back, forward, wheel(e), scrolled()</code></td><td>The tab list; keep <code>class="tabs"</code> around <code>tabs</code></td></tr>
+  <tr><td><code>tab-scroll-button</code></td><td><code>dir, scroll()</code></td><td>Overflow scroll buttons</td></tr>
+  <tr><td><code>group</code></td><td><code>bar, body, docs</code></td><td>A pane / document group</td></tr>
+  <tr><td><code>group-bar</code></td><td><code>title, toolbar, tabbed, grab(e), zoom()</code></td><td>The pane header</td></tr>
+  <tr><td><code>group-title</code></td><td><code>id, title, icon?, dirty, dirtyLabel</code></td><td>Title of a single-view pane</td></tr>
+  <tr><td><code>toolbar</code></td><td><code>buttons</code></td><td>Pane header buttons</td></tr>
+  <tr><td><code>toolbar-button</code></td><td><code>action, label, part, press()</code></td><td>One header button</td></tr>
+  <tr><td><code>view-content</code></td><td><code>slot</code></td><td>Where a view's content goes</td></tr>
+  <tr><td><code>view-empty</code></td><td><code>label</code></td><td>Empty document area</td></tr>
+  <tr><td><code>view-away</code></td><td><code>message, label, bringBack()</code></td><td>Placeholder of a popped-out view</td></tr>
+  <tr><td><code>splitter</code></td><td><code>axis, folded, drop, value</code></td><td>Inside a splitter (default: nothing)</td></tr>
+  <tr><td><code>floating-window</code></td><td><code>key, title, content, grip</code></td><td>A floating window</td></tr>
+  <tr><td><code>floating-header</code></td><td><code>key, title</code></td><td>Optional header above a floating window (default: nothing)</td></tr>
+  <tr><td><code>floating-grip</code></td><td><code>startResize(e)</code></td><td>Window resize grip</td></tr>
+  <tr><td><code>drop-preview</code></td><td><code>left, top, width, height</code></td><td>Landing preview during a drag</td></tr>
+  <tr><td><code>drop-target</code></td><td><code>zone, hot, x, y, direction</code></td><td>One drop target</td></tr>
+  <tr><td><code>drag-ghost</code></td><td><code>label, x, y</code></td><td>The label following the pointer</td></tr>
+  <tr><td><code>flyout</code></td><td><code>id, title, unstowLabel, closeLabel?, unstow(), close?(), body</code></td><td>An open auto-hide drawer</td></tr>
+  <tr><td><code>rail-item</code></td><td><code>id, title, open, toggle(), hover(e)</code></td><td>A button on an auto-hide rail</td></tr>
+  <tr><td><code>menu-item</code></td><td><code>label, role, checked?, index?, style?, choose()</code></td><td>Pane menu entry</td></tr>
+  <tr><td><code>menu-separator</code></td><td><code>—</code></td><td>Menu rule</td></tr>
+  <tr><td><code>tab-menu-item</code></td><td><code>label, key, checked?, disabled, choose()</code></td><td>Tab context menu entry</td></tr>
+  <tr><td><code>palette-item</code></td><td><code>label, detail, selected, choose()</code></td><td>Command palette row</td></tr>
+  <tr><td><code>palette-empty</code></td><td><code>label</code></td><td>Command palette, no matches</td></tr>
+  <tr><td><code>notice</code></td><td><code>message, actions[]</code></td><td>Notice bar</td></tr>
+  <tr><td><code>confirm</code></td><td><code>message, okLabel, cancelLabel, ok(), cancel()</code></td><td>Close confirmation dialog</td></tr></table>`,
+  examples: [{ id: "skins", height: 440, code: `${SETUP}
+view("files", "<h3>Explorer</h3><ul><li>src</li><li>tests</li></ul>");
+view("app", "<h3>app.ts</h3><p class='muted'>Switch skins above: every part re-renders through the new skin.</p>");
+view("theme", "<h3>theme.css</h3>");
+view("out", "<span class='muted'>$ npm test  ✓ 128 passed</span>");
+view("props", "<h3>Properties</h3>");
+view("notes", "<h3>Notes</h3>");
+dock.model = createModel(
+  { files: { title: "Explorer", icon: "📁" }, app: { title: "app.ts" }, theme: { title: "theme.css" }, out: { title: "Terminal" }, props: { title: "Properties" }, notes: { title: "Notes" } },
+  row([stack(["files"]), column([docs(["app", "theme"]), stack(["out"])], [3, 1.2]), stack(["props"])], [1, 3.4, 1])
+);
+dock.stow("props", "end");
+dock.detach("notes", { x: 420, y: 60, w: 260, h: 170 });
+dock.setDirty("theme");
+dock.pin("app");
+for (const s of [defaultSkin, nimbus, ledger, phosphor]) {
+  button(s.name, () => {
+    useSkin(s);
+    localStorage.setItem("fd-site-skin", s.name);
+    log("useSkin(" + s.name + ")");
+  });
+}` }, { id: "skins-per-dock", height: 300, code: `host.style.display = "grid";
+host.style.gridTemplateColumns = "repeat(3, 1fr)";
+host.style.gap = "8px";
+for (const name of ["nimbus", "ledger", "phosphor"]) {
+  const dock = document.createElement("flexdock-manager");
+  dock.setAttribute("skin", name);
+  dock.setAttribute("data-fixed-theme", "");
+  host.append(dock);
+  dock.addView("a", "Skin: " + name, { title: "Readme" });
+  dock.addView("b", "Second tab", { title: "Notes", at: { near: "a" } });
+}` }, { id: "skins-override-global", height: 300, code: `${basic}
+let off;
+button("Override tab labels everywhere", () => {
+  off?.();
+  off = overrideSkin({
+    templates: { "tab-label": (c) => html\`<span class="label">\${c.selected ? "★ " : ""}\${c.title}</span>\` },
+    css: ".tab[aria-selected=true] .label { font-weight: 700; }"
+  });
+  log("overrideSkin: tab-label");
+});
+button("Remove override", () => { off?.(); off = undefined; log("override removed"); });` }, { id: "skins-override-dock", height: 300, code: `${basic}
+button("Patch this dock", () => {
+  dock.skinPatch = {
+    templates: {
+      splitter: (c) => html\`<span class="handle">\${c.axis === "row" ? "⋮" : "⋯"}</span>\`,
+      "tab-close-button": (c) => html\`<button class="btn" aria-label=\${c.label + " " + c.title}
+        @pointerdown=\${(e) => e.stopPropagation()} @click=\${(e) => { e.stopPropagation(); c.close(); }}>✖</button>\`
+    },
+    css: ".handle { position: absolute; inset: 0; display: grid; place-items: center; color: var(--fd-accent); font-weight: 700; }"
+  };
+  log("dock.skinPatch set: splitter, tab-close-button");
+});
+button("Clear patch", () => { dock.skinPatch = undefined; log("patch cleared"); });` }, { id: "skins-custom", height: 320, code: `${basic}
+const sunset = extendSkin(defaultSkin, "sunset", {
+  templates: { "tab-label": (c) => html\`<span class="label">\${c.selected ? "▸ " : ""}\${c.title}</span>\` },
+  css: \`:host { --fd-accent: #f2542d; --fd-canvas: #fff1e6; --fd-surface-2: #ffe3cf; --fd-line: #f5c3a3; --fd-radius: 4px; }
+    .bar { background: linear-gradient(90deg, #ffd6b8, #ffe9d6); }\`
+});
+dock.skin = sunset;
+log("dock.skin = sunset");` }]
+});
+
 // ---------------------------------------------------------------- API
 add({
   slug: "api", title: "API reference", section: "Reference",

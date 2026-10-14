@@ -33,11 +33,10 @@ export class FlexdockView extends FlexdockPart {
 
   override render(): TemplateResult {
     const t = this.ctx.labels;
-    if (!this.view) return html`<div class="empty">${t.emptyDocs}</div>`;
+    if (!this.view) return html`${this.paint("view-empty", { label: t.emptyDocs })}`;
     if (this.ctx.popped.has(this.view)) {
-      return html`<div class="away"><p>${t.poppedOut}</p><button class="btn" style="width:auto;padding:0 10px"
-        @click=${() => this.request("popin", { id: this.view })}>${t.popin}</button></div>`;
+      return html`${this.paint("view-away", { message: t.poppedOut, label: t.popin, bringBack: () => this.request("popin", { id: this.view }) })}`;
     }
-    return html`<slot name=${slotOf(this.view)}></slot>`;
+    return html`${this.paint("view-content", { slot: slotOf(this.view) })}`;
   }
 }

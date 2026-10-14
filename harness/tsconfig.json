@@ -9,7 +9,7 @@
     "types": ["vite/client"],
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "experimentalDecorators": true,
-    "paths": { "flexdock": ["../src/index.ts"], "flexdock/*": ["../src/*.ts"] }
+    "paths": { "flexdock": ["../src/index.ts"], "flexdock/skins": ["../src/skins/index.ts"], "flexdock/skins/*": ["../src/skins/*/index.ts"], "flexdock/*": ["../src/*.ts"] }
   },
   "include": ["./**/*.ts"]
 }

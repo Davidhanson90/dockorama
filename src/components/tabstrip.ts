@@ -1,5 +1,4 @@
 import { html, type PropertyValues, type TemplateResult } from "lit";
-import { icons } from "../icons.js";
 import type { DockContext } from "./context.js";
 import { FlexdockPart } from "./part.js";
 
@@ -99,14 +98,16 @@ export class FlexdockTabstrip extends FlexdockPart {
 
   override render(): TemplateResult {
     const m = this.ctx.model;
-    const scroller = (dir: number) => html`<button class="btn scroll" part="tab-scroll" data-dir=${dir} tabindex="-1" aria-hidden="true"
-      @pointerdown=${(e: Event) => e.stopPropagation()} @click=${(e: Event) => { e.stopPropagation(); this.scrollTabs(dir); }}>${icons.arrow(dir * 90)}</button>`;
-    return html`${scroller(-1)}<div class="tabs" role="tablist" aria-label=${m.views[this.current]?.title ?? ""}
-        @wheel=${(e: WheelEvent) => this.wheel(e)} @scroll=${() => this.markOverflow()}>${this.views.map((v) => {
+    const scroller = (dir: -1 | 1) => this.paint("tab-scroll-button", { dir, scroll: () => this.scrollTabs(dir) });
+    const tabs = this.views.map((v) => {
           const info = m.views[v];
           return html`<flexdock-tab .view=${v} .info=${info} .selected=${v === this.current} .win=${this.win} .pinned=${this.pinned.includes(v)} .preview=${v === this.preview}
             .dirty=${Boolean(this.ctx.dirty?.has(v))} .dirtyLabel=${this.ctx.labels.unsaved}
             .closable=${this.docs && info?.caps?.dismiss !== false} .closeLabel=${this.ctx.labels.dismiss}></flexdock-tab>`;
-        })}</div>${scroller(1)}`;
+        });
+    return html`${this.paint("tabstrip", {
+      tabs, label: m.views[this.current]?.title ?? "", back: scroller(-1), forward: scroller(1),
+      wheel: (e: WheelEvent) => this.wheel(e), scrolled: () => this.markOverflow()
+    })}`;
   }
 }

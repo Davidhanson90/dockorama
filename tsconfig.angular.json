@@ -10,5 +10,6 @@
     "experimentalDecorators": true
   },
   "files": ["src/angular.ts"],
+  "include": [],
   "angularCompilerOptions": { "compilationMode": "partial", "strictTemplates": true }
 }

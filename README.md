@@ -31,6 +31,27 @@ See [docs/API-DESIGN.md](docs/API-DESIGN.md) for the model and API.
 `<flexdock-menu>` and `<flexdock-palette>`, plus the standalone `<flexdock-minimap>`. Source lives in `src/components/`, one
 file per element with a colocated `*.spec.ts`. Several managers can share a page; give each its own `storage-key`.
 
+## Skins
+
+Every visual part renders through a named, typed template from a skin. The built-in skin is applied automatically;
+import another to change the look of every dock, or set one per dock:
+
+```js
+import "flexdock/skins/nimbus";            // or ledger, phosphor
+import { useSkin, overrideSkin, extendSkin } from "flexdock/skins";
+overrideSkin({ templates: { "tab-label": (c) => html`<b>${c.title}</b>` } });   // one part, page-wide
+dock.skinPatch = { css: ".tab { font-style: italic }" };                       // one dock
+```
+
+See the Skins guide on the docs site for every template key and its context.
+
+## Events
+
+All events are typed `CustomEvent`s on `<flexdock-manager>` (bubbling, composed): layout, view lifecycle
+(`flexdock-beforeadd`, `-viewshow`, `-viewhide`, `-close`, `-viewremove`), state (`-float`, `-dock`, `-stow`, `-pin`,
+`-popout`, `-collapse` and their pairs), drag (`-dragstart`, `-dragover`, `-drop`), resize (`-resize`, `-resizing`)
+and menu commands (`-command`). See the Events guide on the docs site.
+
 ## Framework wrappers
 
 Optional subpath exports; each framework is an optional peer dependency.

@@ -29,7 +29,6 @@ export class FlexdockNotice extends FlexdockPart {
   }
 
   override render(): TemplateResult {
-    return html`<span class="notice-text">${this.message}</span>${this.actions.map((a) =>
-      html`<button class="btn notice-btn" ?data-primary=${Boolean(a.primary)} @click=${() => this.request(a.action)}>${a.label}</button>`)}`;
+    return html`${this.paint("notice", { message: this.message, actions: this.actions.map((a) => ({ label: a.label, primary: Boolean(a.primary), run: () => this.request(a.action) })) })}`;
   }
 }

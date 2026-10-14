@@ -26,13 +26,23 @@
       "types": "./dist/svelte.d.ts",
       "import": "./dist/svelte.js"
     },
+    "./skins": {
+      "types": "./dist/skins/index.d.ts",
+      "import": "./dist/skins/index.js"
+    },
+    "./skins/*": {
+      "types": "./dist/skins/*/index.d.ts",
+      "import": "./dist/skins/*/index.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
     "dist"
   ],
   "sideEffects": [
-    "./dist/index.js"
+    "./dist/index.js",
+    "./dist/skins/*/index.js",
+    "./dist/skins/default/skin.js"
   ],
   "scripts": {
     "prebuild": "rimraf dist",

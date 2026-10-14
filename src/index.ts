@@ -36,3 +36,7 @@ declare global {
     "flexdock-minimap": FlexdockMinimap;
   }
 }
+export {
+  activeSkin, clearSkinOverrides, defineSkin, extendSkin, overrideSkin, skinNamed, skinNames, useSkin,
+  type Skin, type SkinContexts, type SkinKey, type SkinKit, type SkinOutput, type SkinPatch, type SkinTemplate, type SkinTemplates
+} from "./skins/core.js";

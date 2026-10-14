@@ -1,5 +1,4 @@
-import { html, nothing, type PropertyValues, type TemplateResult } from "lit";
-import { icons } from "../icons.js";
+import { html, type PropertyValues, type TemplateResult } from "lit";
 import type { ViewInfo } from "../model.js";
 import { FlexdockPart } from "./part.js";
 
@@ -94,13 +93,10 @@ export class FlexdockTab extends FlexdockPart {
     const title = this.info?.title ?? this.view;
     const compact = this.pinned && Boolean(this.info?.icon);
     if (this.pinned) this.title = title;
-    return html`${this.info?.icon ? html`<span class="glyph">${this.info.icon}</span>` : nothing}${compact ? nothing : html`<span class="label">${title}</span>`}
-      ${this.dirty ? html`<span class="dirty" part="tab-dirty" role="img" aria-label=${this.dirtyLabel}></span>` : nothing}
-      ${this.pinned ? html`<span class="pin" part="tab-pin" aria-hidden="true">${icons.pin}</span>` : nothing}
-      ${this.closable && !this.pinned
-        ? html`<button class="btn" part="tab-close" tabindex="-1" aria-label="${this.closeLabel} ${title}"
-            @pointerdown=${(e: Event) => e.stopPropagation()}
-            @click=${(e: Event) => { e.stopPropagation(); this.request("dismiss", { id: this.view }); }}>${icons.close}</button>`
-        : nothing}`;
+    return html`${this.paint("tab", {
+      view: this.view, title, ...(this.info ? { info: this.info } : {}), selected: this.selected, pinned: this.pinned, preview: this.preview,
+      dirty: this.dirty, closable: this.closable, compact, closeLabel: this.closeLabel, dirtyLabel: this.dirtyLabel,
+      close: () => this.request("dismiss", { id: this.view })
+    })}`;
   }
 }

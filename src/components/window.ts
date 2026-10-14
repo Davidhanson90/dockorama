@@ -43,7 +43,10 @@ export class FlexdockWindow extends FlexdockPart {
   }
 
   override render(): TemplateResult {
-    return html`<div class="content">${renderNode(this.tree, [], this.key, this.ctx)}</div>
-      <div class="grip" part="grip" @pointerdown=${(event: PointerEvent) => this.request("grip", { key: this.key, event })}></div>`;
+    const title = viewsIn(this.tree).map((v) => this.ctx.model.views[v]?.title ?? v).join(", ");
+    const header = this.paint("floating-header", { key: this.key, title });
+    const content = html`${header}<div class="content">${renderNode(this.tree, [], this.key, this.ctx)}</div>`;
+    const grip = this.paint("floating-grip", { startResize: (event: PointerEvent) => this.request("grip", { key: this.key, event }) });
+    return html`${this.paint("floating-window", { key: this.key, title, content, grip })}`;
   }
 }

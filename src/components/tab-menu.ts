@@ -1,4 +1,4 @@
-import { html, nothing, type PropertyValues, type TemplateResult } from "lit";
+import { html, type PropertyValues, type TemplateResult } from "lit";
 import { FlexdockPart } from "./part.js";
 
 /**
@@ -77,9 +77,10 @@ export class FlexdockTabMenu extends FlexdockPart {
 
   override render(): TemplateResult {
     return html`${this.items.map((it, index) => it === "separator"
-      ? html`<hr>`
-      : html`<button role=${it.checked === undefined ? "menuitem" : "menuitemcheckbox"} data-key=${it.key}
-          aria-checked=${it.checked === undefined ? nothing : String(it.checked)} ?disabled=${Boolean(it.disabled)}
-          @click=${() => this.request("tab-menu-choose", { id: this.view, index })}>${it.label}</button>`)}`;
+      ? this.paint("menu-separator", {})
+      : this.paint("tab-menu-item", {
+        label: it.label, key: it.key, ...(it.checked === undefined ? {} : { checked: it.checked }), disabled: Boolean(it.disabled),
+        choose: () => this.request("tab-menu-choose", { id: this.view, index })
+      }))}`;
   }
 }

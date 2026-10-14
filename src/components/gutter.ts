@@ -1,4 +1,4 @@
-import { nothing, type PropertyValues } from "lit";
+import { html, type PropertyValues, type TemplateResult } from "lit";
 import { FlexdockPart } from "./part.js";
 
 /**
@@ -72,7 +72,7 @@ export class FlexdockGutter extends FlexdockPart {
     this.mark("data-folded", this.folded || undefined);
   }
 
-  override render(): typeof nothing {
-    return nothing;
+  override render(): TemplateResult {
+    return html`${this.paint("splitter", { axis: this.axis, folded: this.folded, drop: this.drop, value: this.value })}`;
   }
 }

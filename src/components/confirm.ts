@@ -53,9 +53,9 @@ export class FlexdockConfirm extends FlexdockPart {
   }
 
   override render(): TemplateResult {
-    return html`<div class="confirm-box"><p>${this.message}</p><div class="confirm-actions">
-      <button class="btn" data-cancel @click=${() => this.request("confirm-close", { id: this.view, ok: false })}>${this.cancelLabel}</button>
-      <button class="btn" data-primary @click=${() => this.request("confirm-close", { id: this.view, ok: true })}>${this.okLabel}</button>
-    </div></div>`;
+    return html`${this.paint("confirm", {
+      message: this.message, okLabel: this.okLabel, cancelLabel: this.cancelLabel,
+      ok: () => this.request("confirm-close", { id: this.view, ok: true }), cancel: () => this.request("confirm-close", { id: this.view, ok: false })
+    })}`;
   }
 }

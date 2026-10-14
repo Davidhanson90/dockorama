@@ -1,5 +1,4 @@
-import { html, nothing, type PropertyValues, type TemplateResult } from "lit";
-import { icons } from "../icons.js";
+import { html, type PropertyValues, type TemplateResult } from "lit";
 import type { Side } from "../model.js";
 import type { DockContext } from "./context.js";
 import { FlexdockPart } from "./part.js";
@@ -38,12 +37,11 @@ export class FlexdockFlyout extends FlexdockPart {
     const id = this.view;
     const t = this.ctx.labels;
     const info = this.ctx.model.views[id];
-    return html`<section class="stack" data-active data-stack=${id}>
-      <div class="bar" part="bar"><span class="title">${info?.title ?? id}</span>
-        <button class="btn" part="action unstow" aria-label=${t.unstow} title=${t.unstow} @click=${() => this.request("unstow", { id })}>${icons.unstow}</button>
-        ${info?.caps?.dismiss !== false ? html`<button class="btn" part="action close" aria-label=${t.dismiss} @click=${() => this.request("dismiss", { id })}>${icons.close}</button>` : nothing}
-      </div>
-      <flexdock-view .view=${id} .label=${info?.title ?? id} .ctx=${this.ctx}></flexdock-view>
-    </section>`;
+    const closable = info?.caps?.dismiss !== false;
+    return html`${this.paint("flyout", {
+      id, title: info?.title ?? id, unstowLabel: t.unstow, unstow: () => this.request("unstow", { id }),
+      ...(closable ? { closeLabel: t.dismiss, close: () => this.request("dismiss", { id }) } : {}),
+      body: html`<flexdock-view .view=${id} .label=${info?.title ?? id} .ctx=${this.ctx}></flexdock-view>`
+    })}`;
   }
 }

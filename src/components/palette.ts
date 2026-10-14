@@ -52,9 +52,8 @@ export class FlexdockPalette extends FlexdockPart {
         @keydown=${(e: KeyboardEvent) => this.key(e)}>
       <ul id="fd-pal" role="listbox">
         ${this.items.length
-          ? this.items.map((it, n) => html`<li role="option" aria-selected=${n === index ? "true" : "false"}
-              @pointerdown=${(e: Event) => { e.preventDefault(); this.request("palette-choose", { index: n }); }}>${it.label}<small>${it.detail}</small></li>`)
-          : html`<li aria-disabled="true">${this.empty}</li>`}
+          ? this.items.map((it, n) => this.paint("palette-item", { label: it.label, detail: it.detail, selected: n === index, choose: () => this.request("palette-choose", { index: n }) }))
+          : this.paint("palette-empty", { label: this.empty })}
       </ul>`;
   }
 }

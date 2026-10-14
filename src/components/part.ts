@@ -1,4 +1,7 @@
 import { LitElement } from "lit";
+import { icons } from "../icons.js";
+import { templateFor, type SkinContexts, type SkinKey, type SkinKit, type SkinOutput, type SkinScope } from "../skins/core.js";
+import "../skins/default/skin.js";
 
 /** Detail of the internal `flexdock-request` event that UI parts send to their manager. */
 export interface PartRequest {
@@ -24,6 +27,20 @@ export abstract class FlexdockPart extends LitElement {
       if (el instanceof FlexdockPart) done = (await el.updateComplete) && done;
     }
     return done;
+  }
+
+  /** Where this part's templates come from: the owning manager's skin settings, else the page-wide skin. */
+  protected skinScope(): SkinScope {
+    const root = this.getRootNode() as ShadowRoot | Document;
+    const host = (root as ShadowRoot).host as (Element & { skinScope?: () => SkinScope }) | undefined;
+    return host?.skinScope?.() ?? {};
+  }
+
+  /** Render the current skin's template for `key`. */
+  protected paint<K extends SkinKey>(key: K, ctx: SkinContexts[K]): SkinOutput {
+    const scope = this.skinScope();
+    const kit: SkinKit = { paint: (k, c) => templateFor(k, scope)(c, kit), icons };
+    return templateFor(key, scope)(ctx, kit);
   }
 
   /** Ask the owning manager to do something. */

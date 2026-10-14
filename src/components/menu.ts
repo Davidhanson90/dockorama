@@ -1,4 +1,5 @@
-import { html, nothing, type PropertyValues, type TemplateResult } from "lit";
+import { html, type PropertyValues, type TemplateResult } from "lit";
+import type { SkinOutput } from "../skins/core.js";
 import { FlexdockPart } from "./part.js";
 
 /** An entry of `<flexdock-menu>`: a command, a radio item (`checked` set) or a separator. */
@@ -88,14 +89,17 @@ export class FlexdockMenu extends FlexdockPart {
     this.style.cssText = `left:${this.x}px;top:${this.y}px`;
   }
 
-  private item(it: Exclude<MenuEntry, "separator">, index?: number, style?: string): TemplateResult {
-    return html`<button role=${it.checked === undefined ? "menuitem" : "menuitemradio"} aria-checked=${it.checked === undefined ? nothing : String(it.checked)}
-      data-index=${index ?? nothing} style=${style ?? nothing} @click=${() => this.request(it.action, { id: it.id, fromMenu: true })}>${it.label}</button>`;
+  private item(it: Exclude<MenuEntry, "separator">, index?: number, style?: string): SkinOutput {
+    return this.paint("menu-item", {
+      label: it.label, role: it.checked === undefined ? "menuitem" : "menuitemradio",
+      ...(it.checked === undefined ? {} : { checked: it.checked }), ...(index === undefined ? {} : { index }), ...(style ? { style } : {}),
+      choose: () => this.request(it.action, { id: it.id, fromMenu: true })
+    });
   }
 
   override render(): TemplateResult {
     const { list, rest } = this.split();
-    const plain = (items: MenuEntry[]) => items.map((it) => (it === "separator" ? html`<hr>` : this.item(it)));
+    const plain = (items: MenuEntry[]) => items.map((it) => (it === "separator" ? this.paint("menu-separator", {}) : this.item(it)));
     if (list.length <= VIRTUAL_AFTER) return html`${plain(this.entries)}`;
     const first = Math.max(0, Math.floor(this._top / ROW) - 4);
     const last = Math.min(list.length, first + SHOW + 8);

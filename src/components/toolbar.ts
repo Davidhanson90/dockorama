@@ -1,5 +1,5 @@
 import { html, nothing, type TemplateResult } from "lit";
-import { icons } from "../icons.js";
+import type { SkinOutput } from "../skins/core.js";
 import type { DockContext } from "./context.js";
 import { FlexdockPart } from "./part.js";
 
@@ -20,14 +20,14 @@ export class FlexdockToolbar extends FlexdockPart {
     const t = this.ctx.labels;
     const c = this.ctx.model.views[this.view]?.caps ?? {};
     const zoomed = Boolean(this.ctx.model.zoom);
-    const stop = (e: Event) => e.stopPropagation();
-    const b = (label: string, icon: unknown, action: string, part: string) =>
-      html`<button class="btn" part="action ${part}" title=${label} aria-label=${label} @pointerdown=${stop}
-        @click=${(e: Event) => { stop(e); this.request(action, { id: this.view }); }}>${icon}</button>`;
-    return html`
-      ${!this.win && !this.docs && c.hide !== false && !zoomed ? b(t.stow, icons.stow, "stow", "stow") : nothing}
-      ${c.zoom !== false ? b(zoomed ? t.unzoom : t.zoom, zoomed ? icons.unzoom : icons.zoom, "zoom", "zoom") : nothing}
-      ${b(t.more, icons.more, "menu", "more")}
-      ${!this.docs && c.dismiss !== false ? b(t.dismiss, icons.close, "dismiss", "close") : nothing}`;
+    const b = (label: string, action: "stow" | "zoom" | "unzoom" | "menu" | "dismiss", request: string, part: string) =>
+      this.paint("toolbar-button", { action, label, part, press: () => this.request(request, { id: this.view }) });
+    const buttons: SkinOutput[] = [
+      !this.win && !this.docs && c.hide !== false && !zoomed ? b(t.stow, "stow", "stow", "stow") : nothing,
+      c.zoom !== false ? b(zoomed ? t.unzoom : t.zoom, zoomed ? "unzoom" : "zoom", "zoom", "zoom") : nothing,
+      b(t.more, "menu", "menu", "more"),
+      !this.docs && c.dismiss !== false ? b(t.dismiss, "dismiss", "dismiss", "close") : nothing
+    ];
+    return html`${this.paint("toolbar", { buttons })}`;
   }
 }

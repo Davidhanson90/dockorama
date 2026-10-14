@@ -1,4 +1,6 @@
-import * as flexdock from "flexdock";
+import * as core from "flexdock";
+import * as skins from "flexdock/skins";
+import { html } from "lit";
 import { pages, type Page, type Example } from "./content.js";
 
 const side = document.getElementById("side")!;
@@ -27,12 +29,23 @@ side.innerHTML = sections
   .join("");
 
 const escapeHtml = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
-const IMPORTS = ["createModel", "row", "column", "stack", "docs", "Workspaces"];
+const flexdock = { ...core, ...skins };
+const CORE_IMPORTS = ["createModel", "row", "column", "stack", "docs", "Workspaces"];
+const SKIN_IMPORTS = ["useSkin", "defineSkin", "extendSkin", "overrideSkin", "clearSkinOverrides", "defaultSkin", "nimbus", "ledger", "phosphor"];
+const IMPORTS = [...CORE_IMPORTS, ...SKIN_IMPORTS, "html"];
+
+// Site-wide skin chosen on the Skins page.
+const savedSkin = localStorage.getItem("fd-site-skin");
+if (savedSkin && skins.skinNamed(savedSkin)) skins.useSkin(savedSkin);
 
 /** Show example code exactly as it runs. */
 export function sourceOf(ex: Example): string {
-  const used = IMPORTS.filter((n) => new RegExp(`\\b${n}\\b`).test(ex.code));
-  return `import { ${used.join(", ")} } from "flexdock";\n\n${ex.code.trim()}\n`;
+  const uses = (names: string[]) => names.filter((n) => new RegExp(`\\b${n}\\b`).test(ex.code));
+  const lines = [];
+  if (/\bhtml`/.test(ex.code)) lines.push(`import { html } from "lit";`);
+  if (uses(CORE_IMPORTS).length) lines.push(`import { ${uses(CORE_IMPORTS).join(", ")} } from "flexdock";`);
+  if (uses(SKIN_IMPORTS).length) lines.push(`import { ${uses(SKIN_IMPORTS).join(", ")} } from "flexdock/skins";`);
+  return `${lines.join("\n")}\n\n${ex.code.trim()}\n`;
 }
 
 function mountExample(ex: Example, container: HTMLElement): void {
@@ -65,7 +78,8 @@ function mountExample(ex: Example, container: HTMLElement): void {
     events.prepend(line);
   };
   const run = new Function("host", "button", "log", ...IMPORTS, ex.code) as (...a: unknown[]) => void;
-  run(stage, button, log, ...IMPORTS.map((n) => (flexdock as Record<string, unknown>)[n]));
+  const lib = { ...flexdock, html } as Record<string, unknown>;
+  run(stage, button, log, ...IMPORTS.map((n) => lib[n]));
   const details = document.createElement("details");
   details.className = "code";
   details.open = ex.openCode ?? false;

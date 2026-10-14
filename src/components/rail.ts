@@ -27,9 +27,10 @@ export class FlexdockRail extends FlexdockPart {
   }
 
   override render(): TemplateResult {
-    return html`${this.views.map((id) => html`<button class="rail-item" part="rail-item" aria-expanded=${this.open === id ? "true" : "false"}
-      @click=${() => this.request("peek", { id, toggle: true })}
-      @pointerenter=${(e: PointerEvent) => { if (e.pointerType === "mouse" && this.open !== id) this.request("peek", { id, toggle: false }); }}>
-      ${this.ctx.model.views[id]?.title ?? id}</button>`)}`;
+    return html`${this.views.map((id) => this.paint("rail-item", {
+      id, title: this.ctx.model.views[id]?.title ?? id, open: this.open === id,
+      toggle: () => this.request("peek", { id, toggle: true }),
+      hover: (e: PointerEvent) => { if (e.pointerType === "mouse" && this.open !== id) this.request("peek", { id, toggle: false }); }
+    }))}`;
   }
 }

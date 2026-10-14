@@ -1,5 +1,4 @@
 import { html, nothing, type PropertyValues, type TemplateResult } from "lit";
-import { icons } from "../icons.js";
 import type { Rect } from "../geometry.js";
 import { FlexdockPart } from "./part.js";
 
@@ -10,8 +9,6 @@ export interface GuideSpot {
   y: number;
   hot: boolean;
 }
-
-const ARROW: Record<string, number> = { left: -90, right: 90, above: 0, below: 180 };
 
 /** `<flexdock-drop-guide>`: drag feedback: drop targets, the landing preview and the dragged-view ghost. */
 export class FlexdockDropGuide extends FlexdockPart {
@@ -32,12 +29,8 @@ export class FlexdockDropGuide extends FlexdockPart {
 
   override render(): TemplateResult {
     const p = this.preview;
-    return html`${p ? html`<div class="preview" part="preview" style="left:${p.left}px;top:${p.top}px;width:${p.width}px;height:${p.height}px"></div>` : nothing}
-      ${this.spots.map((s) => {
-        const dir = s.zone.replace("edge-", "");
-        return html`<div class="target" part="target" data-zone=${s.zone} ?data-hot=${s.hot} style="left:${s.x}px;top:${s.y}px">
-          ${dir === "into" || dir === "between" ? icons.join : icons.arrow(ARROW[dir] ?? 0)}</div>`;
-      })}
-      ${this.ghost ? html`<div class="ghost" part="ghost" style="left:${this.ghost.x}px;top:${this.ghost.y}px">${this.ghost.label}</div>` : nothing}`;
+    return html`${p ? this.paint("drop-preview", { left: p.left, top: p.top, width: p.width, height: p.height }) : nothing}
+      ${this.spots.map((s) => this.paint("drop-target", { zone: s.zone, hot: Boolean(s.hot), x: s.x, y: s.y, direction: s.zone.replace("edge-", "") }))}
+      ${this.ghost ? this.paint("drag-ghost", { label: this.ghost.label, x: this.ghost.x, y: this.ghost.y }) : nothing}`;
   }
 }
