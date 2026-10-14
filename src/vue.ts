@@ -27,6 +27,7 @@ export const FlexdockLayout = defineComponent({
     tabMenu: { type: Function as PropType<(viewId: string, items: TabMenuItem[]) => TabMenuItem[]>, default: undefined },
     confirmClose: { type: Function as PropType<(viewId: string) => boolean | Promise<boolean>>, default: undefined },
     layoutVersion: { type: Number, default: undefined },
+    retain: { type: String as PropType<"all" | "active">, default: undefined },
     migrations: { type: Object as PropType<LayoutMigrations>, default: undefined }
   },
   emits: {

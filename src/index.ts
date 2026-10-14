@@ -14,7 +14,7 @@ export {
 } from "./components/index.js";
 export * from "./model.js";
 export {
-  addView, adopt, catalogue, promote, previewOf, setPreview, upgrade, validate, closeSet, comeInside, goOutside, outsideOf, pin, tuneOutside, enlist, column, copy, createModel, detach, dismiss, docs, emptyModel, forget, isModel, locate,
+  addView, adopt, cellOf, clampPair, fixSize, fold, limitSize, resizeCells, catalogue, promote, previewOf, setPreview, upgrade, validate, closeSet, comeInside, goOutside, outsideOf, pin, tuneOutside, enlist, column, copy, createModel, detach, dismiss, docs, emptyModel, forget, isModel, locate,
   fillDocs, insertBetween, normalize, place, placeAtEdge, reorder, reveal, row, select, setWeights, stack, stacksOf, stow, toggleZoom,
   unplace, unstow, viewsIn
 } from "./ops.js";

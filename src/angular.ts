@@ -38,6 +38,7 @@ export class FlexdockLayoutComponent implements AfterViewInit, OnChanges, OnDest
   @Input() tabMenu?: (viewId: string, items: TabMenuItem[]) => TabMenuItem[];
   @Input() confirmClose?: (viewId: string) => boolean | Promise<boolean>;
   @Input() layoutVersion?: number;
+  @Input() retain?: "all" | "active";
   @Input() migrations?: LayoutMigrations;
 
   @Output() readonly layoutChange = new EventEmitter<{ model: FlexdockModel; reason: ChangeReason }>();
@@ -107,6 +108,6 @@ export class FlexdockLayoutComponent implements AfterViewInit, OnChanges, OnDest
   private sync(): void {
     const el = this.element;
     if (el) applyProps(el, { model: this.model, theme: this.theme, snap: this.snap, storageKey: this.storageKey, keepEmpty: this.keepEmpty, labels: this.labels, dragGroup: this.dragGroup, tabMenu: this.tabMenu,
-      confirmClose: this.confirmClose, layoutVersion: this.layoutVersion, migrations: this.migrations });
+      confirmClose: this.confirmClose, layoutVersion: this.layoutVersion, migrations: this.migrations, retain: this.retain });
   }
 }

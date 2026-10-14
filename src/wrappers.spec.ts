@@ -53,6 +53,8 @@ describe("bridge: drag groups, tab menu hook and transfer events", () => {
     expect(dirty).toHaveBeenCalledWith({ id: "x", dirty: true });
     applyProps(el, { layoutVersion: 3, migrations: {} });
     expect(el.layoutVersion).toBe(3);
+    applyProps(el, { retain: "active" });
+    expect(el.retain).toBe("active");
   });
 });
 

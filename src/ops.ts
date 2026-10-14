@@ -1,4 +1,4 @@
-import type { ViewSpot, OutsideWindow, LayoutMigrations,
+import type { ViewSpot, OutsideWindow, LayoutMigrations, SizeLimits,
   Box, DockNode, DropZone, EdgeZone, FlexdockModel, Side, SplitNode, StackNode, ViewInfo, Whereabouts
 } from "./model.js";
 
@@ -61,6 +61,28 @@ export function nodeAt(node: DockNode | null, path: number[]): DockNode | null {
   return cur;
 }
 
+/** Per-child extras of a split, kept aligned with `children`. */
+const EXTRAS = ["fixed", "limits", "folded"] as const;
+type Extra = (typeof EXTRAS)[number];
+const blank: Record<Extra, null | false> = { fixed: null, limits: null, folded: false };
+
+/** Rebuild a split's per-child extras for a new child list, given where each new child came from (old index or -1). */
+function carryExtras(node: SplitNode, from: number[]): Partial<SplitNode> {
+  const out: Partial<SplitNode> = {};
+  for (const k of EXTRAS) {
+    const arr = node[k] as unknown[] | undefined;
+    if (!arr) continue;
+    const next = from.map((i) => (i >= 0 ? (arr[i] ?? blank[k]) : blank[k]));
+    if (next.some((v) => v !== null && v !== false)) (out as Record<string, unknown>)[k] = next;
+  }
+  return out;
+}
+function withoutExtras(node: SplitNode): SplitNode {
+  const { fixed: _f, limits: _l, folded: _d, ...rest } = node;
+  void _f; void _l; void _d;
+  return rest;
+}
+
 /** Remove a view from a tree. Prunes empty non-document stacks and collapses single-child splits. */
 function pluck(node: DockNode | null, id: string, keepEmpty: boolean): DockNode | null {
   if (!node) return null;
@@ -74,22 +96,27 @@ function pluck(node: DockNode | null, id: string, keepEmpty: boolean): DockNode 
   }
   const children: DockNode[] = [];
   const weights: number[] = [];
+  const from: number[] = [];
   node.children.forEach((child, i) => {
     const next = pluck(child, id, keepEmpty);
     if (next) {
       children.push(next);
       weights.push(node.weights[i] ?? 1);
+      from.push(i);
     }
   });
-  return tidySplit({ ...node, children, weights });
+  return tidySplit({ ...withoutExtras(node), ...carryExtras(node, from), children, weights });
 }
 
 /** Collapse single-child splits and flatten nested same-axis splits. */
 function tidySplit(node: SplitNode): DockNode | null {
   if (!node.children.length) return null;
   if (node.children.length === 1) return node.children[0]!;
+  if (!node.children.some((c) => c.kind === "split" && c.axis === node.axis)) return node;
   const children: DockNode[] = [];
   const weights: number[] = [];
+  const extras: Record<Extra, unknown[]> = { fixed: [], limits: [], folded: [] };
+  const at = (n: SplitNode, k: Extra, i: number) => (n[k] as unknown[] | undefined)?.[i] ?? blank[k];
   node.children.forEach((child, i) => {
     const w = node.weights[i] ?? 1;
     if (child.kind === "split" && child.axis === node.axis) {
@@ -97,13 +124,17 @@ function tidySplit(node: SplitNode): DockNode | null {
       child.children.forEach((c, j) => {
         children.push(c);
         weights.push((w * (child.weights[j] ?? 1)) / total);
+        for (const k of EXTRAS) extras[k].push(at(child, k, j));
       });
     } else {
       children.push(child);
       weights.push(w);
+      for (const k of EXTRAS) extras[k].push(at(node, k, i));
     }
   });
-  return { ...node, children, weights };
+  const out: SplitNode = { ...withoutExtras(node), children, weights };
+  for (const k of EXTRAS) if (extras[k].some((v) => v !== null && v !== false)) (out as unknown as Record<string, unknown>)[k] = extras[k];
+  return out;
 }
 
 /** Normalise a model: fix weights, drop unknown ids, tidy trees, remove empty windows. */
@@ -134,15 +165,21 @@ export function normalize(input: FlexdockModel): FlexdockModel {
     }
     const children: DockNode[] = [];
     const weights: number[] = [];
+    const from: number[] = [];
     node.children.forEach((c, i) => {
       const f = fix(c);
       if (f) {
         children.push(f);
+        from.push(i);
         const w = node.weights?.[i];
         weights.push(typeof w === "number" && w > 0 ? w : 1);
       }
     });
-    return tidySplit({ ...node, axis: node.axis === "column" ? "column" : "row", children, weights });
+    const clean: SplitNode = { ...withoutExtras(node), axis: node.axis === "column" ? "column" : "row", children, weights };
+    const kept = carryExtras(node, from);
+    if (kept.fixed) kept.fixed = kept.fixed.map((v) => (typeof v === "number" && v > 0 ? v : null));
+    if (kept.folded) kept.folded = kept.folded.map(Boolean);
+    return tidySplit({ ...clean, ...kept });
   };
   m.root = fix(m.root);
   m.windows = m.windows
@@ -182,7 +219,9 @@ export function unplace(model: FlexdockModel, id: string, keepEmpty = false): Fl
 function mapTree(node: DockNode | null, fn: (s: StackNode) => DockNode): DockNode | null {
   if (!node) return null;
   if (node.kind === "stack") return fn(node);
-  return tidySplit({ ...node, children: node.children.map((c) => mapTree(c, fn)!).filter(Boolean) });
+  const mapped = node.children.map((c) => mapTree(c, fn));
+  const from = mapped.flatMap((c, i) => (c ? [i] : []));
+  return tidySplit({ ...withoutExtras(node), ...carryExtras(node, from), children: mapped.filter(Boolean) as DockNode[], weights: from.map((i) => node.weights[i] ?? 1) });
 }
 
 function insertBeside(target: StackNode, id: string, zone: Exclude<DropZone, "into">): DockNode {
@@ -457,6 +496,7 @@ export function insertBetween(model: FlexdockModel, id: string, path: number[], 
   if (at < ws.length) ws[at] = Math.max(0.01, (ws[at] ?? 1) - share / 2);
   target.children.splice(at, 0, stack([id]));
   ws.splice(at, 0, share);
+  for (const k of EXTRAS) (target[k] as unknown[] | undefined)?.splice(at, 0, blank[k]);
   const out = normalize(m);
   out.focus = id;
   return out;
@@ -646,4 +686,67 @@ export function validate(value: unknown): string[] {
   for (const v of m.parked ?? []) known(v, "parked");
   if (m.focus && !seen.has(m.focus)) out.push(`focus "${m.focus}" is not placed`);
   return out;
+}
+
+/** The split holding the group of view `id` and the group's index in it, or undefined at the top of a tree. */
+export function cellOf(model: FlexdockModel, id: string): { path: number[]; index: number; win?: string; split: SplitNode } | undefined {
+  const where = locate(model, id);
+  if (where.place !== "tree" || !where.path.length) return undefined;
+  const path = where.path.slice(0, -1);
+  const split = nodeAt(treeOf(model, where.window), path);
+  if (split?.kind !== "split") return undefined;
+  return { path, index: where.path[where.path.length - 1]!, win: where.window, split };
+}
+
+function setExtra<K extends Extra>(model: FlexdockModel, path: number[], index: number, key: K, value: NonNullable<SplitNode[K]>[number], windowKey?: string): FlexdockModel {
+  const m = copy(model);
+  const node = nodeAt(treeOf(m, windowKey), path);
+  if (node?.kind !== "split" || index < 0 || index >= node.children.length) return model;
+  const arr = ((node[key] as unknown[] | undefined) ?? node.children.map(() => blank[key])).slice();
+  arr[index] = value;
+  if (arr.some((v) => v !== null && v !== false)) (node as unknown as Record<string, unknown>)[key] = arr;
+  else delete node[key];
+  return m;
+}
+
+/** Give child `index` of the split at `path` a fixed px size (null: share space by weight again). */
+export function fixSize(model: FlexdockModel, path: number[], index: number, px: number | null, windowKey?: string): FlexdockModel {
+  return setExtra(model, path, index, "fixed", px !== null && px > 0 ? Math.round(px) : null, windowKey);
+}
+
+/** Set px bounds for child `index` of the split at `path` (null: none). */
+export function limitSize(model: FlexdockModel, path: number[], index: number, limits: SizeLimits | null, windowKey?: string): FlexdockModel {
+  const ok = limits && (limits.min !== undefined || limits.max !== undefined) ? { ...limits } : null;
+  return setExtra(model, path, index, "limits", ok, windowKey);
+}
+
+/** Collapse (or restore) child `index` of the split at `path`. At least one child always stays open. */
+export function fold(model: FlexdockModel, path: number[], index: number, on = true, windowKey?: string): FlexdockModel {
+  const node = nodeAt(treeOf(model, windowKey), path);
+  if (node?.kind !== "split") return model;
+  const open = node.children.filter((_, i) => !node.folded?.[i] && i !== index).length;
+  if (on && open === 0) return model;
+  return setExtra(model, path, index, "folded", on, windowKey);
+}
+
+/**
+ * Resize two neighbours of the split at `path` to px sizes (from a gutter drag). Every child's weight becomes its
+ * px size, fixed children keep their new px, and both sizes are clamped to their limits first.
+ */
+export function resizeCells(model: FlexdockModel, path: number[], sizes: number[], windowKey?: string): FlexdockModel {
+  const m = copy(model);
+  const node = nodeAt(treeOf(m, windowKey), path);
+  if (node?.kind !== "split" || sizes.length !== node.children.length) return model;
+  node.weights = sizes.map((v) => Math.max(1, v));
+  if (node.fixed) node.fixed = node.fixed.map((f, i) => (f === null ? null : Math.max(1, Math.round(sizes[i] ?? f))));
+  return m;
+}
+
+/** Clamp a pair of neighbouring sizes to their limits, keeping their sum. */
+export function clampPair(a: number, b: number, la?: SizeLimits | null, lb?: SizeLimits | null): [number, number] {
+  const total = a + b;
+  const lo = Math.max(la?.min ?? 0, total - (lb?.max ?? Infinity));
+  const hi = Math.min(la?.max ?? Infinity, total - (lb?.min ?? 0));
+  const na = hi < lo ? a : Math.min(hi, Math.max(lo, a));
+  return [na, total - na];
 }

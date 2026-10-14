@@ -41,6 +41,7 @@
     "prepublishOnly": "npm run build:verify",
     "pack:check": "npm pack --dry-run",
     "start": "npm run build && vite --config harness/vite.config.ts",
+    "bench": "node scripts/bench.mjs",
     "build:harness": "npm run build && vite build --config harness/vite.config.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

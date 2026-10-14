@@ -26,6 +26,8 @@ export interface ViewInfo {
   caps?: Caps;
   /** Hint for apps: content should be created on first reveal (see `flexdock-viewshow`). */
   lazy?: boolean;
+  /** With the manager's `retain="active"`: keep this view's content attached while hidden. */
+  keepAlive?: boolean;
   /** Tooltip / palette description. */
   hint?: string;
 }
@@ -36,6 +38,18 @@ export interface SplitNode {
   children: DockNode[];
   /** Relative weights, one per child. */
   weights: number[];
+  /** Per child: a fixed size in px that stays put when the layout resizes (null = shares space by weight). */
+  fixed?: Array<number | null>;
+  /** Per child: min / max size in px along the axis (null = none). */
+  limits?: Array<SizeLimits | null>;
+  /** Per child: collapsed to nothing (restored by double-clicking the gutter next to it). */
+  folded?: boolean[];
+}
+
+/** Size bounds of a split child, in px along the split axis. */
+export interface SizeLimits {
+  min?: number;
+  max?: number;
 }
 
 export interface StackNode {

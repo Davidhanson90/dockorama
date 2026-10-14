@@ -8,7 +8,7 @@ import {
 import { FlexdockPart, defineParts, type DockContext, type GuideSpot, type MenuEntry, type PartRequest, type TabMenuItem } from "./components/index.js";
 import { slotOf } from "./components/context.js";
 import { renderNode } from "./components/tree.js";
-import type { Box, Caps, DropZone, EdgeZone, FlexdockModel, LayoutMigrations, LayoutSource, OutsideWindow, Side, ViewContent, ViewInfo, ViewOptions } from "./model.js";
+import type { Box, Caps, DropZone, EdgeZone, FlexdockModel, LayoutMigrations, LayoutSource, OutsideWindow, Side, SizeLimits, SplitNode, ViewContent, ViewInfo, ViewOptions } from "./model.js";
 import * as ops from "./ops.js";
 
 /** Why the model changed (detail of `flexdock-change`). */
@@ -103,6 +103,7 @@ export class FlexdockManager extends LitElement {
     confirmClose: { attribute: false },
     layoutVersion: { type: Number, attribute: "layout-version" },
     migrations: { attribute: false },
+    retain: { reflect: true },
     _confirm: { state: true },
     _keyMove: { state: true },
     _peek: { state: true },
@@ -147,6 +148,15 @@ export class FlexdockManager extends LitElement {
   layoutVersion?: number;
   /** Upgrade steps: `migrations[n]` turns a version-`n` layout into version `n + 1`. */
   migrations?: LayoutMigrations;
+  /**
+   * What happens to the content of hidden views: `"all"` (default) keeps every view's element attached;
+   * `"active"` detaches the content of views that are not on screen (background tabs, collapsed drawers)
+   * and re-attaches it when shown, so only visible contents take part in layout and rendering.
+   * Views added with `keepAlive: true` stay attached either way.
+   */
+  retain: "all" | "active" = "all";
+  /** Detached content of hidden views (with `retain="active"`). */
+  private readonly stash = new Map<string, Element>();
 
   private _model: FlexdockModel = ops.emptyModel();
   private readonly timeline = new Timeline<FlexdockModel>();
@@ -433,6 +443,7 @@ export class FlexdockManager extends LitElement {
     this.factories.delete(id);
     this.shown.delete(id);
     if (id in this._model.views) this.commit(ops.forget(this._model, id), "forget");
+    this.stash.delete(id);
     if (el && !options.keepElement) el.remove();
     return el;
   }
@@ -442,7 +453,12 @@ export class FlexdockManager extends LitElement {
       const el = win.closed ? null : win.document.querySelector(`.fdo-body > [data-view=${attr(id)}]`);
       if (el) return el;
     }
-    return this.querySelector(`:scope > [data-view=${attr(id)}]`);
+    return this.querySelector(`:scope > [data-view=${attr(id)}]`) ?? this.stash.get(id) ?? null;
+  }
+
+  /** True when view `id` has content that is currently detached because of `retain="active"`. */
+  isRetained(id: string): boolean {
+    return this.stash.has(id);
   }
   /** True when a view with this id is registered (wherever it is, including parked). */
   hasView(id: string): boolean {
@@ -646,6 +662,7 @@ export class FlexdockManager extends LitElement {
         el.setAttribute("data-view", id);
       }
       if (!el) continue;
+      this.stash.delete(id);
       if (el.parentNode !== body) body.append(el);
       el.toggleAttribute("data-outside-hidden", id !== o.current);
     }
@@ -776,6 +793,7 @@ export class FlexdockManager extends LitElement {
 
   private handOver(id: string, target: FlexdockManager, next: FlexdockModel): void {
     const el = this.getViewElement(id);
+    this.stash.delete(id);
     const make = this.factories.get(id);
     this.factories.delete(id);
     this.shown.delete(id);
@@ -967,6 +985,26 @@ export class FlexdockManager extends LitElement {
         }
         this.dispatchEvent(new CustomEvent("flexdock-viewshow", { detail: { id }, bubbles: true, composed: true }));
       }
+    }
+    this.applyRetain();
+  }
+
+  /** Detach hidden contents / re-attach shown ones according to `retain`. */
+  private applyRetain(): void {
+    const visible = new Set(Array.from(this.renderRoot.querySelectorAll<HTMLSlotElement>("slot[name]")).map((s) => s.name.slice(2)));
+    const active = this.retain === "active";
+    for (const [id, el] of Array.from(this.stash)) {
+      if (!active || visible.has(id) || !(id in this._model.views) || this._model.views[id]?.keepAlive) {
+        this.stash.delete(id);
+        this.append(el);
+      }
+    }
+    if (!active) return;
+    for (const el of Array.from(this.querySelectorAll(":scope > [data-view]"))) {
+      const id = el.getAttribute("data-view")!;
+      if (visible.has(id) || this._model.views[id]?.keepAlive || !(id in this._model.views)) continue;
+      this.stash.set(id, el);
+      el.remove();
     }
   }
 
@@ -1224,9 +1262,10 @@ export class FlexdockManager extends LitElement {
       case "gutter-grab":
         return this.startGutter(r["event"] as PointerEvent, r["path"] as number[], r["after"] as number, r["axis"] as "row" | "column",
           r["win"] as string | undefined, r["source"] as HTMLElement);
+      case "gutter-fold": return this.foldAt(r["path"] as number[], r["after"] as number, r["win"] as string | undefined, r["source"] as HTMLElement | undefined);
       case "gutter-key":
         return this.keyGutter(r["event"] as KeyboardEvent, r["path"] as number[], r["after"] as number, r["axis"] as "row" | "column",
-          r["weights"] as number[], r["win"] as string | undefined);
+          r["weights"] as number[], r["win"] as string | undefined, r["source"] as HTMLElement | undefined);
       case "tab-menu": return this.openTabMenu(id, r["keyboard"] ? undefined : { x: Number(r["x"]), y: Number(r["y"]) });
       case "tab-menu-close": return this.closeTabMenu(true);
       case "tab-menu-choose": {
@@ -1509,11 +1548,16 @@ export class FlexdockManager extends LitElement {
     const start = axis === "row" ? e.clientX : e.clientY;
     const rtl = axis === "row" && getComputedStyle(this).direction === "rtl";
     const before = this._model;
+    let base = this._model;
+    for (const i of [index, index + 1]) if (this.splitAt(path, win)?.folded?.[i]) base = ops.fold(base, path, i, false, win);
+    const split = this.splitAt(path, win);
     gutter.toggleAttribute("data-live", true);
     const move = (ev: PointerEvent) => {
       const delta = ((axis === "row" ? ev.clientX : ev.clientY) - start) * (rtl ? -1 : 1);
-      const next = shareSpace(sizes, index, delta);
-      this._model = ops.setWeights(this._model, path, next.map((n) => Math.max(1, n)), win);
+      const next = this.limitPair(split, index, shareSpace(sizes, index, delta));
+      this._model = split?.fixed || split?.limits
+        ? ops.resizeCells(base, path, next, win)
+        : ops.setWeights(base, path, next.map((n) => Math.max(1, n)), win);
       this.requestUpdate();
     };
     const up = () => {
@@ -1529,11 +1573,14 @@ export class FlexdockManager extends LitElement {
     window.addEventListener("pointerup", up);
   }
 
-  private keyGutter(e: KeyboardEvent, path: number[], index: number, axis: "row" | "column", weights: number[], win?: string): void {
-    const node = { axis, weights };
-    const grow = node.axis === "row" ? ["ArrowRight"] : ["ArrowDown"];
-    const shrink = node.axis === "row" ? ["ArrowLeft"] : ["ArrowUp"];
-    const total = node.weights.reduce((a, b) => a + b, 0);
+  private keyGutter(e: KeyboardEvent, path: number[], index: number, axis: "row" | "column", weights: number[], win?: string, source?: HTMLElement): void {
+    const split = this.splitAt(path, win);
+    const gutter = source ?? (e.target as HTMLElement | null)?.closest?.(".gutter") as HTMLElement | null;
+    const px = !!(split?.fixed || split?.limits) && !!gutter;
+    const sizes = px ? this.cellSizes(gutter!, axis) : weights;
+    const grow = axis === "row" ? ["ArrowRight"] : ["ArrowDown"];
+    const shrink = axis === "row" ? ["ArrowLeft"] : ["ArrowUp"];
+    const total = sizes.reduce((a, b) => a + b, 0);
     let delta = 0;
     if (grow.includes(e.key)) delta = total * 0.03;
     else if (shrink.includes(e.key)) delta = -total * 0.03;
@@ -1542,9 +1589,65 @@ export class FlexdockManager extends LitElement {
     else return;
     e.preventDefault();
     e.stopPropagation();
-    if (getComputedStyle(this).direction === "rtl" && node.axis === "row" && e.key.startsWith("Arrow")) delta = -delta;
-    const next = shareSpace(node.weights, index, delta, total * 0.05);
-    this.commit(ops.setWeights(this._model, path, next, win), "resize");
+    if (getComputedStyle(this).direction === "rtl" && axis === "row" && e.key.startsWith("Arrow")) delta = -delta;
+    const next = this.limitPair(split, index, shareSpace(sizes, index, delta, px ? 0 : total * 0.05));
+    this.commit(px ? ops.resizeCells(this._model, path, next, win) : ops.setWeights(this._model, path, next, win), "resize");
+  }
+
+  private splitAt(path: number[], win?: string): SplitNode | undefined {
+    const tree = win ? this._model.windows.find((w) => w.key === win)?.tree ?? null : this._model.root;
+    const node = ops.nodeAt(tree, path);
+    return node?.kind === "split" ? node : undefined;
+  }
+
+  private cellSizes(gutter: HTMLElement, axis: "row" | "column"): number[] {
+    const cells = Array.from(gutter.parentElement?.children ?? []).filter((c) => c.classList.contains("cell")) as HTMLElement[];
+    return cells.map((c) => (axis === "row" ? c.getBoundingClientRect().width : c.getBoundingClientRect().height));
+  }
+
+  private limitPair(split: SplitNode | undefined, index: number, next: number[]): number[] {
+    if (!split?.limits) return next;
+    const out = next.slice();
+    const [a, b] = ops.clampPair(out[index]!, out[index + 1]!, split.limits[index], split.limits[index + 1]);
+    out[index] = a;
+    out[index + 1] = b;
+    return out;
+  }
+
+  /** Double-click / Enter on a gutter: restore a folded neighbour, otherwise fold the smaller one. */
+  private foldAt(path: number[], index: number, win?: string, gutter?: HTMLElement): void {
+    const split = this.splitAt(path, win);
+    if (!split) return;
+    const open = [index, index + 1].find((i) => split.folded?.[i]);
+    if (open !== undefined) return this.commit(ops.fold(this._model, path, open, false, win), "resize");
+    const sizes = gutter ? this.cellSizes(gutter, split.axis) : [];
+    const a = sizes[index] || split.weights[index] || 0;
+    const b = sizes[index + 1] || split.weights[index + 1] || 0;
+    this.commit(ops.fold(this._model, path, b < a ? index + 1 : index, true, win), "resize");
+  }
+
+  /** Collapse (`on`, default) or restore the split cell holding view `id`. */
+  foldView(id: string, on = true): void {
+    const c = ops.cellOf(this._model, id);
+    if (c) this.commit(ops.fold(this._model, c.path, c.index, on, c.win), "resize");
+  }
+
+  /** True when the split cell holding view `id` is collapsed. */
+  isFolded(id: string): boolean {
+    const c = ops.cellOf(this._model, id);
+    return !!c?.split.folded?.[c.index];
+  }
+
+  /** Give the split cell holding view `id` a fixed pixel size that stays put when the dock resizes (`null` to make it proportional again). */
+  fixViewSize(id: string, px: number | null): void {
+    const c = ops.cellOf(this._model, id);
+    if (c) this.commit(ops.fixSize(this._model, c.path, c.index, px, c.win), "resize");
+  }
+
+  /** Set min/max pixel limits for the split cell holding view `id` (`null` clears them). */
+  limitViewSize(id: string, limits: SizeLimits | null): void {
+    const c = ops.cellOf(this._model, id);
+    if (c) this.commit(ops.limitSize(this._model, c.path, c.index, limits, c.win), "resize");
   }
 
   private startGrip(e: PointerEvent, key: string): void {

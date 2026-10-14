@@ -99,3 +99,16 @@ to that side of its group · `Alt+PageUp/PageDown` cycle tabs · `Alt+Z` zoom ·
 ## Extras
 Undo/redo, presets & workspaces, localStorage persistence, pop-out to a browser window, command
 palette, snap-to-grid windows, pointer/touch input, lazy view reveal events, `<flexdock-minimap>`.
+
+## Batch C: splitters and performance
+
+| Name | Kind | Notes |
+| --- | --- | --- |
+| `SplitNode.fixed` / `limits` / `folded` | model | Per-child px size, `SizeLimits { min?, max? }`, collapsed flag; aligned with `children`, dropped when unused. |
+| `foldView(id, on?)` / `isFolded(id)` | method | Collapse / restore the split cell holding a view. Gutter double-click / Enter does the same for the smaller neighbour. |
+| `fixViewSize(id, px \| null)` / `limitViewSize(id, limits \| null)` | method | Fixed px size (kept on dock resize, updated by gutter drag/keys); min/max bounds. |
+| `cellOf`, `fixSize`, `limitSize`, `fold`, `resizeCells`, `clampPair` | pure ops | Model-level equivalents. |
+| `retain` (attr) | property | `"all"` (default) / `"active"`: detach hidden views' contents. `ViewInfo.keepAlive` opts out per view. |
+| `isRetained(id)` | method | Whether a view's content is currently detached. |
+| `VIRTUAL_AFTER`, `ROW` | menu constants | Tab lists longer than 40 render only visible rows (30 px each). |
+| `npm run bench` | script | `scripts/bench.mjs`; writes `docs/BENCHMARKS.md` and `harness/bench-results.ts`. |

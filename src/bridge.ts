@@ -19,6 +19,7 @@ export interface FlexdockProps {
   confirmClose?: (viewId: string) => boolean | Promise<boolean>;
   /** Current layout version; older saved layouts are upgraded with `migrations`. */
   layoutVersion?: number;
+  retain?: "all" | "active";
   migrations?: LayoutMigrations;
 }
 
@@ -40,7 +41,7 @@ export interface FlexdockHandlers {
   layoutissue?: (detail: { source: LayoutSource; problems: string[]; fatal: boolean }) => void;
 }
 
-export const PROP_KEYS = ["model", "theme", "snap", "storageKey", "keepEmpty", "labels", "dragGroup", "tabMenu", "confirmClose", "layoutVersion", "migrations"] as const;
+export const PROP_KEYS = ["model", "theme", "snap", "storageKey", "keepEmpty", "labels", "dragGroup", "tabMenu", "confirmClose", "layoutVersion", "migrations", "retain"] as const;
 export const EVENT_KEYS = ["change", "focus", "viewshow", "beforeclose", "beforemove", "dragcancel", "transfer", "dirty", "layoutissue"] as const;
 const RAW = new Set<string>(["beforeclose", "beforemove"]);
 

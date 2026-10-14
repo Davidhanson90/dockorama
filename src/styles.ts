@@ -199,6 +199,12 @@ export const styles = css`
   .confirm-actions { display: flex; gap: 8px; justify-content: flex-end; }
   .confirm-actions .btn { width: auto; height: 30px; padding: 0 14px; border: 1px solid var(--fd-line); }
   .confirm-actions .btn[data-primary] { background: var(--fd-accent); color: var(--fd-accent-ink); border-color: var(--fd-accent); }
+  .menu-scroll { overflow: auto; position: relative; min-width: 220px; }
+  .menu-rows { position: relative; }
+  .menu-rows > button { left: 0; right: 0; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cell[data-folded] { overflow: hidden; }
+  .cell[data-folded] > * { visibility: hidden; }
+  .gutter[data-folded]::after { background: var(--fd-accent); opacity: 0.6; }
   .notice {
     position: absolute; z-index: 70; top: 8px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; align-items: center;
     max-width: min(640px, 94%); padding: 8px 10px 8px 14px; border-radius: var(--fd-radius); background: var(--fd-surface);

@@ -8,6 +8,9 @@ export interface Page {
   after?: (el: HTMLElement, lib: typeof import("flexdock")) => void;
 }
 
+import { benchTable, runBench } from "./bench.js";
+import { RECORDED } from "./bench-results.js";
+
 const ex = (id: string) => `<div data-example="${id}"></div>`;
 
 // Shared snippet: most examples build a manager the same way.
@@ -488,6 +491,74 @@ button("Move Output with the keyboard", () => {
   dock.shadowRoot.querySelector('[data-stack="log"]').focus();
   dock.beginMove("log");
 });` }]
+});
+
+add({
+  slug: "guide/splitters", title: "Splitters", section: "Guides",
+  body: `<h1>Splitters: collapse, fixed sizes, limits</h1>
+  <p class="lead">Every gutter between two cells can collapse one side, and each cell of a split can have a fixed pixel size and min / max bounds.</p>
+  <table><tr><th>Gesture</th><th>Does</th></tr>
+  <tr><td>Double-click a gutter, or focus it and press <span class="kbd">Enter</span></td><td>Collapse the smaller neighbour; again restores it. Dragging a gutter next to a collapsed cell restores it too.</td></tr>
+  <tr><td>Drag, or arrow keys / <span class="kbd">Home</span> / <span class="kbd">End</span> on a focused gutter</td><td>Resize; fixed cells take the new pixel size, limits are respected</td></tr></table>
+  <pre><code>dock.fixViewSize("files", 240);                 // stays 240px when the dock resizes
+dock.limitViewSize("log", { min: 80, max: 300 });
+dock.foldView("files");  dock.foldView("files", false);  dock.isFolded("files");</code></pre>
+  <p>The sizes are stored on the split in the model (<code>fixed</code>, <code>limits</code>, <code>folded</code>, one entry per child), so they persist and undo like any layout change. Pure helpers: <code>cellOf</code>, <code>fixSize</code>, <code>limitSize</code>, <code>fold</code>, <code>resizeCells</code>, <code>clampPair</code>.</p>
+  ${ex("splitters")}`,
+  examples: [{ id: "splitters", code: `${basic}
+button("Fix Project at 220px", () => dock.fixViewSize("files", 220));
+button("Make Project proportional", () => dock.fixViewSize("files", null));
+button("Limit Output 80–240px", () => dock.limitViewSize("log", { min: 80, max: 240 }));
+button("Collapse / restore Project", () => dock.foldView("files", !dock.isFolded("files")));` }]
+});
+
+add({
+  slug: "guide/performance", title: "Performance", section: "Guides",
+  body: `<h1>Performance</h1>
+  <p class="lead">Layouts with hundreds of views stay responsive: hidden contents can be detached, and long tab lists are virtualised.</p>
+  <ul>
+    <li><code>retain="active"</code> (property or attribute) detaches the content of views that are not on screen and re-attaches the same element when shown, so only visible contents take part in style, layout and paint. Default <code>"all"</code> keeps everything attached. Views added with <code>keepAlive: true</code> stay attached either way (e.g. a running video or a canvas you don't want to lose). <code>getViewElement</code> still returns detached elements; <code>isRetained(id)</code> tells you whether one is detached.</li>
+    <li>The group tab list (the overflow menu) renders only the rows in view once a group has more than 40 tabs; arrow keys, <span class="kbd">Home</span> and <span class="kbd">End</span> scroll through all of them.</li>
+  </ul>
+  ${ex("performance")}
+  <h2>Benchmark</h2>
+  <p>Builds a dock with 4 groups and N views and measures: pure model ops, first render, one undoable layout change, and a 60-step tab drag (work per pointer move incl. drop guide, and animation frame interval; 16.7 ms = 60 fps). Run it here, or <code>npm run bench</code> to record results in <code>docs/BENCHMARKS.md</code>.</p>
+  <div class="bench-run"></div>
+  <h3>Recorded</h3>
+  <div class="bench-recorded"></div>`,
+  examples: [{ id: "performance", code: `${SETUP}
+const info = {};
+const ids = [];
+for (let i = 0; i < 300; i++) { ids.push("d" + i); info["d" + i] = { title: "file-" + i + ".ts" }; view("d" + i, "<h3>file-" + i + ".ts</h3>"); }
+dock.retain = "active";
+dock.model = createModel(info, row([docs(ids)]));
+button("Open the tab list", () => dock.shadowRoot.querySelector('[part~="more"]')?.click());
+button("How many contents are attached?", () => log(dock.querySelectorAll(":scope > [data-view]").length + " of 300 attached"));` }],
+  after: (el, lib) => {
+    const run = el.querySelector<HTMLElement>(".bench-run")!;
+    const out = document.createElement("div");
+    const stage = document.createElement("div");
+    stage.className = "bench-stage";
+    for (const [n, retain] of [[100, "all"], [500, "all"], [500, "active"]] as const) {
+      const b = document.createElement("button");
+      b.className = "btn";
+      b.textContent = `Run with ${n} views (${retain})`;
+      b.dataset["bench"] = `${n}-${retain}`;
+      b.onclick = async () => {
+        b.disabled = true;
+        const r = await runBench(lib, stage, n, retain);
+        const all = ((window as unknown as { benchResults?: unknown[] }).benchResults ??= []);
+        all.push(r);
+        out.innerHTML = benchTable(all as Parameters<typeof benchTable>[0]);
+        b.disabled = false;
+      };
+      run.append(b, " ");
+    }
+    run.append(out, stage);
+    el.querySelector<HTMLElement>(".bench-recorded")!.innerHTML = RECORDED.rows.length
+      ? `${benchTable(RECORDED.rows)}<p class="muted">${RECORDED.env}, ${RECORDED.when}</p>`
+      : "<p class='muted'>Not recorded yet.</p>";
+  }
 });
 
 add({
@@ -1055,7 +1126,8 @@ add({
   <tr><td><code>confirmClose</code></td><td><code>(id) =&gt; boolean | Promise&lt;boolean&gt;</code></td><td>Asked before a dirty view closes; unset = built-in dialog. See <a href="#/guide/dirty">Unsaved changes</a>.</td></tr>
   <tr><td><code>dirtyViews</code></td><td><code>string[]</code> (read-only)</td><td>Views marked with <code>setDirty</code>.</td></tr>
   <tr><td><code>layoutVersion</code> (attr <code>layout-version</code>)</td><td><code>number</code></td><td>Your current layout version. See <a href="#/guide/versions">Layout versions</a>.</td></tr>
-  <tr><td><code>migrations</code></td><td><code>LayoutMigrations</code></td><td><code>{ [n]: (model) =&gt; model }</code> upgrade steps n → n + 1.</td></tr></table>
+  <tr><td><code>migrations</code></td><td><code>LayoutMigrations</code></td><td><code>{ [n]: (model) =&gt; model }</code> upgrade steps n → n + 1.</td></tr>
+  <tr><td><code>retain</code> (attr)</td><td><code>"all" | "active"</code></td><td>Keep hidden views' contents attached (default) or detach them; <code>keepAlive</code> views stay. See <a href="#/guide/performance">Performance</a>.</td></tr></table>
   <h2>Methods</h2>
   <table><tr><th>Method</th><th>Description</th></tr>
   <tr><td><code>place(id, target, zone, index?)</code></td><td>Move beside / into the group holding <code>target</code>. Zones: <code>left</code>, <code>right</code>, <code>above</code>, <code>below</code>, <code>into</code>.</td></tr>
@@ -1077,6 +1149,9 @@ add({
   <tr><td><code>transferView(id, target, at?)</code></td><td>Move a view and its element to another manager; one undoable change in each. Throws if the target has the id.</td></tr>
   <tr><td><code>setDirty(id, dirty?)</code> / <code>isDirty(id)</code></td><td>Mark / read unsaved changes (dot on the tab, ask before closing).</td></tr>
   <tr><td><code>showPreview(id)</code> / <code>promote(id)</code></td><td>Show as the group's preview tab / keep it. <code>addView(…, { preview: true })</code> too. See <a href="#/guide/pinned-preview">Pinned &amp; preview tabs</a>.</td></tr>
+  <tr><td><code>foldView(id, on?)</code> / <code>isFolded(id)</code></td><td>Collapse / restore the split cell holding a view. See <a href="#/guide/splitters">Splitters</a>.</td></tr>
+  <tr><td><code>fixViewSize(id, px | null)</code> / <code>limitViewSize(id, { min?, max? } | null)</code></td><td>Fixed pixel size / min-max bounds for the split cell holding a view.</td></tr>
+  <tr><td><code>isRetained(id)</code></td><td>Whether a view's content is detached because of <code>retain="active"</code>.</td></tr>
   <tr><td><code>beginMove(id?)</code> / <code>cancelMove()</code></td><td>Keyboard docking (<span class="kbd">Alt</span>+<span class="kbd">M</span>). See <a href="#/guide/keyboard-docking">Keyboard docking</a>.</td></tr>
   <tr><td><code>dismissMany(ids)</code></td><td>Close several views in one undoable change; returns the ids closed.</td></tr>
   <tr><td><code>pin(id, on?)</code> / <code>hasPin(id)</code></td><td>Pin / unpin a tab; whether it is pinned.</td></tr>
