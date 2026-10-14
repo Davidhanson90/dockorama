@@ -15,33 +15,33 @@ async function put<T extends HTMLElement & { updateComplete: Promise<boolean> }>
 }
 export function requests(): PartRequest[] {
   const out: PartRequest[] = [];
-  document.addEventListener("flexdock-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
+  document.addEventListener("pazuru-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
   return out;
 }
 afterEach(() => { document.body.innerHTML = ""; });
 
-describe("<flexdock-split>", () => {
+describe("<pazuru-split>", () => {
   it("renders cells with weights and a gutter between each pair", async () => {
     const node = row([stack(["a"]), stack(["b"]), docs([])], [1, 2, 1]);
-    const el = await put<HTMLElement & { updateComplete: Promise<boolean> }>("flexdock-split", { node, path: [], ctx: ctx() });
+    const el = await put<HTMLElement & { updateComplete: Promise<boolean> }>("pazuru-split", { node, path: [], ctx: ctx() });
     expect(el.classList.contains("split")).toBe(true);
     expect(el.getAttribute("part")).toBe("split");
     expect(el.dataset["axis"]).toBe("row");
     const cells = el.querySelectorAll(":scope > .cell");
     expect(cells.length).toBe(3);
     expect((cells[1] as HTMLElement).style.flex).toContain("2");
-    const gutters = el.querySelectorAll("flexdock-gutter");
+    const gutters = el.querySelectorAll("pazuru-gutter");
     expect(gutters.length).toBe(2);
     expect(gutters[0]!.getAttribute("aria-valuenow")).toBe("25");
-    expect(el.querySelector("flexdock-docs")).not.toBeNull();
+    expect(el.querySelector("pazuru-docs")).not.toBeNull();
   });
   it("marks the gutter under a drag and nests splits", async () => {
     const node = row([stack(["a"]), { kind: "split", axis: "column", children: [stack(["b"]), stack(["c"])], weights: [1, 1] }]);
-    const el = await put<HTMLElement & { updateComplete: Promise<boolean> }>("flexdock-split", { node, path: [], win: "w1", ctx: ctx({ gap: { path: "", after: 0, win: "w1" } }) });
-    expect(el.querySelector(":scope > flexdock-gutter")!.hasAttribute("data-drop")).toBe(true);
-    const inner = el.querySelector("flexdock-split")!;
+    const el = await put<HTMLElement & { updateComplete: Promise<boolean> }>("pazuru-split", { node, path: [], win: "w1", ctx: ctx({ gap: { path: "", after: 0, win: "w1" } }) });
+    expect(el.querySelector(":scope > pazuru-gutter")!.hasAttribute("data-drop")).toBe(true);
+    const inner = el.querySelector("pazuru-split")!;
     expect(inner.dataset["axis"]).toBe("column");
-    expect(inner.querySelector("flexdock-gutter")!.getAttribute("data-path")).toBe("1");
-    expect(inner.querySelector("flexdock-gutter")!.hasAttribute("data-drop")).toBe(false);
+    expect(inner.querySelector("pazuru-gutter")!.getAttribute("data-path")).toBe("1");
+    expect(inner.querySelector("pazuru-gutter")!.hasAttribute("data-drop")).toBe(false);
   });
 });

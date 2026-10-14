@@ -1,13 +1,13 @@
 import { html, nothing, type PropertyValues, type TemplateResult } from "lit";
 import type { StackNode } from "../model.js";
 import type { DockContext } from "./context.js";
-import { FlexdockPart } from "./part.js";
+import { PazuruPart } from "./part.js";
 
 /**
- * `<flexdock-stack>`: a group of views with a header bar (title or `<flexdock-tabstrip>`), a
- * `<flexdock-toolbar>` of actions and a `<flexdock-view>` content host.
+ * `<pazuru-stack>`: a group of views with a header bar (title or `<pazuru-tabstrip>`), a
+ * `<pazuru-toolbar>` of actions and a `<pazuru-view>` content host.
  */
-export class FlexdockStack extends FlexdockPart {
+export class PazuruStack extends PazuruPart {
   static override properties = {
     group: { attribute: false },
     path: { attribute: false },
@@ -60,12 +60,12 @@ export class FlexdockStack extends FlexdockPart {
       if (!tabbed && cur) this.request("grab", { id: cur, win, event, source: event.currentTarget });
     };
     const title = tabbed
-      ? html`<flexdock-tabstrip .views=${s.views} .current=${cur} .pinned=${s.pinned ?? []} .preview=${s.preview} .docs=${Boolean(s.docs)} .win=${win} .ctx=${ctx}></flexdock-tabstrip>`
+      ? html`<pazuru-tabstrip .views=${s.views} .current=${cur} .pinned=${s.pinned ?? []} .preview=${s.preview} .docs=${Boolean(s.docs)} .win=${win} .ctx=${ctx}></pazuru-tabstrip>`
       : this.paint("group-title", { id: cur, title: info?.title ?? cur, ...(info?.icon ? { icon: info.icon } : {}), dirty: Boolean(ctx.dirty?.has(cur)), dirtyLabel: ctx.labels.unsaved });
-    const toolbar = cur ? html`<flexdock-toolbar .view=${cur} .docs=${Boolean(s.docs)} .win=${win} .ctx=${ctx}></flexdock-toolbar>` : nothing;
+    const toolbar = cur ? html`<pazuru-toolbar .view=${cur} .docs=${Boolean(s.docs)} .win=${win} .ctx=${ctx}></pazuru-toolbar>` : nothing;
     const bar = this.paint("group-bar", { title, toolbar, tabbed, grab: onBar, zoom: () => cur && this.request("zoom", { id: cur }) });
-    const body = html`<flexdock-view .view=${cur} .kind=${tabbed ? "tabpanel" : "region"} .labelledBy=${cur ? `${tabbed ? "tab" : "t"}-${cur}` : ""}
-        .ctx=${ctx}></flexdock-view>`;
+    const body = html`<pazuru-view .view=${cur} .kind=${tabbed ? "tabpanel" : "region"} .labelledBy=${cur ? `${tabbed ? "tab" : "t"}-${cur}` : ""}
+        .ctx=${ctx}></pazuru-view>`;
     return html`${this.paint("group", { bar, body, docs: Boolean(s.docs) })}`;
   }
 }

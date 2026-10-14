@@ -1,6 +1,6 @@
 import { html, nothing, type PropertyValues, type TemplateResult } from "lit";
 import type { Rect } from "../geometry.js";
-import { FlexdockPart } from "./part.js";
+import { PazuruPart } from "./part.js";
 
 /** One drop target shown during a drag (coordinates relative to the manager). */
 export interface GuideSpot {
@@ -10,8 +10,8 @@ export interface GuideSpot {
   hot: boolean;
 }
 
-/** `<flexdock-drop-guide>`: drag feedback: drop targets, the landing preview and the dragged-view ghost. */
-export class FlexdockDropGuide extends FlexdockPart {
+/** `<pazuru-drop-guide>`: drag feedback: drop targets, the landing preview and the dragged-view ghost. */
+export class PazuruDropGuide extends PazuruPart {
   static override properties = {
     spots: { attribute: false },
     preview: { attribute: false },

@@ -1,5 +1,5 @@
 /** User-facing strings. Override any of them through the `labels` property. */
-export interface FlexdockLabels {
+export interface PazuruLabels {
   dismiss: string;
   zoom: string;
   unzoom: string;
@@ -40,7 +40,7 @@ export interface FlexdockLabels {
   outerEdge: string;
 }
 
-export const DEFAULT_LABELS: FlexdockLabels = {
+export const DEFAULT_LABELS: PazuruLabels = {
   dismiss: "Close",
   zoom: "Fill the layout",
   unzoom: "Back to layout",

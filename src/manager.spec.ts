@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FlexdockManager, FlexdockMinimap, VERSION, column, createModel, docs, locate, row, stack } from "./index.js";
-import type { FlexdockModel } from "./model.js";
+import { PazuruManager, PazuruMinimap, VERSION, column, createModel, docs, locate, row, stack } from "./index.js";
+import type { PazuruModel } from "./model.js";
 import { styles } from "./styles.js";
 
 const views = {
@@ -11,11 +11,11 @@ const views = {
   props: { title: "Properties", caps: { dismiss: false, hide: false, zoom: false, float: false, popout: false, move: false } },
   locked: { title: "Locked", caps: { docsOnly: true, inert: true } }
 };
-const layout = (): FlexdockModel =>
+const layout = (): PazuruModel =>
   createModel(views, row([stack(["files"]), column([docs(["edit", "readme"]), stack(["out", "props"])]), stack(["locked"])]));
 
 async function mount(model = layout()) {
-  const el = document.createElement("flexdock-manager");
+  const el = document.createElement("pazuru-manager");
   for (const id of Object.keys(views)) {
     const d = document.createElement("div");
     d.dataset["view"] = id;
@@ -27,9 +27,9 @@ async function mount(model = layout()) {
   await el.updateComplete;
   return el;
 }
-const q = (el: FlexdockManager, sel: string) => el.shadowRoot!.querySelector<HTMLElement>(sel);
-const qa = (el: FlexdockManager, sel: string) => Array.from(el.shadowRoot!.querySelectorAll<HTMLElement>(sel));
-const key = (el: FlexdockManager, k: string, o: KeyboardEventInit = {}) =>
+const q = (el: PazuruManager, sel: string) => el.shadowRoot!.querySelector<HTMLElement>(sel);
+const qa = (el: PazuruManager, sel: string) => Array.from(el.shadowRoot!.querySelectorAll<HTMLElement>(sel));
+const key = (el: PazuruManager, k: string, o: KeyboardEventInit = {}) =>
   el.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, ...o }));
 
 afterEach(() => {
@@ -37,11 +37,11 @@ afterEach(() => {
   localStorage.clear();
 });
 
-describe("<flexdock-manager>", () => {
+describe("<pazuru-manager>", () => {
   it("registers elements and exports a version", () => {
     expect(VERSION).toMatch(/^\d+\.\d+\.\d+$/);
-    expect(customElements.get("flexdock-manager")).toBe(FlexdockManager);
-    expect(customElements.get("flexdock-minimap")).toBe(FlexdockMinimap);
+    expect(customElements.get("pazuru-manager")).toBe(PazuruManager);
+    expect(customElements.get("pazuru-minimap")).toBe(PazuruMinimap);
   });
 
   it("assigns slots to light-DOM content and renders groups, tabs and gutters", async () => {
@@ -61,11 +61,11 @@ describe("<flexdock-manager>", () => {
   it("emits change, focus and viewshow events and supports undo/redo", async () => {
     const el = await mount();
     const changes: string[] = [];
-    el.addEventListener("flexdock-change", (e) => changes.push(e.detail.reason));
+    el.addEventListener("pazuru-change", (e) => changes.push(e.detail.reason));
     const focus = vi.fn();
-    el.addEventListener("flexdock-focus", focus);
+    el.addEventListener("pazuru-focus", focus);
     const shown: string[] = [];
-    el.addEventListener("flexdock-viewshow", (e) => shown.push(e.detail.id));
+    el.addEventListener("pazuru-viewshow", (e) => shown.push(e.detail.id));
     el.reveal("readme");
     await el.updateComplete;
     expect(shown).toContain("readme");
@@ -95,7 +95,7 @@ describe("<flexdock-manager>", () => {
     expect(el.model).toBe(before);
     el.place("locked", "edit", "into");
     expect(locate(el.model, "locked")).toMatchObject({ stack: { docs: true } });
-    el.addEventListener("flexdock-beforeclose", (e) => e.preventDefault(), { once: true });
+    el.addEventListener("pazuru-beforeclose", (e) => e.preventDefault(), { once: true });
     el.dismiss("files");
     expect(locate(el.model, "files").place).toBe("tree");
     el.dismiss("files");
@@ -235,15 +235,15 @@ describe("<flexdock-manager>", () => {
 
   it("persists to and restores from localStorage", async () => {
     const el = await mount();
-    el.storageKey = "fd-test";
+    el.storageKey = "pz-test";
     el.stow("files");
-    expect(JSON.parse(localStorage.getItem("fd-test")!).drawers.start).toEqual(["files"]);
-    const el2 = document.createElement("flexdock-manager");
-    el2.storageKey = "fd-test";
+    expect(JSON.parse(localStorage.getItem("pz-test")!).drawers.start).toEqual(["files"]);
+    const el2 = document.createElement("pazuru-manager");
+    el2.storageKey = "pz-test";
     el2.model = layout();
     expect(el2.restored).toBe(true);
     expect(el2.model.drawers.start).toEqual(["files"]);
-    localStorage.setItem("fd-test", "{oops");
+    localStorage.setItem("pz-test", "{oops");
     el2.model = layout();
     expect(el2.restored).toBe(false);
   });
@@ -257,7 +257,7 @@ describe("<flexdock-manager>", () => {
     expect(el.model.views["new"]).toBeUndefined();
     el.restore(snap);
     expect(el.model.root).toEqual(snap.root);
-    expect(() => el.restore({} as FlexdockModel)).toThrow();
+    expect(() => el.restore({} as PazuruModel)).toThrow();
     el.labels = { dismiss: "Fermer" };
     await el.updateComplete;
     expect(q(el, '[part~="close"]')!.getAttribute("aria-label")).toBe("Fermer");
@@ -282,7 +282,7 @@ describe("<flexdock-manager>", () => {
     expect(q(el, ".empty")).not.toBeNull();
     el.id = "mgr";
     el.model = layout();
-    const mm = document.createElement("flexdock-minimap");
+    const mm = document.createElement("pazuru-minimap");
     mm.for = "mgr";
     document.body.append(mm);
     await new Promise((r) => setTimeout(r));
@@ -314,34 +314,34 @@ describe("<flexdock-manager>", () => {
   it("handles requests from its UI parts", async () => {
     const el = await mount();
     const ask = async (action: string, extra: Record<string, unknown> = {}) => {
-      q(el, ".main")!.dispatchEvent(new CustomEvent("flexdock-request", { detail: { action, ...extra }, bubbles: true, composed: true }));
+      q(el, ".main")!.dispatchEvent(new CustomEvent("pazuru-request", { detail: { action, ...extra }, bubbles: true, composed: true }));
       await el.updateComplete;
     };
     await ask("stow", { id: "files" });
     expect(locate(el.model, "files").place).toBe("drawer");
     await ask("peek", { id: "files", toggle: false });
-    expect(q(el, "flexdock-flyout")).not.toBeNull();
+    expect(q(el, "pazuru-flyout")).not.toBeNull();
     await ask("peek-close");
-    expect(q(el, "flexdock-flyout")).toBeNull();
+    expect(q(el, "pazuru-flyout")).toBeNull();
     await ask("unstow", { id: "files" });
     await ask("float", { id: "out" });
     expect(locate(el.model, "out").place).toBe("tree");
     expect(el.model.windows.length).toBe(1);
     await ask("menu", { id: "out" });
-    expect(q(el, "flexdock-menu")).not.toBeNull();
+    expect(q(el, "pazuru-menu")).not.toBeNull();
     await ask("dock", { id: "out", fromMenu: true });
-    expect(q(el, "flexdock-menu")).toBeNull();
+    expect(q(el, "pazuru-menu")).toBeNull();
     expect(el.model.windows.length).toBe(0);
     await ask("menu", { id: "out" });
     await ask("menu-close");
-    expect(q(el, "flexdock-menu")).toBeNull();
+    expect(q(el, "pazuru-menu")).toBeNull();
     el.openPalette();
     await el.updateComplete;
     await ask("palette-query", { query: "o" });
     await ask("palette-index", { index: 1 });
-    expect(q(el, "flexdock-palette li[aria-selected=\"true\"]")!.textContent).toContain(el.paletteItems("o")[1]!.label);
+    expect(q(el, "pazuru-palette li[aria-selected=\"true\"]")!.textContent).toContain(el.paletteItems("o")[1]!.label);
     await ask("palette-close");
-    expect(q(el, "flexdock-palette")).toBeNull();
+    expect(q(el, "pazuru-palette")).toBeNull();
     await ask("palette-index", { index: 1 });
     await ask("palette-choose", { index: 0 });
     await ask("zoom", { id: "edit" });
@@ -355,8 +355,8 @@ describe("<flexdock-manager>", () => {
       const el = await mount();
       const changes: string[] = [];
       const shownIds: string[] = [];
-      el.addEventListener("flexdock-change", (e) => changes.push(e.detail.reason));
-      el.addEventListener("flexdock-viewshow", (e) => shownIds.push(e.detail.id));
+      el.addEventListener("pazuru-change", (e) => changes.push(e.detail.reason));
+      el.addEventListener("pazuru-viewshow", (e) => shownIds.push(e.detail.id));
       const chart = document.createElement("section");
       el.addView("chart", chart, { title: "Chart", icon: "📈", caps: { float: false }, at: { near: "out", zone: "right" } });
       expect(chart.getAttribute("data-view")).toBe("chart");
@@ -378,7 +378,7 @@ describe("<flexdock-manager>", () => {
       el.addView("note", "Plain text", { at: "parked" });
       const note = el.getViewElement("note") as HTMLElement;
       expect(note.textContent).toBe("Plain text");
-      expect(note.classList.contains("flexdock-text")).toBe(true);
+      expect(note.classList.contains("pazuru-text")).toBe(true);
       expect(el.model.views["note"]!.title).toBe("note");
       expect(el.model.parked).toContain("note");
 
@@ -395,24 +395,24 @@ describe("<flexdock-manager>", () => {
       expect(shownIds).toContain("later");
     });
 
-    it("string content uses flexdock-text with themable padding", async () => {
+    it("string content uses pazuru-text with themable padding", async () => {
       const el = await mount();
       el.addView("tip", "Hello\nworld", { title: "Tip" });
       await el.updateComplete;
       const node = el.getViewElement("tip") as HTMLElement;
       expect(node.tagName).toBe("DIV");
-      expect(node.className).toBe("flexdock-text");
+      expect(node.className).toBe("pazuru-text");
       expect(node.textContent).toBe("Hello\nworld");
       // Stylesheet defines the token and the slotted rule (jsdom does not resolve :host vars).
       const css = String(styles);
-      expect(css).toMatch(/--fd-text-padding:\s*12px 14px/);
-      expect(css).toMatch(/::slotted\(\.flexdock-text\)/);
-      expect(css).toMatch(/padding:\s*var\(--fd-text-padding\)/);
+      expect(css).toMatch(/--pz-text-padding:\s*12px 14px/);
+      expect(css).toMatch(/::slotted\(\.pazuru-text\)/);
+      expect(css).toMatch(/padding:\s*var\(--pz-text-padding\)/);
       expect(css).toMatch(/user-select:\s*text/);
-      el.style.setProperty("--fd-text-padding", "20px 24px");
-      expect(el.style.getPropertyValue("--fd-text-padding")).toBe("20px 24px");
+      el.style.setProperty("--pz-text-padding", "20px 24px");
+      expect(el.style.getPropertyValue("--pz-text-padding")).toBe("20px 24px");
       node.classList.add("my-note");
-      expect(node.classList.contains("flexdock-text")).toBe(true);
+      expect(node.classList.contains("pazuru-text")).toBe(true);
     });
 
     it("floats, docks to edges and defaults into the document area", async () => {
@@ -441,7 +441,7 @@ describe("<flexdock-manager>", () => {
       const box = document.createElement("div");
       el.addView("tmp", box);
       const changes: string[] = [];
-      el.addEventListener("flexdock-change", (e) => changes.push(e.detail.reason));
+      el.addEventListener("pazuru-change", (e) => changes.push(e.detail.reason));
       expect(el.removeView("tmp")).toBe(box);
       expect(box.parentElement).toBeNull();
       expect(el.hasView("tmp")).toBe(false);

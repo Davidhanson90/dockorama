@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-const BASE = process.env.FLEXDOCK_SITE ?? "";
-const SHOTS = process.env.FLEXDOCK_SHOTS ?? "e2e-results";
+const BASE = process.env.PAZURU_SITE ?? "";
+const SHOTS = process.env.PAZURU_SHOTS ?? "e2e-results";
 type Dock = { model: { views: Record<string, unknown>; outside?: Array<{ key: string; views: string[] }>; parked: string[] }; hasView(id: string): boolean; hasPin(id: string): boolean; blockedWindows: string[] };
 const call = <T>(loc: Locator, fn: (d: Dock) => T) => loc.evaluate((el, src) => (new Function("d", `return (${src})(d)`))(el), fn.toString()) as Promise<T>;
 
@@ -16,15 +16,15 @@ async function drag(page: Page, from: Locator, to: { x: number; y: number }) {
 
 test("drags a view, with its live element, from one dock into another", async ({ page }) => {
   await page.goto(`${BASE}/#/guide/cross-dock`);
-  const left = page.locator('flexdock-manager[data-dock="left"]');
-  const right = page.locator('flexdock-manager[data-dock="right"]');
+  const left = page.locator('pazuru-manager[data-dock="left"]');
+  const right = page.locator('pazuru-manager[data-dock="right"]');
   await expect(right).toBeVisible();
   await left.locator('[data-view="Draft"] input').fill("kept while moving");
   await left.locator('[role="tab"]:has-text("Sent")').click();
   const docs = (await right.locator('[data-stack][data-docs]').boundingBox())!;
   const drop = await drag(page, left.locator('[role="tab"]:has-text("Draft")'), { x: docs.x + docs.width / 2, y: docs.y + docs.height / 2 });
-  await expect(right.locator("flexdock-drop-guide .target").first()).toBeVisible();
-  await expect(left.locator("flexdock-drop-guide")).toHaveCount(0);
+  await expect(right.locator("pazuru-drop-guide .target").first()).toBeVisible();
+  await expect(left.locator("pazuru-drop-guide")).toHaveCount(0);
   await page.screenshot({ path: `${SHOTS}/5x-cross-dock-guides.png` });
   await drop();
   expect(await call(right, (d) => d.hasView("Draft"))).toBe(true);
@@ -38,10 +38,10 @@ test("drags a view, with its live element, from one dock into another", async ({
 
 test("tab context menu: right-click, keyboard, pin and custom items", async ({ page }) => {
   await page.goto(`${BASE}/#/guide/tab-menu`);
-  const dock = page.locator("flexdock-manager").first();
+  const dock = page.locator("pazuru-manager").first();
   const main = dock.locator('[role="tab"]:has-text("main.ts")');
   await main.click({ button: "right" });
-  const menu = dock.locator("flexdock-tab-menu");
+  const menu = dock.locator("pazuru-tab-menu");
   await expect(menu).toBeVisible();
   await expect(menu.locator('button[data-key="close-others"]')).toBeVisible();
   await expect(dock.locator('[role="tab"][data-pinned]')).toHaveCount(1);
@@ -67,31 +67,31 @@ test("tab context menu: right-click, keyboard, pin and custom items", async ({ p
 
 test("pop-outs: several views per window, saved, restored and a blocked-popup prompt", async ({ page, context }) => {
   await page.goto(`${BASE}/#/guide/popout`);
-  await page.evaluate(() => localStorage.removeItem("flexdock-demo-popout"));
+  await page.evaluate(() => localStorage.removeItem("pazuru-demo-popout"));
   await page.reload();
-  const dock = page.locator("flexdock-manager").first();
+  const dock = page.locator("pazuru-manager").first();
   const [popup] = await Promise.all([page.waitForEvent("popup"), page.locator(".demo button", { hasText: "Pop out Output" }).click()]);
-  await expect(popup.locator(".fdo-tab")).toHaveCount(1);
+  await expect(popup.locator(".pzo-tab")).toHaveCount(1);
   await page.locator(".demo button", { hasText: "Add notes.md" }).click();
-  await expect(popup.locator(".fdo-tab")).toHaveCount(2);
-  await expect(popup.locator('.fdo-body > [data-view="notes"]')).toBeVisible();
+  await expect(popup.locator(".pzo-tab")).toHaveCount(2);
+  await expect(popup.locator('.pzo-body > [data-view="notes"]')).toBeVisible();
   await expect(dock.locator(".away")).toHaveCount(1);
   await popup.setViewportSize({ width: 640, height: 400 });
   await popup.screenshot({ path: `${SHOTS}/5x-popout-window.png` });
   await page.screenshot({ path: `${SHOTS}/5x-popout-placeholders.png` });
   // Tab switch inside the pop-out.
-  await popup.locator('.fdo-tab[data-view="log"]').click();
-  await expect(popup.locator('.fdo-body > [data-view="log"]')).toBeVisible();
+  await popup.locator('.pzo-tab[data-view="log"]').click();
+  await expect(popup.locator('.pzo-body > [data-view="log"]')).toBeVisible();
   // Reload: the window comes back (popups are allowed here) with both views.
   const again = page.waitForEvent("popup");
   await page.reload();
   const reopened = await again;
-  await expect(reopened.locator(".fdo-tab")).toHaveCount(2);
+  await expect(reopened.locator(".pzo-tab")).toHaveCount(2);
   expect(await call(dock, (d) => d.model.outside![0]!.views)).toEqual(["log", "notes"]);
   // Simulate a popup blocker: the prompt appears; "Keep them here" docks them.
   await context.addInitScript(() => { window.open = () => null; });
   await page.reload();
-  const notice = dock.locator("flexdock-notice");
+  const notice = dock.locator("pazuru-notice");
   await expect(notice).toBeVisible();
   expect(await call(dock, (d) => d.blockedWindows.length)).toBe(1);
   await page.screenshot({ path: `${SHOTS}/5x-popout-blocked-prompt.png` });
@@ -103,16 +103,16 @@ test("pop-outs: several views per window, saved, restored and a blocked-popup pr
 
 test("drags a tab past the browser window edge to pop it out, and closing the window docks it", async ({ page }) => {
   await page.goto(`${BASE}/#/guide/popout`);
-  await page.evaluate(() => localStorage.removeItem("flexdock-demo-popout"));
+  await page.evaluate(() => localStorage.removeItem("pazuru-demo-popout"));
   await page.reload();
-  const dock = page.locator("flexdock-manager").first();
+  const dock = page.locator("pazuru-manager").first();
   const tab = dock.locator('[role="tab"]:has-text("notes.md")');
   const popupP = page.waitForEvent("popup");
   const drop = await drag(page, tab, { x: 3, y: 300 });
   await page.mouse.move(-40, 300, { steps: 4 });
   await drop();
   const popup = await popupP;
-  await expect(popup.locator('.fdo-body > [data-view="notes"]')).toBeAttached();
+  await expect(popup.locator('.pzo-body > [data-view="notes"]')).toBeAttached();
   expect(await call(dock, (d) => d.model.outside![0]!.views)).toEqual(["notes"]);
   await popup.close();
   await expect.poll(() => call(dock, (d) => (d.model.outside ?? []).length)).toBe(0);

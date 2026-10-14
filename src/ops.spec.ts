@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import * as o from "./ops.js";
-import type { FlexdockModel, SplitNode } from "./model.js";
+import type { PazuruModel, SplitNode } from "./model.js";
 
 const views = Object.fromEntries(["a", "b", "c", "d", "e"].map((id) => [id, { title: id.toUpperCase() }]));
-const base = (): FlexdockModel =>
+const base = (): PazuruModel =>
   o.createModel(views, o.row([o.stack(["a"]), o.docs(["b", "c"]), o.column([o.stack(["d"]), o.stack(["e"])])], [1, 2, 1]));
 
 describe("createModel / normalize", () => {
@@ -18,7 +18,7 @@ describe("createModel / normalize", () => {
       ...o.emptyModel(), views,
       root: { kind: "split", axis: "row", weights: [0], children: [{ kind: "stack", views: ["a", "zz", "a"], current: "zz" }, o.stack(["b"])] },
       drawers: { start: ["a", "c"], end: [], top: [], bottom: [] }, parked: ["q"], focus: "zz", zoom: "q"
-    } as FlexdockModel);
+    } as PazuruModel);
     const r = m.root as SplitNode;
     expect(r.weights).toEqual([1, 1]);
     expect(r.children[0]).toMatchObject({ views: ["a"], current: "a" });
@@ -35,7 +35,7 @@ describe("createModel / normalize", () => {
     expect(r.children[2]).toMatchObject({ kind: "stack", views: ["c"] });
   });
   it("handles missing optional fields and wrong axis", () => {
-    const m = o.normalize({ v: 1, views, root: { kind: "split", axis: "diag", children: [o.stack(["a"]), o.stack(["b"])] } } as unknown as FlexdockModel);
+    const m = o.normalize({ v: 1, views, root: { kind: "split", axis: "diag", children: [o.stack(["a"]), o.stack(["b"])] } } as unknown as PazuruModel);
     expect((m.root as SplitNode).axis).toBe("row");
     expect(m.parked).toEqual([]);
   });

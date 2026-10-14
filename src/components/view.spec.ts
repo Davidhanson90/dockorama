@@ -15,15 +15,15 @@ async function put<T extends HTMLElement & { updateComplete: Promise<boolean> }>
 }
 export function requests(): PartRequest[] {
   const out: PartRequest[] = [];
-  document.addEventListener("flexdock-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
+  document.addEventListener("pazuru-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
   return out;
 }
 afterEach(() => { document.body.innerHTML = ""; });
 
 type P = HTMLElement & { updateComplete: Promise<boolean> };
-describe("<flexdock-view>", () => {
+describe("<pazuru-view>", () => {
   it("hosts a named slot for the view's content", async () => {
-    const el = await put<P>("flexdock-view", { view: "a", kind: "tabpanel", labelledBy: "tab-a", ctx: ctx() });
+    const el = await put<P>("pazuru-view", { view: "a", kind: "tabpanel", labelledBy: "tab-a", ctx: ctx() });
     expect(el.getAttribute("part")).toBe("body");
     expect(el.getAttribute("role")).toBe("tabpanel");
     expect(el.getAttribute("aria-labelledby")).toBe("tab-a");
@@ -32,15 +32,15 @@ describe("<flexdock-view>", () => {
   });
   it("marks inert views, shows popped-out and empty states", async () => {
     const got = requests();
-    const inert = await put<P>("flexdock-view", { view: "c", label: "Gamma", ctx: ctx() });
+    const inert = await put<P>("pazuru-view", { view: "c", label: "Gamma", ctx: ctx() });
     expect(inert.hasAttribute("data-inert")).toBe(true);
     expect(inert.getAttribute("aria-label")).toBe("Gamma");
     expect(inert.getAttribute("role")).toBe("region");
-    const away = await put<P>("flexdock-view", { view: "a", ctx: ctx({ popped: new Set(["a"]) }) });
+    const away = await put<P>("pazuru-view", { view: "a", ctx: ctx({ popped: new Set(["a"]) }) });
     expect(away.querySelector(".away")!.textContent).toContain(DEFAULT_LABELS.poppedOut);
     away.querySelector("button")!.click();
     expect(got).toEqual([expect.objectContaining({ action: "popin", id: "a" })]);
-    const empty = await put<P>("flexdock-view", { ctx: ctx() });
+    const empty = await put<P>("pazuru-view", { ctx: ctx() });
     expect(empty.querySelector(".empty")!.textContent).toBe(DEFAULT_LABELS.emptyDocs);
   });
 });

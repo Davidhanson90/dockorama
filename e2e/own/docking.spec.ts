@@ -1,12 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 
-// flexdock's own behaviour, tested against our docs site. Shadow DOM is pierced by Playwright locators.
-const BASE = process.env.FLEXDOCK_SITE ?? "";
+// pazuru's own behaviour, tested against our docs site. Shadow DOM is pierced by Playwright locators.
+const BASE = process.env.PAZURU_SITE ?? "";
 const open = async (page: Page, slug: string) => {
   await page.goto(`${BASE}/#/${slug}`);
-  await expect(page.locator("flexdock-manager").first()).toBeVisible();
+  await expect(page.locator("pazuru-manager").first()).toBeVisible();
 };
-const dock = (page: Page) => page.locator("flexdock-manager").first();
+const dock = (page: Page) => page.locator("pazuru-manager").first();
 const center = async (page: Page, sel: string) => {
   const b = (await dock(page).locator(sel).first().boundingBox())!;
   return { x: b.x + b.width / 2, y: b.y + b.height / 2 };

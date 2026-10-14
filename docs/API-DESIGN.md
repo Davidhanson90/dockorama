@@ -1,6 +1,6 @@
-# flexdock API design
+# pazuru API design
 
-Designed from first principles for flexdock. It intentionally shares no element, property, event,
+Designed from first principles for pazuru. It intentionally shares no element, property, event,
 enum or layout-key names with any other dock manager (checked by `scripts/check-api-overlap.mjs`
 against a private avoid-list kept outside the repo).
 
@@ -18,19 +18,19 @@ against a private avoid-list kept outside the repo).
    The element keeps an undo/redo history of models for free.
 5. **Content is light DOM.** Children declare `data-view="id"`; the element assigns slots itself, so
    app content stays styleable and framework-owned.
-6. **One change event.** `flexdock-change` (detail: `{ model, reason }`) fires after every change,
-   plus intent events that can be cancelled before they happen: `flexdock-beforeclose`,
-   `flexdock-beforemove`, `flexdock-beforeadd`, `flexdock-command`, `flexdock-dragstart`; and specific
-   after-the-fact events (`flexdock-float`, `-dock`, `-stow`, `-pin`, `-popout`, `-collapse`, `-close`,
+6. **One change event.** `pazuru-change` (detail: `{ model, reason }`) fires after every change,
+   plus intent events that can be cancelled before they happen: `pazuru-beforeclose`,
+   `pazuru-beforemove`, `pazuru-beforeadd`, `pazuru-command`, `pazuru-dragstart`; and specific
+   after-the-fact events (`pazuru-float`, `-dock`, `-stow`, `-pin`, `-popout`, `-collapse`, `-close`,
    `-viewshow`/`-viewhide`, `-drop`, `-resize`, …) derived from the model diff. Full list: the Events guide.
-7. **Theming through `--fd-*` custom properties** and `::part()` names describing *what* the element
-   is in flexdock's own vocabulary: `bar`, `tab`, `gutter`, `compass`, `ghost`, `rail`, `drawer`,
-   `window`, `palette`. String `addView` bodies use `.flexdock-text` and `--fd-text-padding`.
+7. **Theming through `--pz-*` custom properties** and `::part()` names describing *what* the element
+   is in pazuru's own vocabulary: `bar`, `tab`, `gutter`, `compass`, `ghost`, `rail`, `drawer`,
+   `window`, `palette`. String `addView` bodies use `.pazuru-text` and `--pz-text-padding`.
 
 ## Model (v1)
 ```ts
-interface FlexdockModel {
-  v: 1;                               // flexdock's format
+interface PazuruModel {
+  v: 1;                               // pazuru's format
   version?: number;                   // your app's layout version (migrations)
   views: Record<string, ViewInfo>;   // { title, icon?, caps?: Caps, lazy?, hint? }
   root: DockNode | null;
@@ -46,7 +46,7 @@ interface StackNode { kind: "stack"; views: string[]; current: string; docs?: bo
 interface Caps { dismiss?, hide?, float?, move?, zoom?, popout?: boolean; docsOnly?: boolean }
 ```
 
-## Element `<flexdock-manager>`
+## Element `<pazuru-manager>`
 Properties: `model`, `theme` (`light|dark|auto`), `snap` (px grid for windows), `storageKey`
 (auto-persist), `labels` (i18n), `keepEmpty`.
 Methods: `place(viewId, target, where)`, `detach(viewId, box?)`, `stow(viewId, side?)`, `unstow`,
@@ -58,7 +58,7 @@ Drop zones are named `"left" | "right" | "above" | "below" | "into"` plus `edge-
 ## Adding views from code
 `addView(id, content, { title?, icon?, hint?, caps?, at? })` sets `data-view`, appends the content and places
 the view as one undoable change (`reason: "add"`). `content` is an `Element`, a text `string` (wrapped in
-`<div class="flexdock-text">`, padded with `--fd-text-padding`, default `12px 14px`), or a factory
+`<div class="pazuru-text">`, padded with `--pz-text-padding`, default `12px 14px`), or a factory
 `() => Element` run on first show. `at` is a `ViewSpot`, named for *where the view ends up*:
 `"auto"` (default) · `"docs"` · `"parked"` · `{ near, zone?, index? }` · `{ edge, weight? }` · `{ float }` · `{ stow }`.
 Errors are thrown before anything changes (duplicate id, target not in the layout, no document area).
@@ -66,13 +66,13 @@ The pure counterpart is `enlist(model, id, info, spot)`.
 
 ## Between managers and windows
 - `drag-group` (`dragGroup`): managers with the same group exchange views by drag; `transferView(id, target, at?)`
-  from code; `flexdock-transfer` `{ id, from, to, direction: "in" | "out" }` on both; change reason `"transfer"`.
+  from code; `pazuru-transfer` `{ id, from, to, direction: "in" | "out" }` on both; change reason `"transfer"`.
 - Outside windows ("pop-outs") are model data (`outside`), so they persist and undo. `popOut(id, { into?, box? })`,
   `popIn(id)`, `blockedWindows`, `reopenWindows()`, `keepWindowsDocked()`; reasons `"popout"` / `"popin"`.
   Tabs drag into and out of them by screen coordinates; dragging a tab past the browser window edge pops it out.
 
 ## Tab context menu
-`<flexdock-tab-menu>` on right-click / Shift+F10. Item keys (`TabCommand`): `close`, `close-others`, `close-right`,
+`<pazuru-tab-menu>` on right-click / Shift+F10. Item keys (`TabCommand`): `close`, `close-others`, `close-right`,
 `close-all`, `pin`, `float`, `popout`, `split-right`, `split-down`, `stow`. Hook: `tabMenu(viewId, items) => items`
 with custom `{ key, label, run }` items. Helpers: `dismissMany`, `pin(id, on?)`, `hasPin`, `openTabMenu`,
 `tabMenuItems`, `runTabCommand`. Pure: `pin`, `closeSet`, `adopt`, `goOutside`, `comeInside`, `tuneOutside`, `outsideOf`.
@@ -81,8 +81,8 @@ with custom `{ key, label, run }` items. Helpers: `dismissMany`, `pin(id, on?)`,
 - Pinned (`stack.pinned`): first, compact, sticky while scrolling, kept by close-others/all.
 - Preview (`stack.preview`): one per group, italic, replaced by the next preview there; `addView(…, { preview: true })`,
   `showPreview(id)`, `promote(id)` (also double-click, `input` from its content, `setDirty`). Reason `"promote"`.
-- Unsaved: runtime only. `setDirty(id, dirty?)`, `isDirty`, `dirtyViews`, `flexdock-dirty`; `dismiss()` returns
-  `Promise<boolean>` and asks `confirmClose(id)` or shows `<flexdock-confirm>` for dirty views.
+- Unsaved: runtime only. `setDirty(id, dirty?)`, `isDirty`, `dirtyViews`, `pazuru-dirty`; `dismiss()` returns
+  `Promise<boolean>` and asks `confirmClose(id)` or shows `<pazuru-confirm>` for dirty views.
 
 ## Keyboard docking
 `Alt+M` / `beginMove(id?)`: Tab / Shift+Tab choose a group or the outer edge, arrows a side, Enter / Space drop,
@@ -91,16 +91,16 @@ Esc / `cancelMove()` cancel. Shares the pointer drop guide; announced through th
 ## Layout versions
 `layoutVersion` (attr `layout-version`) + `migrations: { [n]: (m) => m }` (n → n + 1) upgrade models from storage and
 `restore()`; assigned models without `version` are stamped current. `validate(model)` lists problems; both report
-through `flexdock-layoutissue` `{ source: "set" | "restore" | "storage", problems, fatal }`. Pure: `upgrade`, `validate`.
+through `pazuru-layoutissue` `{ source: "set" | "restore" | "storage", problems, fatal }`. Pure: `upgrade`, `validate`.
 
-## Keyboard (flexdock's own scheme)
+## Keyboard (pazuru's own scheme)
 `Ctrl+.` palette · `Alt+ArrowKeys` focus neighbouring view · `Alt+Shift+ArrowKeys` move focused view
 to that side of its group · `Alt+PageUp/PageDown` cycle tabs · `Alt+Z` zoom · `Alt+H` stow ·
 `Alt+F` float · `Alt+Backspace` dismiss · `Ctrl+Alt+Z/Y` undo/redo · `Shift+F10` / menu key: tab menu · `Alt+M` keyboard docking. Splitters: arrow keys, Home/End.
 
 ## Extras
 Undo/redo, presets & workspaces, localStorage persistence, pop-out to a browser window, command
-palette, snap-to-grid windows, pointer/touch input, lazy view reveal events, `<flexdock-minimap>`.
+palette, snap-to-grid windows, pointer/touch input, lazy view reveal events, `<pazuru-minimap>`.
 
 ## Batch C: splitters and performance
 

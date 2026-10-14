@@ -1,10 +1,10 @@
 import { html, type PropertyValues, type TemplateResult } from "lit";
 import type { Side } from "../model.js";
 import type { DockContext } from "./context.js";
-import { FlexdockPart } from "./part.js";
+import { PazuruPart } from "./part.js";
 
-/** `<flexdock-rail>`: the strip of auto-hidden views along one edge. Click or hover opens a `<flexdock-flyout>`. */
-export class FlexdockRail extends FlexdockPart {
+/** `<pazuru-rail>`: the strip of auto-hidden views along one edge. Click or hover opens a `<pazuru-flyout>`. */
+export class PazuruRail extends PazuruPart {
   static override properties = {
     side: {},
     views: { attribute: false },

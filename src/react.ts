@@ -1,29 +1,29 @@
 import { createElement, forwardRef, useEffect, useImperativeHandle, useRef, type CSSProperties, type ReactNode } from "react";
 import "./index.js";
-import type { FlexdockManager } from "./manager.js";
-import { applyProps, bindEvents, type FlexdockHandlers, type FlexdockProps } from "./bridge.js";
+import type { PazuruManager } from "./manager.js";
+import { applyProps, bindEvents, type PazuruHandlers, type PazuruProps } from "./bridge.js";
 
-export type { FlexdockHandlers, FlexdockProps } from "./bridge.js";
+export type { PazuruHandlers, PazuruProps } from "./bridge.js";
 
-/** Props of `<FlexdockLayout>`: element properties plus `on*` callbacks. */
-export interface FlexdockLayoutProps extends FlexdockProps {
+/** Props of `<PazuruLayout>`: element properties plus `on*` callbacks. */
+export interface PazuruLayoutProps extends PazuruProps {
   className?: string;
   style?: CSSProperties;
   id?: string;
   /** Children with `data-view="<id>"` become the views' content. */
   children?: ReactNode;
-  onLayoutChange?: FlexdockHandlers["change"];
-  onViewFocus?: FlexdockHandlers["focus"];
-  onViewShow?: FlexdockHandlers["viewshow"];
-  onBeforeClose?: FlexdockHandlers["beforeclose"];
-  onBeforeMove?: FlexdockHandlers["beforemove"];
-  onDragCancel?: FlexdockHandlers["dragcancel"];
-  onTransfer?: FlexdockHandlers["transfer"];
-  onDirtyChange?: FlexdockHandlers["dirty"];
-  onLayoutIssue?: FlexdockHandlers["layoutissue"];
+  onLayoutChange?: PazuruHandlers["change"];
+  onViewFocus?: PazuruHandlers["focus"];
+  onViewShow?: PazuruHandlers["viewshow"];
+  onBeforeClose?: PazuruHandlers["beforeclose"];
+  onBeforeMove?: PazuruHandlers["beforemove"];
+  onDragCancel?: PazuruHandlers["dragcancel"];
+  onTransfer?: PazuruHandlers["transfer"];
+  onDirtyChange?: PazuruHandlers["dirty"];
+  onLayoutIssue?: PazuruHandlers["layoutissue"];
 }
 
-function handlersOf(p: FlexdockLayoutProps): FlexdockHandlers {
+function handlersOf(p: PazuruLayoutProps): PazuruHandlers {
   return {
     change: p.onLayoutChange, focus: p.onViewFocus, viewshow: p.onViewShow,
     beforeclose: p.onBeforeClose, beforemove: p.onBeforeMove, dragcancel: p.onDragCancel, transfer: p.onTransfer, dirty: p.onDirtyChange, layoutissue: p.onLayoutIssue
@@ -31,11 +31,11 @@ function handlersOf(p: FlexdockLayoutProps): FlexdockHandlers {
 }
 
 /**
- * React wrapper around `<flexdock-manager>`. The ref gives you the element, with methods like `undo()`,
+ * React wrapper around `<pazuru-manager>`. The ref gives you the element, with methods like `undo()`,
  * `addView(id, content, options)`, `removeView(id)`, `getViewElement(id)` and `hasView(id)`.
  */
-export const FlexdockLayout = forwardRef<FlexdockManager | null, FlexdockLayoutProps>(function FlexdockLayout(props, ref) {
-  const el = useRef<FlexdockManager | null>(null);
+export const PazuruLayout = forwardRef<PazuruManager | null, PazuruLayoutProps>(function PazuruLayout(props, ref) {
+  const el = useRef<PazuruManager | null>(null);
   const latest = useRef(props);
   latest.current = props;
   useImperativeHandle(ref, () => el.current!, []);
@@ -46,5 +46,5 @@ export const FlexdockLayout = forwardRef<FlexdockManager | null, FlexdockLayoutP
     const node = el.current;
     return node ? bindEvents(node, () => handlersOf(latest.current)) : undefined;
   }, []);
-  return createElement("flexdock-manager", { ref: el, class: props.className, style: props.style, id: props.id }, props.children);
+  return createElement("pazuru-manager", { ref: el, class: props.className, style: props.style, id: props.id }, props.children);
 });

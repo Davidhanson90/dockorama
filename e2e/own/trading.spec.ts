@@ -1,12 +1,12 @@
 import { expect, test } from "@playwright/test";
 
-const BASE = process.env.FLEXDOCK_SITE ?? "";
-const SHOTS = process.env.FLEXDOCK_TRADING_SHOTS ?? process.env.FLEXDOCK_SHOTS ?? "e2e-results";
+const BASE = process.env.PAZURU_SITE ?? "";
+const SHOTS = process.env.PAZURU_TRADING_SHOTS ?? process.env.PAZURU_SHOTS ?? "e2e-results";
 
 test("trading desk example runs live in the docs and pops out", async ({ page, context }) => {
   await page.setViewportSize({ width: 1600, height: 1100 });
   await page.goto(`${BASE}/#/examples/trading`);
-  const dock = page.locator("#td-stage flexdock-manager");
+  const dock = page.locator("#td-stage pazuru-manager");
   await expect(dock.locator(".tab, .title").filter({ hasText: "Chart" }).first()).toBeVisible();
   await expect(dock.locator('[data-window]')).toHaveCount(2);
   await expect(dock.locator(".rail-item", { hasText: "Risk" })).toBeVisible();
@@ -23,7 +23,7 @@ test("trading desk example runs live in the docs and pops out", async ({ page, c
   const [popup] = await Promise.all([context.waitForEvent("page"), page.locator("#td-popout").click()]);
   await popup.waitForLoadState();
   expect(new URL(popup.url()).pathname).toMatch(/trading\.html$/);
-  await expect(popup.locator("flexdock-manager.td")).toBeVisible();
+  await expect(popup.locator("pazuru-manager.td")).toBeVisible();
   await popup.close();
 });
 
@@ -32,7 +32,7 @@ test("standalone trading page fills the viewport with no docs chrome", async ({ 
   page.on("pageerror", (e) => errors.push(e.message));
   await page.setViewportSize({ width: 1680, height: 1000 });
   await page.goto(`${BASE}/trading.html`);
-  const dock = page.locator("flexdock-manager.td");
+  const dock = page.locator("pazuru-manager.td");
   await expect(dock).toBeVisible();
   await expect(page.locator("header.top, aside.side")).toHaveCount(0);
   const box = (await dock.boundingBox())!;

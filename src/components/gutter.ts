@@ -1,11 +1,11 @@
 import { html, type PropertyValues, type TemplateResult } from "lit";
-import { FlexdockPart } from "./part.js";
+import { PazuruPart } from "./part.js";
 
 /**
- * `<flexdock-gutter>`: the draggable, keyboard-operable splitter between two cells of a split.
+ * `<pazuru-gutter>`: the draggable, keyboard-operable splitter between two cells of a split.
  * Sends `gutter-grab` (pointer) and `gutter-key` (keyboard) requests; the manager resizes.
  */
-export class FlexdockGutter extends FlexdockPart {
+export class PazuruGutter extends PazuruPart {
   static override properties = {
     path: { attribute: false },
     index: { type: Number },

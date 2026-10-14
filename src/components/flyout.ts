@@ -1,10 +1,10 @@
 import { html, type PropertyValues, type TemplateResult } from "lit";
 import type { Side } from "../model.js";
 import type { DockContext } from "./context.js";
-import { FlexdockPart } from "./part.js";
+import { PazuruPart } from "./part.js";
 
-/** `<flexdock-flyout>`: the sliding panel that shows an auto-hidden view over the layout. Esc closes it. */
-export class FlexdockFlyout extends FlexdockPart {
+/** `<pazuru-flyout>`: the sliding panel that shows an auto-hidden view over the layout. Esc closes it. */
+export class PazuruFlyout extends PazuruPart {
   static override properties = {
     view: {},
     side: {},
@@ -41,7 +41,7 @@ export class FlexdockFlyout extends FlexdockPart {
     return html`${this.paint("flyout", {
       id, title: info?.title ?? id, unstowLabel: t.unstow, unstow: () => this.request("unstow", { id }),
       ...(closable ? { closeLabel: t.dismiss, close: () => this.request("dismiss", { id }) } : {}),
-      body: html`<flexdock-view .view=${id} .label=${info?.title ?? id} .ctx=${this.ctx}></flexdock-view>`
+      body: html`<pazuru-view .view=${id} .label=${info?.title ?? id} .ctx=${this.ctx}></pazuru-view>`
     })}`;
   }
 }

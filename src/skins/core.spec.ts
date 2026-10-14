@@ -1,13 +1,13 @@
 import { html } from "lit";
 import { afterEach, describe, expect, it } from "vitest";
-import { FlexdockManager, createModel, docs, row, stack } from "../index.js";
+import { PazuruManager, createModel, docs, row, stack } from "../index.js";
 import { activeSkin, clearSkinOverrides, cssFor, defineSkin, extendSkin, overrideSkin, skinNamed, skinNames, templateFor, useSkin } from "./core.js";
 import { defaultSkin } from "./default/skin.js";
 import { templates } from "./default/templates.js";
 
 const views = { a: { title: "Alpha" }, b: { title: "Beta" }, c: { title: "Gamma" } };
-async function mount(setup?: (el: FlexdockManager) => void): Promise<FlexdockManager> {
-  const el = document.createElement("flexdock-manager");
+async function mount(setup?: (el: PazuruManager) => void): Promise<PazuruManager> {
+  const el = document.createElement("pazuru-manager");
   setup?.(el);
   for (const id of Object.keys(views)) {
     const d = document.createElement("div");
@@ -19,8 +19,8 @@ async function mount(setup?: (el: FlexdockManager) => void): Promise<FlexdockMan
   await el.updateComplete;
   return el;
 }
-const q = (el: FlexdockManager, sel: string) => el.shadowRoot!.querySelector<HTMLElement>(sel);
-const skinCss = (el: FlexdockManager) => el.shadowRoot!.querySelector<HTMLStyleElement>("style[data-skin]")?.textContent ?? "";
+const q = (el: PazuruManager, sel: string) => el.shadowRoot!.querySelector<HTMLElement>(sel);
+const skinCss = (el: PazuruManager) => el.shadowRoot!.querySelector<HTMLStyleElement>("style[data-skin]")?.textContent ?? "";
 
 afterEach(() => {
   document.body.innerHTML = "";

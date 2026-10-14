@@ -3,37 +3,37 @@ import {
   ViewChild, type AfterViewInit, type OnChanges, type OnDestroy
 } from "@angular/core";
 import "./index.js";
-import type { ChangeReason, FlexdockManager } from "./manager.js";
-import type { DropZone, EdgeZone, FlexdockModel, LayoutMigrations, LayoutSource, ViewContent, ViewOptions } from "./model.js";
-import type { FlexdockLabels } from "./labels.js";
+import type { ChangeReason, PazuruManager } from "./manager.js";
+import type { DropZone, EdgeZone, PazuruModel, LayoutMigrations, LayoutSource, ViewContent, ViewOptions } from "./model.js";
+import type { PazuruLabels } from "./labels.js";
 import type { TabMenuItem } from "./components/index.js";
 import { applyProps, bindEvents } from "./bridge.js";
 
 /**
- * Angular standalone component wrapping `<flexdock-manager>`. Project view content with `data-view`:
+ * Angular standalone component wrapping `<pazuru-manager>`. Project view content with `data-view`:
  *
  * ```html
- * <flexdock-layout [model]="layout" (layoutChange)="save($event.model)">
+ * <pazuru-layout [model]="layout" (layoutChange)="save($event.model)">
  *   <div data-view="files">…</div>
- * </flexdock-layout>
+ * </pazuru-layout>
  * ```
- * The underlying element is available as `element` (e.g. `@ViewChild(FlexdockLayoutComponent)`).
+ * The underlying element is available as `element` (e.g. `@ViewChild(PazuruLayoutComponent)`).
  */
 @Component({
-  selector: "flexdock-layout",
+  selector: "pazuru-layout",
   standalone: true,
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `<flexdock-manager #host style="display:block;width:100%;height:100%"><ng-content></ng-content></flexdock-manager>`,
+  template: `<pazuru-manager #host style="display:block;width:100%;height:100%"><ng-content></ng-content></pazuru-manager>`,
   styles: [":host { display: block; }"]
 })
-export class FlexdockLayoutComponent implements AfterViewInit, OnChanges, OnDestroy {
-  @Input() model?: FlexdockModel;
+export class PazuruLayoutComponent implements AfterViewInit, OnChanges, OnDestroy {
+  @Input() model?: PazuruModel;
   @Input() theme?: "light" | "dark" | "auto";
   @Input() snap?: number;
   @Input() storageKey?: string;
   @Input() keepEmpty?: boolean;
-  @Input() labels?: Partial<FlexdockLabels>;
+  @Input() labels?: Partial<PazuruLabels>;
   @Input() dragGroup?: string;
   @Input() tabMenu?: (viewId: string, items: TabMenuItem[]) => TabMenuItem[];
   @Input() confirmClose?: (viewId: string) => boolean | Promise<boolean>;
@@ -41,7 +41,7 @@ export class FlexdockLayoutComponent implements AfterViewInit, OnChanges, OnDest
   @Input() retain?: "all" | "active";
   @Input() migrations?: LayoutMigrations;
 
-  @Output() readonly layoutChange = new EventEmitter<{ model: FlexdockModel; reason: ChangeReason }>();
+  @Output() readonly layoutChange = new EventEmitter<{ model: PazuruModel; reason: ChangeReason }>();
   @Output() readonly viewFocus = new EventEmitter<{ id: string; previous?: string }>();
   @Output() readonly viewShow = new EventEmitter<{ id: string; first: boolean }>();
   @Output() readonly beforeClose = new EventEmitter<CustomEvent<{ id: string }>>();
@@ -49,17 +49,17 @@ export class FlexdockLayoutComponent implements AfterViewInit, OnChanges, OnDest
   @Output() readonly dragCancel = new EventEmitter<{ id: string }>();
   @Output() readonly dirtyChange = new EventEmitter<{ id: string; dirty: boolean }>();
   @Output() readonly layoutIssue = new EventEmitter<{ source: LayoutSource; problems: string[]; fatal: boolean }>();
-  @Output() readonly transfer = new EventEmitter<{ id: string; from: FlexdockManager; to: FlexdockManager; direction: "in" | "out" }>();
+  @Output() readonly transfer = new EventEmitter<{ id: string; from: PazuruManager; to: PazuruManager; direction: "in" | "out" }>();
 
-  @ViewChild("host", { static: true }) private host?: ElementRef<FlexdockManager>;
+  @ViewChild("host", { static: true }) private host?: ElementRef<PazuruManager>;
   private off?: () => void;
 
-  /** The underlying `<flexdock-manager>` element. */
-  get element(): FlexdockManager | undefined {
+  /** The underlying `<pazuru-manager>` element. */
+  get element(): PazuruManager | undefined {
     return this.host?.nativeElement;
   }
 
-  /** Add a view in one call (see `FlexdockManager.addView`). */
+  /** Add a view in one call (see `PazuruManager.addView`). */
   addView(id: string, content: ViewContent, options?: ViewOptions): void {
     this.need().addView(id, content, options);
   }
@@ -74,9 +74,9 @@ export class FlexdockLayoutComponent implements AfterViewInit, OnChanges, OnDest
     return this.element?.hasView(id) ?? false;
   }
 
-  private need(): FlexdockManager {
+  private need(): PazuruManager {
     const el = this.element;
-    if (!el) throw new Error("flexdock: the layout is not initialised yet");
+    if (!el) throw new Error("pazuru: the layout is not initialised yet");
     return el;
   }
 

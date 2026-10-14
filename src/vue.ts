@@ -1,28 +1,28 @@
 import { defineComponent, h, onBeforeUnmount, onMounted, ref, watch, type PropType } from "vue";
 import "./index.js";
-import type { FlexdockManager } from "./manager.js";
-import type { FlexdockModel, LayoutMigrations, ViewContent, ViewOptions } from "./model.js";
-import type { FlexdockLabels } from "./labels.js";
+import type { PazuruManager } from "./manager.js";
+import type { PazuruModel, LayoutMigrations, ViewContent, ViewOptions } from "./model.js";
+import type { PazuruLabels } from "./labels.js";
 import type { TabMenuItem } from "./components/index.js";
 import type { ChangeReason } from "./manager.js";
-import { applyProps, bindEvents, type FlexdockHandlers } from "./bridge.js";
+import { applyProps, bindEvents, type PazuruHandlers } from "./bridge.js";
 
-export type { FlexdockHandlers, FlexdockProps } from "./bridge.js";
+export type { PazuruHandlers, PazuruProps } from "./bridge.js";
 
 /**
- * Vue 3 wrapper around `<flexdock-manager>`. Supports `v-model:model`.
+ * Vue 3 wrapper around `<pazuru-manager>`. Supports `v-model:model`.
  * Emits: `layout-change`, `update:model`, `view-focus`, `view-show`, `before-close`, `before-move`, `drag-cancel`, `transfer`, `dirty-change`, `layout-issue`.
- * Exposes `element` (the underlying `<flexdock-manager>`) plus `addView`, `removeView`, `getViewElement` and `hasView`.
+ * Exposes `element` (the underlying `<pazuru-manager>`) plus `addView`, `removeView`, `getViewElement` and `hasView`.
  */
-export const FlexdockLayout = defineComponent({
-  name: "FlexdockLayout",
+export const PazuruLayout = defineComponent({
+  name: "PazuruLayout",
   props: {
-    model: { type: Object as PropType<FlexdockModel>, default: undefined },
+    model: { type: Object as PropType<PazuruModel>, default: undefined },
     theme: { type: String as PropType<"light" | "dark" | "auto">, default: undefined },
     snap: { type: Number, default: undefined },
     storageKey: { type: String, default: undefined },
     keepEmpty: { type: Boolean, default: undefined },
-    labels: { type: Object as PropType<Partial<FlexdockLabels>>, default: undefined },
+    labels: { type: Object as PropType<Partial<PazuruLabels>>, default: undefined },
     dragGroup: { type: String, default: undefined },
     tabMenu: { type: Function as PropType<(viewId: string, items: TabMenuItem[]) => TabMenuItem[]>, default: undefined },
     confirmClose: { type: Function as PropType<(viewId: string) => boolean | Promise<boolean>>, default: undefined },
@@ -31,8 +31,8 @@ export const FlexdockLayout = defineComponent({
     migrations: { type: Object as PropType<LayoutMigrations>, default: undefined }
   },
   emits: {
-    "layout-change": (_d: { model: FlexdockModel; reason: ChangeReason }) => _d !== undefined,
-    "update:model": (_m: FlexdockModel) => _m !== undefined,
+    "layout-change": (_d: { model: PazuruModel; reason: ChangeReason }) => _d !== undefined,
+    "update:model": (_m: PazuruModel) => _m !== undefined,
     "view-focus": (_d: { id: string; previous?: string }) => _d !== undefined,
     "view-show": (_d: { id: string }) => _d !== undefined,
     "before-close": (_e: CustomEvent<{ id: string }>) => _e !== undefined,
@@ -43,9 +43,9 @@ export const FlexdockLayout = defineComponent({
     "layout-issue": (_d: { problems: string[]; fatal: boolean }) => _d !== undefined
   },
   setup(props, { emit, slots, expose }) {
-    const element = ref<FlexdockManager | null>(null);
+    const element = ref<PazuruManager | null>(null);
     let off: (() => void) | undefined;
-    const handlers: FlexdockHandlers = {
+    const handlers: PazuruHandlers = {
       change: (d) => { emit("layout-change", d); emit("update:model", d.model); },
       focus: (d) => emit("view-focus", d),
       viewshow: (d) => emit("view-show", d),
@@ -63,8 +63,8 @@ export const FlexdockLayout = defineComponent({
     });
     watch(() => ({ ...props }), sync, { deep: false });
     onBeforeUnmount(() => off?.());
-    const need = (): FlexdockManager => {
-      if (!element.value) throw new Error("flexdock: the layout is not mounted yet");
+    const need = (): PazuruManager => {
+      if (!element.value) throw new Error("pazuru: the layout is not mounted yet");
       return element.value;
     };
     expose({
@@ -74,6 +74,6 @@ export const FlexdockLayout = defineComponent({
       getViewElement: (id: string) => element.value?.getViewElement(id) ?? null,
       hasView: (id: string) => element.value?.hasView(id) ?? false
     });
-    return () => h("flexdock-manager", { ref: element }, slots["default"]?.());
+    return () => h("pazuru-manager", { ref: element }, slots["default"]?.());
   }
 });

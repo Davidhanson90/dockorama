@@ -16,12 +16,12 @@ describe("phosphor skin", () => {
     expect(Object.keys(phosphor.templates).length).toBeGreaterThan(0);
     for (const key of Object.keys(phosphor.templates) as Array<keyof typeof phosphor.templates>) expect(templateFor(key, { skin: phosphor })).toBe(phosphor.templates[key]);
     expect(templateFor("confirm", { skin: phosphor })).toBe(defaultSkin.templates.confirm);
-    expect(phosphor.css).toMatch(/--fd-accent/);
+    expect(phosphor.css).toMatch(/--pz-accent/);
   });
 
   it("styles a dock when imported page-wide, and a single dock through its skin attribute", async () => {
     await import("./index.js");
-    const el = document.createElement("flexdock-manager");
+    const el = document.createElement("pazuru-manager");
     for (const id of Object.keys(views)) {
       const d = document.createElement("div");
       d.dataset["view"] = id;

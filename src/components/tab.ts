@@ -1,12 +1,12 @@
 import { html, type PropertyValues, type TemplateResult } from "lit";
 import type { ViewInfo } from "../model.js";
-import { FlexdockPart } from "./part.js";
+import { PazuruPart } from "./part.js";
 
 /**
- * `<flexdock-tab>`: one tab (`role="tab"`). Click reveals, pointer-drag moves, middle-click or the
+ * `<pazuru-tab>`: one tab (`role="tab"`). Click reveals, pointer-drag moves, middle-click or the
  * close button (when `closable`) closes.
  */
-export class FlexdockTab extends FlexdockPart {
+export class PazuruTab extends PazuruPart {
   static override properties = {
     view: {},
     info: { attribute: false },

@@ -1,19 +1,19 @@
-import { FlexdockManager } from "./manager.js";
-import { FlexdockMinimap } from "./minimap.js";
+import { PazuruManager } from "./manager.js";
+import { PazuruMinimap } from "./minimap.js";
 import { defineParts } from "./components/index.js";
 
 /** Current package version. */
 export const VERSION = "0.1.0";
 
-export { FlexdockManager, FlexdockMinimap };
+export { PazuruManager, PazuruMinimap };
 export type { ChangeReason } from "./manager.js";
 export {
   stateEvents, type BeforeAddDetail, type CommandDetail, type CommandSource, type DockOrigin, type DragKind, type DragOverDetail, type DragSpot,
-  type DropDetail, type FlexdockStateEvents, type FoldDetail, type ResizeDetail, type StateEvent, type StateEventName
+  type DropDetail, type PazuruStateEvents, type FoldDetail, type ResizeDetail, type StateEvent, type StateEventName
 } from "./events.js";
 export {
-  FlexdockConfirm, FlexdockDocs, FlexdockDropGuide, FlexdockFlyout, FlexdockGutter, FlexdockMenu, FlexdockNotice, FlexdockPalette, FlexdockPart, FlexdockRail,
-  FlexdockSplit, FlexdockStack, FlexdockTab, FlexdockTabMenu, FlexdockTabstrip, FlexdockToolbar, FlexdockView, FlexdockWindow, PARTS, defineParts,
+  PazuruConfirm, PazuruDocs, PazuruDropGuide, PazuruFlyout, PazuruGutter, PazuruMenu, PazuruNotice, PazuruPalette, PazuruPart, PazuruRail,
+  PazuruSplit, PazuruStack, PazuruTab, PazuruTabMenu, PazuruTabstrip, PazuruToolbar, PazuruView, PazuruWindow, PARTS, defineParts,
   type DockContext, type GuideSpot, type MenuEntry, type NoticeAction, type PartRequest, type TabMenuItem
 } from "./components/index.js";
 export * from "./model.js";
@@ -24,16 +24,16 @@ export {
 } from "./ops.js";
 export { Timeline } from "./history.js";
 export { Workspaces } from "./workspaces.js";
-export { DEFAULT_LABELS, type FlexdockLabels } from "./labels.js";
+export { DEFAULT_LABELS, type PazuruLabels } from "./labels.js";
 export * as geometry from "./geometry.js";
 
 defineParts();
-if (!customElements.get("flexdock-manager")) customElements.define("flexdock-manager", FlexdockManager);
-if (!customElements.get("flexdock-minimap")) customElements.define("flexdock-minimap", FlexdockMinimap);
+if (!customElements.get("pazuru-manager")) customElements.define("pazuru-manager", PazuruManager);
+if (!customElements.get("pazuru-minimap")) customElements.define("pazuru-minimap", PazuruMinimap);
 
 declare global {
   interface HTMLElementTagNameMap {
-    "flexdock-minimap": FlexdockMinimap;
+    "pazuru-minimap": PazuruMinimap;
   }
 }
 export {

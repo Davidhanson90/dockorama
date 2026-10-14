@@ -1,11 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 
-const BASE = process.env.FLEXDOCK_SITE ?? "";
+const BASE = process.env.PAZURU_SITE ?? "";
 const open = async (page: Page, slug: string) => {
   await page.goto(`${BASE}/#/${slug}`);
-  await expect(page.locator("flexdock-manager").first()).toBeVisible();
+  await expect(page.locator("pazuru-manager").first()).toBeVisible();
 };
-const dock = (page: Page) => page.locator("flexdock-manager").first();
+const dock = (page: Page) => page.locator("pazuru-manager").first();
 const box = async (page: Page, sel: string) => (await dock(page).locator(sel).first().boundingBox())!;
 const mid = (b: { x: number; y: number; width: number; height: number }) => ({ x: b.x + b.width / 2, y: b.y + b.height / 2 });
 const model = (page: Page) => dock(page).evaluate((el) => JSON.parse(JSON.stringify((el as unknown as { model: unknown }).model)));
@@ -89,12 +89,12 @@ test("overflowing tabs scroll with the wheel and buttons", async ({ page }) => {
 test("pop-out moves content to a new browser window and back", async ({ page, context }) => {
   await open(page, "guide/popout");
   const [popup] = await Promise.all([context.waitForEvent("page"), page.getByRole("button", { name: "Pop out Output" }).click()]);
-  await expect(popup.locator('.fdo-body > [data-view="log"]')).toContainText("Build finished");
+  await expect(popup.locator('.pzo-body > [data-view="log"]')).toContainText("Build finished");
   await expect(dock(page).locator(".away")).toBeVisible();
   await page.screenshot({ path: "e2e-results/2x-popout.png" });
   await popup.close();
   await expect(dock(page).locator(".away")).toHaveCount(0);
-  await expect(page.locator('flexdock-manager [data-view="log"]')).toContainText("Build finished");
+  await expect(page.locator('pazuru-manager [data-view="log"]')).toContainText("Build finished");
   // Bring back through the button too.
   const [again] = await Promise.all([context.waitForEvent("page"), page.getByRole("button", { name: "Pop out Output" }).click()]);
   await dock(page).locator(".away button").click();
@@ -106,14 +106,14 @@ test("framework wrappers render live demos", async ({ page }) => {
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(`${BASE}/#/guide/frameworks`);
   for (const fw of ["react", "vue", "angular", "svelte"]) {
-    const m = page.locator(`[data-fw="${fw}"] flexdock-manager`);
+    const m = page.locator(`[data-fw="${fw}"] pazuru-manager`);
     await expect(m).toBeVisible({ timeout: 15_000 });
     await expect(m.locator('[role="tab"]').first()).toBeVisible();
   }
-  await page.locator('[data-fw="react"] flexdock-manager [role="tab"]:has-text("notes.md")').click();
-  await page.locator('[data-fw="react"] flexdock-manager [role="tab"]:has-text("main.ts") [part~="tab-close"]').click();
+  await page.locator('[data-fw="react"] pazuru-manager [role="tab"]:has-text("notes.md")').click();
+  await page.locator('[data-fw="react"] pazuru-manager [role="tab"]:has-text("main.ts") [part~="tab-close"]').click();
   await expect(page.locator('[data-fw="react"] + .fw-status')).toContainText("React state");
-  await page.locator('[data-fw="angular"] flexdock-manager [role="tab"]:has-text("main.ts") [part~="tab-close"]').click();
+  await page.locator('[data-fw="angular"] pazuru-manager [role="tab"]:has-text("main.ts") [part~="tab-close"]').click();
   await expect(page.locator('[data-fw="angular"] + .fw-status')).toContainText("Angular signal");
   await page.screenshot({ path: "e2e-results/2x-frameworks.png", fullPage: true });
   expect(errors).toEqual([]);

@@ -15,16 +15,16 @@ async function put<T extends HTMLElement & { updateComplete: Promise<boolean> }>
 }
 export function requests(): PartRequest[] {
   const out: PartRequest[] = [];
-  document.addEventListener("flexdock-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
+  document.addEventListener("pazuru-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
   return out;
 }
 afterEach(() => { document.body.innerHTML = ""; });
 
 type P = HTMLElement & { updateComplete: Promise<boolean>; index: number; items: unknown[] };
-describe("<flexdock-palette>", () => {
+describe("<pazuru-palette>", () => {
   it("is a searchable dialog that reports query, moves and choices", async () => {
     const got = requests();
-    const el = await put<P>("flexdock-palette", { items: [{ label: "Alpha", detail: "" }, { label: "Beta", detail: "closed" }], index: 1, query: "a", label: "Find", placeholder: "Type" });
+    const el = await put<P>("pazuru-palette", { items: [{ label: "Alpha", detail: "" }, { label: "Beta", detail: "closed" }], index: 1, query: "a", label: "Find", placeholder: "Type" });
     expect(el.getAttribute("role")).toBe("dialog");
     expect(el.getAttribute("aria-label")).toBe("Find");
     const input = el.querySelector("input")!;
@@ -42,7 +42,7 @@ describe("<flexdock-palette>", () => {
     ]);
   });
   it("says when nothing matches", async () => {
-    const el = await put<P>("flexdock-palette", { items: [], empty: "Nope" });
+    const el = await put<P>("pazuru-palette", { items: [], empty: "Nope" });
     expect(el.querySelector("li")!.textContent).toBe("Nope");
     expect(el.querySelector("li")!.getAttribute("aria-disabled")).toBe("true");
   });

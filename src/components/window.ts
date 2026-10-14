@@ -2,11 +2,11 @@ import { html, type PropertyValues, type TemplateResult } from "lit";
 import type { Box, DockNode } from "../model.js";
 import { viewsIn } from "../ops.js";
 import type { DockContext } from "./context.js";
-import { FlexdockPart } from "./part.js";
+import { PazuruPart } from "./part.js";
 import { renderNode } from "./tree.js";
 
-/** `<flexdock-window>`: a floating window holding its own layout tree, with a resize grip. */
-export class FlexdockWindow extends FlexdockPart {
+/** `<pazuru-window>`: a floating window holding its own layout tree, with a resize grip. */
+export class PazuruWindow extends PazuruPart {
   static override properties = {
     key: {},
     box: { attribute: false },

@@ -1,8 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 
 // Two managers on one page keep separate layouts, histories and saved layouts.
-const BASE = process.env.FLEXDOCK_SITE ?? "";
-const mgr = (page: Page, key: string) => page.locator(`flexdock-manager[data-dock="${key}"]`);
+const BASE = process.env.PAZURU_SITE ?? "";
+const mgr = (page: Page, key: string) => page.locator(`pazuru-manager[data-dock="${key}"]`);
 const state = (page: Page, key: string) => mgr(page, key).evaluate((el) => {
   const m = el as unknown as { model: { drawers: Record<string, string[]>; windows: unknown[] }; canUndo: boolean; storageKey: string };
   return { stowed: Object.values(m.model.drawers).flat(), windows: m.model.windows.length, canUndo: m.canUndo, key: m.storageKey };
@@ -10,7 +10,7 @@ const state = (page: Page, key: string) => mgr(page, key).evaluate((el) => {
 
 test("two managers on one page are independent", async ({ page }) => {
   await page.goto(`${BASE}/#/guide/multiple`);
-  await page.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.startsWith("flexdock-demo-multi-")) localStorage.removeItem(k); });
+  await page.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.startsWith("pazuru-demo-multi-")) localStorage.removeItem(k); });
   await page.reload();
   await expect(mgr(page, "mail")).toBeVisible();
   await expect(mgr(page, "desk")).toBeVisible();

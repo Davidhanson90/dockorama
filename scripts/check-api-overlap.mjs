@@ -1,12 +1,12 @@
-// Compares flexdock's public API identifiers with an avoid-list of identifiers kept in the private records
-// folder (FLEXDOCK_RECORDS, default ../flexdock-records). Generic platform / English identifiers
+// Compares pazuru's public API identifiers with an avoid-list of identifiers kept in the private records
+// folder (PAZURU_RECORDS, default ../pazuru-records). Generic platform / English identifiers
 // are ignored. Fails on any remaining overlap. Skips (with a notice) where the list is absent (CI).
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const listPath = join(process.env.FLEXDOCK_RECORDS ?? join(root, "..", "flexdock-records"), "avoid-identifiers.txt");
+const listPath = join(process.env.PAZURU_RECORDS ?? join(root, "..", "pazuru-records"), "avoid-identifiers.txt");
 if (!existsSync(listPath)) {
   console.log("check-api-overlap: no avoid-list found; skipped");
   process.exit(0);

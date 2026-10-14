@@ -1,7 +1,7 @@
 // Live framework demos for the "Frameworks" guide. Loaded on demand so the rest of the site stays small.
-import { createModel, row, stack, docs, type FlexdockModel } from "flexdock";
+import { createModel, row, stack, docs, type PazuruModel } from "pazuru";
 
-const base = (): FlexdockModel => createModel(
+const base = (): PazuruModel => createModel(
   { files: { title: "Files", icon: "📁" }, main: { title: "main.ts" }, notes: { title: "notes.md" }, log: { title: "Output" } },
   row([stack(["files"]), docs(["main", "notes"]), stack(["log"])], [1, 3, 1])
 );
@@ -14,14 +14,14 @@ const status = (host: HTMLElement) => {
 };
 
 export async function mountReact(host: HTMLElement): Promise<void> {
-  const [{ createElement: h, useState }, { createRoot }, { FlexdockLayout }] = await Promise.all([
-    import("react"), import("react-dom/client"), import("flexdock/react")
+  const [{ createElement: h, useState }, { createRoot }, { PazuruLayout }] = await Promise.all([
+    import("react"), import("react-dom/client"), import("pazuru/react")
   ]);
   const say = status(host);
   function App() {
     const [model, setModel] = useState(base);
     const [changes, setChanges] = useState(0);
-    return h(FlexdockLayout, {
+    return h(PazuruLayout, {
       model, style: { height: "100%" },
       onLayoutChange: (d) => { setModel(d.model); setChanges((n) => n + 1); say(`React state: ${changes + 1} change(s), last “${d.reason}”`); }
     },
@@ -34,14 +34,14 @@ export async function mountReact(host: HTMLElement): Promise<void> {
 }
 
 export async function mountVue(host: HTMLElement): Promise<void> {
-  const [{ createApp, h, ref }, { FlexdockLayout }] = await Promise.all([import("vue"), import("flexdock/vue")]);
+  const [{ createApp, h, ref }, { PazuruLayout }] = await Promise.all([import("vue"), import("pazuru/vue")]);
   const say = status(host);
   createApp({
     setup() {
       const model = ref(base());
-      return () => h(FlexdockLayout, {
+      return () => h(PazuruLayout, {
         model: model.value, style: "height:100%",
-        "onUpdate:model": (m: FlexdockModel) => { model.value = m; },
+        "onUpdate:model": (m: PazuruModel) => { model.value = m; },
         "onLayout-change": (d: { reason: string }) => say(`Vue state updated: “${d.reason}”`)
       }, () => ["files", "main", "notes", "log"].map((id) => h("div", { "data-view": id, class: "v" }, [h("h3", `${id} (Vue)`)])));
     }
@@ -50,27 +50,27 @@ export async function mountVue(host: HTMLElement): Promise<void> {
 
 export async function mountAngular(host: HTMLElement): Promise<void> {
   await import("@angular/compiler");
-  const [{ Component, provideZonelessChangeDetection, signal }, { createApplication }, { FlexdockLayoutComponent }] = await Promise.all([
-    import("@angular/core"), import("@angular/platform-browser"), import("flexdock/angular")
+  const [{ Component, provideZonelessChangeDetection, signal }, { createApplication }, { PazuruLayoutComponent }] = await Promise.all([
+    import("@angular/core"), import("@angular/platform-browser"), import("pazuru/angular")
   ]);
   const say = status(host);
   @Component({
-    selector: "fd-angular-demo",
+    selector: "pz-angular-demo",
     standalone: true,
-    imports: [FlexdockLayoutComponent],
-    template: `<flexdock-layout style="height:100%" [model]="model()" (layoutChange)="onChange($event)">
+    imports: [PazuruLayoutComponent],
+    template: `<pazuru-layout style="height:100%" [model]="model()" (layoutChange)="onChange($event)">
       <div class="v" data-view="files"><h3>Files (Angular)</h3></div>
       <div class="v" data-view="main"><h3>main.ts</h3></div>
       <div class="v" data-view="notes"><h3>notes.md</h3></div>
       <div class="v" data-view="log"><small>{{ count() }} change(s)</small></div>
-    </flexdock-layout>`
+    </pazuru-layout>`
   })
   class Demo {
     model = signal(base());
     count = signal(0);
-    onChange(d: { model: FlexdockModel; reason: string }) { this.model.set(d.model); this.count.update((n) => n + 1); say(`Angular signal updated: “${d.reason}”`); }
+    onChange(d: { model: PazuruModel; reason: string }) { this.model.set(d.model); this.count.update((n) => n + 1); say(`Angular signal updated: “${d.reason}”`); }
   }
-  const el = document.createElement("fd-angular-demo");
+  const el = document.createElement("pz-angular-demo");
   el.style.cssText = "display:block;height:100%";
   host.append(el);
   const app = await createApplication({ providers: [provideZonelessChangeDetection()] });
@@ -78,11 +78,11 @@ export async function mountAngular(host: HTMLElement): Promise<void> {
 }
 
 export async function mountSvelte(host: HTMLElement): Promise<void> {
-  const { flexdock } = await import("flexdock/svelte");
+  const { pazuru } = await import("pazuru/svelte");
   const say = status(host);
-  const el = document.createElement("flexdock-manager");
+  const el = document.createElement("pazuru-manager");
   el.style.height = "100%";
   for (const id of ["files", "main", "notes", "log"]) el.insertAdjacentHTML("beforeend", `<div class="v" data-view="${id}"><h3>${id} (action)</h3></div>`);
   host.append(el);
-  flexdock(el, { model: base(), on: { change: (d) => say(`Action callback: “${d.reason}”`) } });
+  pazuru(el, { model: base(), on: { change: (d) => say(`Action callback: “${d.reason}”`) } });
 }

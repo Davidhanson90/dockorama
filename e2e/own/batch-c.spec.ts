@@ -1,14 +1,14 @@
 import { expect, test, type Locator } from "@playwright/test";
 
-const BASE = process.env.FLEXDOCK_SITE ?? "";
-const SHOTS = process.env.FLEXDOCK_SHOTS ?? "e2e-results";
+const BASE = process.env.PAZURU_SITE ?? "";
+const SHOTS = process.env.PAZURU_SHOTS ?? "e2e-results";
 type Split = { weights: number[]; fixed?: Array<number | null>; folded?: boolean[]; children: Split[] };
 type Dock = { model: { root: Split }; isFolded(id: string): boolean; isRetained(id: string): boolean };
 const call = <T>(loc: Locator, fn: (d: Dock) => T) => loc.evaluate((el, src) => (new Function("d", `return (${src})(d)`))(el), fn.toString()) as Promise<T>;
 
 test("gutters collapse on double-click, fixed cells keep their px size, limits hold", async ({ page }) => {
   await page.goto(`${BASE}/#/guide/splitters`);
-  const dock = page.locator("flexdock-manager").first();
+  const dock = page.locator("pazuru-manager").first();
   const demo = page.locator(".demo").first();
   const files = dock.locator(".split > .cell").first();
   const gutter = dock.locator(".split > .gutter").first();
@@ -48,7 +48,7 @@ test("gutters collapse on double-click, fixed cells keep their px size, limits h
 
 test("retain=active detaches hidden contents; the tab list of 300 views is virtualised", async ({ page }) => {
   await page.goto(`${BASE}/#/guide/performance`);
-  const dock = page.locator("flexdock-manager").first();
+  const dock = page.locator("pazuru-manager").first();
   expect(await dock.evaluate((el) => el.querySelectorAll(":scope > [data-view]").length)).toBeLessThan(5);
   await expect.poll(() => call(dock, (d) => d.isRetained("d10"))).toBe(true);
   await page.locator(".demo").first().getByRole("button", { name: "Open the tab list" }).click();

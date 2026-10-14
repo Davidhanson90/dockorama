@@ -1,5 +1,5 @@
 {
-  "name": "flexdock",
+  "name": "pazuru",
   "version": "0.1.0",
   "description": "A Lit-based web component dock manager: dockable, splittable, tabbed and floating panes.",
   "type": "module",
@@ -77,10 +77,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/Davidhanson90/flexdock.git"
+    "url": "https://github.com/Davidhanson90/pazuru.git"
   },
   "bugs": {
-    "url": "https://github.com/Davidhanson90/flexdock/issues"
+    "url": "https://github.com/Davidhanson90/pazuru/issues"
   },
   "author": "David Graville",
   "license": "MIT",

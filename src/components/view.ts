@@ -1,12 +1,12 @@
 import { html, type PropertyValues, type TemplateResult } from "lit";
 import { slotOf, type DockContext } from "./context.js";
-import { FlexdockPart } from "./part.js";
+import { PazuruPart } from "./part.js";
 
 /**
- * `<flexdock-view>`: hosts one view's content (a named slot for the light-DOM element with matching
+ * `<pazuru-view>`: hosts one view's content (a named slot for the light-DOM element with matching
  * `data-view`). Shows a placeholder when the content is popped out, and the empty drop zone when there is no view.
  */
-export class FlexdockView extends FlexdockPart {
+export class PazuruView extends PazuruPart {
   static override properties = {
     view: {},
     kind: {},
