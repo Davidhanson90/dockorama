@@ -13,5 +13,14 @@ export default defineConfig({
       { find: /^flexdock\/(react|vue|angular|svelte)$/, replacement: fileURLToPath(new URL("../dist/$1.js", import.meta.url)) }
     ]
   },
-  build: { outDir: "../harness-dist", emptyOutDir: true }
+  build: {
+    outDir: "../harness-dist",
+    emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        main: fileURLToPath(new URL("./index.html", import.meta.url)),
+        trading: fileURLToPath(new URL("./trading.html", import.meta.url))
+      }
+    }
+  }
 });

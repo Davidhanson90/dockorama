@@ -1008,22 +1008,44 @@ dock.model = createModel(
 );
 button("Reset", () => { localStorage.removeItem(dock.storageKey); location.reload(); });`);
 
-exPage("trading", "Trading desk", "A dense trading workspace: watchlist, chart, order book, blotter and news, in a dark theme with a floating order ticket.", `${SETUP}
-dock.theme = "dark";
-dock.setAttribute("data-fixed-theme", "");
-const rows = [["AURX", 182.4, 1.2], ["BLNT", 61.07, -0.8], ["CRVO", 12.33, 4.1], ["DELM", 940.1, 0.3], ["EKKO", 77.5, -2.2]];
-view("watch", "<table><tr><th>Sym</th><th>Last</th><th>Chg</th></tr>" + rows.map((r) => "<tr><td>" + r[0] + "</td><td>" + r[1] + "</td><td class='" + (r[2] > 0 ? "up" : "down") + "'>" + r[2] + "%</td></tr>").join("") + "</table>");
-view("chart", "<h3>AURX · 5m</h3><div class='bars'>" + Array.from({ length: 40 }, (_, i) => "<i style='height:" + (40 + Math.round(30 * Math.sin(i / 4) + i)) + "%'></i>").join("") + "</div>");
-view("book", "<table><tr><th>Bid</th><th>Size</th><th>Ask</th><th>Size</th></tr>" + [0, 1, 2, 3, 4, 5].map((i) => "<tr><td class='up'>" + (182.3 - i * 0.05).toFixed(2) + "</td><td>" + (100 * (i + 1)) + "</td><td class='down'>" + (182.45 + i * 0.05).toFixed(2) + "</td><td>" + (90 * (i + 2)) + "</td></tr>").join("") + "</table>");
-view("blotter", "<table><tr><th>Time</th><th>Side</th><th>Sym</th><th>Qty</th><th>Px</th></tr><tr><td>14:02</td><td class='up'>BUY</td><td>AURX</td><td>500</td><td>182.20</td></tr><tr><td>13:47</td><td class='down'>SELL</td><td>EKKO</td><td>1,200</td><td>78.10</td></tr></table>");
-view("news", "<ul><li>Central bank holds rates steady</li><li>AURX beats estimates</li><li>Oil slips on supply data</li></ul>");
-view("ticket", "<h3>New order</h3><p>AURX · Limit 182.30 · Qty 100</p><button>Buy</button> <button>Sell</button>");
-dock.model = createModel(
-  { watch: { title: "Watchlist" }, chart: { title: "Chart" }, book: { title: "Order book" }, blotter: { title: "Blotter" },
-    news: { title: "News" }, ticket: { title: "Order ticket", caps: { hide: false } } },
-  row([stack(["watch"]), column([stack(["chart"]), stack(["blotter", "news"])], [2, 1]), stack(["book"])], [1, 3, 1.2]),
-  { windows: [{ key: "ticket", box: { x: 380, y: 70, w: 260, h: 170 }, tree: stack(["ticket"]) }] }
-);`);
+add({
+  slug: "examples/trading", title: "Trading desk", section: "Examples",
+  body: `<h1>Trading desk</h1>
+  <p class="lead">A dense, dark trading workspace with fifteen live views: watchlist, rates, sector heatmap, candlestick chart, depth chart,
+  order book, time &amp; sales, orders, positions &amp; P&amp;L, fills, news, alerts, risk gauges, a floating order ticket and a market clock.
+  Two document areas, two floating windows and an auto-hide rail (Risk, on the right). All data is invented and simulated; charts are drawn with canvas and SVG.</p>
+  <div class="demo td-demo"><div class="toolbar"><button id="td-popout">Pop out ↗</button>
+    <a href="trading.html" target="_blank" rel="noopener">Open full page</a>
+    <span class="muted">Click a symbol to drive the chart, book and ticket. Send orders from the ticket; they fill against the simulated tape.</span></div>
+    <div class="stage" id="td-stage" style="height:720px"></div></div>
+  <details class="code"><summary>Code</summary><pre><code>import "flexdock";
+import { createModel, row, column, stack, docs } from "flexdock";
+
+dock.model = createModel(views,
+  row([
+    column([stack(["watch", "rates"]), stack(["heat"])], [1.6, 1]),
+    column([docs(["chart", "depth"]), row([docs(["orders", "positions", "fills"]), stack(["tape"])], [2.4, 1])], [1.7, 1]),
+    column([stack(["book"]), stack(["news", "alerts"])], [1.3, 1])
+  ], [1.25, 3.4, 1.25]),
+  {
+    windows: [
+      { key: "ticket", box: { x: 360, y: 60, w: 270, h: 300 }, tree: stack(["ticket"]) },
+      { key: "clock", box: { x: 650, y: 60, w: 250, h: 190 }, tree: stack(["clock"]) }
+    ],
+    drawers: { start: [], end: ["risk"], top: [], bottom: [] }
+  });
+
+// Pop out: the same app on its own page.
+window.open(new URL("trading.html", location.href), "flexdock-trading", "popup,width=1600,height=960");</code></pre></details>`,
+  after: (page) => {
+    void import("./trading/desk.js").then(({ mountTradingDesk }) => mountTradingDesk(page.querySelector<HTMLElement>("#td-stage")!));
+    page.querySelector("#td-popout")!.addEventListener("click", () => {
+      const w = Math.min(1680, screen.availWidth - 40);
+      const h = Math.min(1000, screen.availHeight - 60);
+      window.open(new URL("trading.html", location.href).href, "flexdock-trading", `popup,width=${w},height=${h},left=20,top=20`);
+    });
+  }
+});
 
 exPage("email", "Email client", "Folders, message list and reading pane — open messages as documents, pop them out to read side by side.", `${SETUP}
 view("folders", "<ul style='list-style:none;padding:0'><li><b>Inbox</b> (3)</li><li>Starred</li><li>Sent</li><li>Drafts</li><li>Archive</li></ul>");
