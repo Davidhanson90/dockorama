@@ -30,13 +30,13 @@ const SILENT: ChangeReason[] = ["select", "focus", "cancel"];
 const OPEN_ON: ChangeReason[] = ["set", "restore", "undo", "redo"];
 /** Styles of the page pazuru builds inside an outside window. */
 const OUTSIDE_CSS = `
-body.fdo { margin: 0; display: flex; flex-direction: column; height: 100vh; font: 13px system-ui, sans-serif; background: #fff; color: #1d2433; }
-body.fdo[data-theme="dark"] { background: #171b24; color: #e6e9f0; }
+body.pzo { margin: 0; display: flex; flex-direction: column; height: 100vh; font: 13px system-ui, sans-serif; background: #fff; color: #1d2433; }
+body.pzo[data-theme="dark"] { background: #171b24; color: #e6e9f0; }
 .pzo-tabs { display: flex; gap: 2px; padding: 4px 6px 0; background: rgba(127,127,127,.12); border-bottom: 1px solid rgba(127,127,127,.25); flex: 0 0 auto; }
 .pzo-tab { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 6px 6px 0 0; cursor: grab; user-select: none; touch-action: none; }
 .pzo-tab[aria-selected="true"] { background: inherit; box-shadow: inset 0 2px 0 #4f7cff; }
-body.fdo .pzo-tab[aria-selected="true"] { background: #fff; }
-body.fdo[data-theme="dark"] .pzo-tab[aria-selected="true"] { background: #171b24; }
+body.pzo .pzo-tab[aria-selected="true"] { background: #fff; }
+body.pzo[data-theme="dark"] .pzo-tab[aria-selected="true"] { background: #171b24; }
 .pzo-back { border: 0; background: none; color: inherit; cursor: pointer; padding: 0 2px; opacity: .6; }
 .pzo-back:hover { opacity: 1; }
 .pzo-body { flex: 1 1 auto; min-height: 0; overflow: auto; }
@@ -627,7 +627,7 @@ export class PazuruManager extends LitElement {
     const style = doc.createElement("style");
     style.textContent = OUTSIDE_CSS;
     doc.head.append(style);
-    doc.body.className = "fdo";
+    doc.body.className = "pzo";
     doc.body.dataset["theme"] = this.theme;
     const tabs = doc.createElement("div");
     tabs.className = "pzo-tabs";
