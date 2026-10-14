@@ -18,6 +18,17 @@ export interface FlexdockLabels {
   moved: string;
   closed: string;
   resize: string;
+  tabMenu: string;
+  closeOthers: string;
+  closeRight: string;
+  closeAll: string;
+  pin: string;
+  unpin: string;
+  splitRight: string;
+  splitDown: string;
+  reopenBlocked: string;
+  reopen: string;
+  keepDocked: string;
 }
 
 export const DEFAULT_LABELS: FlexdockLabels = {
@@ -38,5 +49,16 @@ export const DEFAULT_LABELS: FlexdockLabels = {
   emptyDocs: "Drop a view here",
   moved: "Moved",
   closed: "Closed",
-  resize: "Resize"
+  resize: "Resize",
+  tabMenu: "Tab actions",
+  closeOthers: "Close others",
+  closeRight: "Close to the right",
+  closeAll: "Close all",
+  pin: "Pin tab",
+  unpin: "Unpin tab",
+  splitRight: "Move to new group on the right",
+  splitDown: "Move to new group below",
+  reopenBlocked: "Some views were open in their own browser windows. Your browser blocked re-opening them.",
+  reopen: "Re-open windows",
+  keepDocked: "Keep them here"
 };

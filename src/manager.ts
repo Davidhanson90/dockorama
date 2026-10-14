@@ -5,18 +5,41 @@ import { styles } from "./styles.js";
 import {
   clampBox, compassSpots, edgeSpots, hit, insertionIndex, previewFor, shareSpace, snapBox, type Rect, type Spot
 } from "./geometry.js";
-import { FlexdockPart, defineParts, type DockContext, type GuideSpot, type MenuEntry, type PartRequest } from "./components/index.js";
+import { FlexdockPart, defineParts, type DockContext, type GuideSpot, type MenuEntry, type PartRequest, type TabMenuItem } from "./components/index.js";
 import { slotOf } from "./components/context.js";
 import { renderNode } from "./components/tree.js";
-import type { Box, DropZone, EdgeZone, FlexdockModel, Side, ViewContent, ViewInfo, ViewOptions } from "./model.js";
+import type { Box, Caps, DropZone, EdgeZone, FlexdockModel, OutsideWindow, Side, ViewContent, ViewInfo, ViewOptions } from "./model.js";
 import * as ops from "./ops.js";
 
 /** Why the model changed (detail of `flexdock-change`). */
 export type ChangeReason =
   | "set" | "place" | "edge" | "detach" | "window" | "stow" | "unstow" | "dismiss" | "reveal" | "select"
-  | "reorder" | "resize" | "zoom" | "add" | "forget" | "undo" | "redo" | "focus" | "restore" | "cancel";
+  | "reorder" | "resize" | "zoom" | "add" | "forget" | "undo" | "redo" | "focus" | "restore" | "cancel"
+  | "transfer" | "popout" | "popin" | "pin";
+
+/** Every connected manager, for drags between managers that share a `drag-group`. */
+const managers = new Set<FlexdockManager>();
+/** Built-in keys of the tab context menu. */
+export type TabCommand =
+  | "close" | "close-others" | "close-right" | "close-all" | "pin" | "float" | "popout" | "split-right" | "split-down" | "stow";
 
 const SILENT: ChangeReason[] = ["select", "focus", "cancel"];
+/** Changes after which saved outside windows are (re-)opened. */
+const OPEN_ON: ChangeReason[] = ["set", "restore", "undo", "redo"];
+/** Styles of the page flexdock builds inside an outside window. */
+const OUTSIDE_CSS = `
+body.fdo { margin: 0; display: flex; flex-direction: column; height: 100vh; font: 13px system-ui, sans-serif; background: #fff; color: #1d2433; }
+body.fdo[data-theme="dark"] { background: #171b24; color: #e6e9f0; }
+.fdo-tabs { display: flex; gap: 2px; padding: 4px 6px 0; background: rgba(127,127,127,.12); border-bottom: 1px solid rgba(127,127,127,.25); flex: 0 0 auto; }
+.fdo-tab { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 6px 6px 0 0; cursor: grab; user-select: none; touch-action: none; }
+.fdo-tab[aria-selected="true"] { background: inherit; box-shadow: inset 0 2px 0 #4f7cff; }
+body.fdo .fdo-tab[aria-selected="true"] { background: #fff; }
+body.fdo[data-theme="dark"] .fdo-tab[aria-selected="true"] { background: #171b24; }
+.fdo-back { border: 0; background: none; color: inherit; cursor: pointer; padding: 0 2px; opacity: .6; }
+.fdo-back:hover { opacity: 1; }
+.fdo-body { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.fdo-body > [data-view] { height: 100%; box-sizing: border-box; }
+.fdo-body > [data-outside-hidden] { display: none !important; }`;
 /** Quote a value for an attribute selector. */
 const attr = (v: string) => JSON.stringify(v);
 const isContent = (v: unknown): v is ViewContent =>
@@ -50,6 +73,14 @@ interface DragState {
   origin: FlexdockModel;
   preview?: Rect;
   pointerId: number;
+  /** Capabilities of the dragged view (set when another manager is the drop target). */
+  caps?: Caps;
+  /** Another manager in the same drag group under the pointer. */
+  peer?: FlexdockManager;
+  /** The pointer left the browser window (dropping pops the view out). */
+  beyond?: boolean;
+  sx?: number;
+  sy?: number;
 }
 
 /**
@@ -67,11 +98,16 @@ export class FlexdockManager extends LitElement {
     storageKey: { attribute: "storage-key" },
     keepEmpty: { type: Boolean, attribute: "keep-empty" },
     labels: { attribute: false },
+    dragGroup: { attribute: "drag-group", reflect: true },
+    tabMenu: { attribute: false },
     _peek: { state: true },
     _drag: { state: true },
     _menu: { state: true },
     _palette: { state: true },
-    _say: { state: true }
+    _say: { state: true },
+    _guest: { state: true },
+    _tabMenu: { state: true },
+    _blocked: { state: true }
   };
 
   /** `light` (default), `dark` or `auto` (follows the OS). */
@@ -84,6 +120,16 @@ export class FlexdockManager extends LitElement {
   keepEmpty = false;
   /** Partial overrides of user-facing strings. */
   labels: Partial<FlexdockLabels> = {};
+  /**
+   * Managers with the same non-empty `drag-group` accept views dragged from each other. Unset (default):
+   * views stay in this manager.
+   */
+  dragGroup?: string;
+  /**
+   * Customise the tab context menu: receives the view id and the built-in items, returns the items to show.
+   * Add your own `{ key, label, run }` entries, remove or relabel built-ins.
+   */
+  tabMenu?: (viewId: string, items: TabMenuItem[]) => TabMenuItem[];
 
   private _model: FlexdockModel = ops.emptyModel();
   private readonly timeline = new Timeline<FlexdockModel>();
@@ -92,7 +138,16 @@ export class FlexdockManager extends LitElement {
   private _menu?: { id: string; x: number; y: number };
   private _palette?: { query: string; index: number };
   private _say = "";
-  private readonly popped = new Map<string, Window>();
+  /** Open outside (browser) windows by key. */
+  private readonly outsideWins = new Map<string, Window>();
+  /** Windows flexdock is closing itself (their pagehide is not a user close). */
+  private readonly closing = new WeakSet<Window>();
+  private unloading = false;
+  /** Drag from another manager hovering over this one. */
+  private _guest?: DragState;
+  private _tabMenu?: { id: string; x: number; y: number; items: TabMenuItem[] };
+  /** Outside windows the browser would not re-open. */
+  private _blocked: string[] = [];
   private readonly shown = new Set<string>();
   private readonly factories = new Map<string, () => Element>();
   private observer?: MutationObserver;
@@ -127,6 +182,9 @@ export class FlexdockManager extends LitElement {
     this.addEventListener("keydown", this.onKey);
     this.renderRoot.addEventListener("flexdock-request", this.onRequest);
     document.addEventListener("pointerdown", this.onOutside, true);
+    window.addEventListener("pagehide", this.onUnload);
+    managers.add(this);
+    this.reconcileOutside(true);
   }
 
   override disconnectedCallback(): void {
@@ -135,6 +193,8 @@ export class FlexdockManager extends LitElement {
     this.removeEventListener("keydown", this.onKey);
     this.renderRoot.removeEventListener("flexdock-request", this.onRequest);
     document.removeEventListener("pointerdown", this.onOutside, true);
+    window.removeEventListener("pagehide", this.onUnload);
+    managers.delete(this);
   }
 
   private assignSlots(): void {
@@ -191,8 +251,32 @@ export class FlexdockManager extends LitElement {
     if (this.caps(id).dismiss === false) return;
     if (!this.emitBefore("flexdock-beforeclose", { id })) return;
     if (this._peek === id) this._peek = undefined;
-    this.popIn(id);
     this.commit(ops.dismiss(this._model, id), "dismiss");
+  }
+  /**
+   * Close several views as one undoable change. Each one still asks `flexdock-beforeclose` and respects
+   * `caps.dismiss`; vetoed views stay. Returns the ids that were closed.
+   */
+  dismissMany(ids: string[]): string[] {
+    const done: string[] = [];
+    let m = this._model;
+    for (const id of ids) {
+      if (this.caps(id).dismiss === false || !this.emitBefore("flexdock-beforeclose", { id })) continue;
+      m = ops.dismiss(m, id);
+      done.push(id);
+    }
+    if (done.length) this.commit(m, "dismiss");
+    return done;
+  }
+  /** Pin (default) or unpin a tab: pinned tabs stay first in their group, compact, and survive "close others/all". */
+  pin(id: string, on = true): void {
+    const next = ops.pin(this._model, id, on);
+    if (next !== this._model) this.commit(next, "pin");
+  }
+  /** True when a view is pinned in its group. */
+  hasPin(id: string): boolean {
+    const where = ops.locate(this._model, id);
+    return where.place === "tree" && Boolean(where.stack.pinned?.includes(id));
   }
   /** Show a view wherever it is (or bring it back if closed). */
   reveal(id: string): void {
@@ -251,7 +335,6 @@ export class FlexdockManager extends LitElement {
    * the manager unless `keepElement` is true, or null if it never had one (or `id` is unknown).
    */
   removeView(id: string, options: { keepElement?: boolean } = {}): Element | null {
-    this.popIn(id);
     const el = this.getViewElement(id);
     this.factories.delete(id);
     this.shown.delete(id);
@@ -261,8 +344,11 @@ export class FlexdockManager extends LitElement {
   }
   /** The content element of a view (null if unknown, or lazy and not yet shown). */
   getViewElement(id: string): Element | null {
-    const win = this.popped.get(id);
-    return win?.document.querySelector(`[data-view=${attr(id)}]`) ?? this.querySelector(`:scope > [data-view=${attr(id)}]`);
+    for (const win of this.outsideWins.values()) {
+      const el = win.closed ? null : win.document.querySelector(`.fdo-body > [data-view=${attr(id)}]`);
+      if (el) return el;
+    }
+    return this.querySelector(`:scope > [data-view=${attr(id)}]`);
   }
   /** True when a view with this id is registered (wherever it is, including parked). */
   hasView(id: string): boolean {
@@ -270,7 +356,6 @@ export class FlexdockManager extends LitElement {
   }
   /** Remove a view from the model entirely. */
   forget(id: string): void {
-    this.popIn(id);
     this.commit(ops.forget(this._model, id), "forget");
   }
   undo(): void {
@@ -301,33 +386,327 @@ export class FlexdockManager extends LitElement {
     this._palette = { query: "", index: 0 };
     void this.updateComplete.then(() => this.renderRoot.querySelector<HTMLInputElement>(".palette input")?.focus());
   }
-  /** Open a view's content in a separate browser window. Returns false when blocked. */
-  popOut(id: string): boolean {
-    if (this.caps(id).popout === false || this.popped.has(id)) return false;
-    const el = this.querySelector<HTMLElement>(`[data-view=${attr(id)}]`);
-    const win = window.open("", `flexdock-${id}`, "popup,width=640,height=480");
-    if (!win || !el) return false;
-    const title = this._model.views[id]?.title ?? id;
-    win.document.title = title;
-    for (const node of Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))) {
-      win.document.head.append(node.cloneNode(true));
+  /**
+   * Open a view's content in a separate browser window (or, with `into`, in an existing one). The view keeps its
+   * place in the layout, and the window is saved in the model (`outside`) and re-opened on load.
+   * `box` is the window's screen position / size. Returns false when not allowed or the browser blocked it.
+   */
+  popOut(id: string, options: { into?: string; box?: Partial<Box> } = {}): boolean {
+    if (this.caps(id).popout === false || ops.locate(this._model, id).place !== "tree") return false;
+    const cur = ops.outsideOf(this._model, id);
+    if (cur && (!options.into || cur.key === options.into)) return false;
+    if (!this.getViewElement(id) && !this.factories.has(id)) return false;
+    const live = options.into ? this.outsideWins.get(options.into) : undefined;
+    let key = options.into;
+    let box: Box | undefined;
+    if (!live || live.closed) {
+      key = `o-${id}-${Date.now().toString(36)}`;
+      box = { x: options.box?.x ?? NaN, y: options.box?.y ?? NaN, w: options.box?.w ?? 640, h: options.box?.h ?? 480 };
+      if (!this.openOutside(key, box)) return false;
+      if (Number.isNaN(box.x)) box = undefined;
     }
-    win.document.body.style.margin = "0";
-    win.document.body.append(el);
-    this.popped.set(id, win);
-    win.addEventListener("pagehide", () => this.popIn(id));
-    this.requestUpdate();
+    this.commit(ops.goOutside(this._model, id, key!, box), "popout");
     return true;
   }
-  /** Move popped-out content back. */
+  /** Move popped-out content back into the layout. */
   popIn(id: string): void {
-    const win = this.popped.get(id);
-    if (!win) return;
-    this.popped.delete(id);
-    const el = win.document.querySelector(`[data-view=${attr(id)}]`);
-    if (el) this.append(el);
-    if (!win.closed) win.close();
-    this.requestUpdate();
+    const next = ops.comeInside(this._model, id);
+    if (next !== this._model) this.commit(next, "popin");
+  }
+  /** Keys of outside windows saved in the model that the browser refused to open (see the re-open notice). */
+  get blockedWindows(): string[] {
+    return [...this._blocked];
+  }
+  /** Try again to open saved outside windows (call from a click: browsers only allow pop-ups on user input). */
+  reopenWindows(): void {
+    this.reconcileOutside(true);
+  }
+  /** Give up on blocked outside windows: their views show in the layout again (undoable). */
+  keepWindowsDocked(): void {
+    const keys = new Set(this._blocked);
+    const m = ops.copy(this._model);
+    m.outside = (m.outside ?? []).filter((o) => !keys.has(o.key));
+    this.commit(ops.normalize(m), "popin");
+  }
+
+  // ------------------------------------------------------------- outside windows
+
+  private openOutside(key: string, box?: Box): Window | null {
+    const pos = box && !Number.isNaN(box.x) ? `,left=${Math.round(box.x)},top=${Math.round(box.y)}` : "";
+    const size = box ? `,width=${Math.round(box.w)},height=${Math.round(box.h)}` : ",width=640,height=480";
+    let win: Window | null = null;
+    try {
+      win = window.open("", `flexdock-${key}`, `popup${size}${pos}`) ?? null;
+    } catch {
+      win = null;
+    }
+    if (!win) return null;
+    this.prepareOutside(win, key);
+    this.outsideWins.set(key, win);
+    return win;
+  }
+
+  /** Build the outside window's page: a tab bar and a body that holds the content elements. */
+  private prepareOutside(win: Window, key: string): void {
+    const doc = win.document;
+    doc.head.replaceChildren();
+    doc.body.replaceChildren();
+    for (const node of Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))) doc.head.append(node.cloneNode(true));
+    const style = doc.createElement("style");
+    style.textContent = OUTSIDE_CSS;
+    doc.head.append(style);
+    doc.body.className = "fdo";
+    doc.body.dataset["theme"] = this.theme;
+    const tabs = doc.createElement("div");
+    tabs.className = "fdo-tabs";
+    tabs.setAttribute("role", "tablist");
+    const body = doc.createElement("div");
+    body.className = "fdo-body";
+    doc.body.append(tabs, body);
+    win.addEventListener("pagehide", () => {
+      if (this.closing.has(win) || this.unloading) return;
+      // The user closed the window: bring its views back.
+      this.outsideWins.delete(key);
+      const o = this._model.outside?.find((x) => x.key === key);
+      if (!o) return;
+      let m = this._model;
+      for (const v of o.views) m = ops.comeInside(m, v);
+      this.adoptHome(win);
+      this.commit(m, "popin");
+    });
+    let t: ReturnType<typeof setTimeout> | undefined;
+    win.addEventListener("resize", () => {
+      clearTimeout(t);
+      t = setTimeout(() => this.noteBox(key, win), 250);
+    });
+  }
+
+  /** Record an outside window's screen box without an undo step or change event. */
+  private noteBox(key: string, win: Window): void {
+    if (win.closed || !this._model.outside?.some((o) => o.key === key)) return;
+    this._model = ops.tuneOutside(this._model, key, { box: { x: win.screenX, y: win.screenY, w: win.outerWidth, h: win.outerHeight } });
+    this.persist();
+  }
+
+  private readonly onUnload = (): void => {
+    for (const [key, win] of this.outsideWins) this.noteBox(key, win);
+    this.unloading = true;
+    for (const win of this.outsideWins.values()) if (!win.closed) win.close();
+    this.outsideWins.clear();
+  };
+
+  /** Move every content element in an outside window back into the manager. */
+  private adoptHome(win: Window): void {
+    if (win.closed && !win.document) return;
+    for (const el of Array.from(win.document.querySelectorAll<HTMLElement>(".fdo-body > [data-view]"))) {
+      el.removeAttribute("data-outside-hidden");
+      this.append(el);
+    }
+  }
+
+  /** Make open outside windows match `model.outside`; optionally try to open missing ones. */
+  private reconcileOutside(allowOpen: boolean): void {
+    const want = this._model.outside ?? [];
+    if (!want.length && !this.outsideWins.size && !this._blocked.length) return;
+    for (const [key, win] of Array.from(this.outsideWins)) {
+      if (want.some((o) => o.key === key) && !win.closed) continue;
+      this.outsideWins.delete(key);
+      if (!win.closed) {
+        this.adoptHome(win);
+        this.closing.add(win);
+        win.close();
+      }
+    }
+    const blocked: string[] = [];
+    for (const o of want) {
+      let win = this.outsideWins.get(o.key);
+      if (!win && allowOpen && this.isConnected) win = this.openOutside(o.key, o.box) ?? undefined;
+      if (!win) {
+        blocked.push(o.key);
+        continue;
+      }
+      this.paintOutside(o, win);
+    }
+    this._blocked = blocked;
+  }
+
+  /** Put the right content into an outside window and redraw its tab bar. */
+  private paintOutside(o: OutsideWindow, win: Window): void {
+    const doc = win.document;
+    const body = doc.querySelector<HTMLElement>(".fdo-body");
+    const tabs = doc.querySelector<HTMLElement>(".fdo-tabs");
+    if (!body || !tabs) return;
+    for (const el of Array.from(body.querySelectorAll<HTMLElement>(":scope > [data-view]"))) {
+      if (!o.views.includes(el.dataset["view"] ?? "")) {
+        el.removeAttribute("data-outside-hidden");
+        this.append(el);
+      }
+    }
+    for (const id of o.views) {
+      let el = this.getViewElement(id) as HTMLElement | null;
+      const make = this.factories.get(id);
+      if (!el && make) {
+        this.factories.delete(id);
+        el = make() as HTMLElement;
+        el.setAttribute("data-view", id);
+      }
+      if (!el) continue;
+      if (el.parentNode !== body) body.append(el);
+      el.toggleAttribute("data-outside-hidden", id !== o.current);
+    }
+    doc.title = o.views.map((v) => this._model.views[v]?.title ?? v).join(" · ");
+    tabs.replaceChildren(...o.views.map((id) => {
+      const tab = doc.createElement("div");
+      tab.className = "fdo-tab";
+      tab.setAttribute("role", "tab");
+      tab.dataset["view"] = id;
+      tab.tabIndex = 0;
+      tab.setAttribute("aria-selected", String(id === o.current));
+      const label = doc.createElement("span");
+      label.textContent = this._model.views[id]?.title ?? id;
+      const back = doc.createElement("button");
+      back.className = "fdo-back";
+      back.type = "button";
+      back.title = this.t.popin;
+      back.setAttribute("aria-label", `${this.t.popin} ${label.textContent}`);
+      back.textContent = "\u2199";
+      back.addEventListener("pointerdown", (e) => e.stopPropagation());
+      back.addEventListener("click", () => this.popIn(id));
+      tab.append(label, back);
+      tab.addEventListener("click", () => this.commit(ops.tuneOutside(this._model, o.key, { current: id }), "select"));
+      tab.addEventListener("pointerdown", (e) => this.startOutsideDrag(e, o.key, id, win));
+      return tab;
+    }));
+  }
+
+  /** Opener-window client coordinates of a screen point (approximate: browsers do not expose the frame size). */
+  private toClient(sx: number, sy: number): { x: number; y: number } {
+    const bx = Math.max(0, (window.outerWidth - window.innerWidth) / 2);
+    const by = Math.max(0, window.outerHeight - window.innerHeight - bx);
+    return { x: sx - window.screenX - bx, y: sy - window.screenY - by };
+  }
+
+  /** The open outside window whose screen rectangle contains a screen point. */
+  private outsideAt(sx: number, sy: number, except?: string): string | undefined {
+    for (const [key, w] of this.outsideWins) {
+      if (key === except || w.closed) continue;
+      if (sx >= w.screenX && sx <= w.screenX + w.outerWidth && sy >= w.screenY && sy <= w.screenY + w.outerHeight) return key;
+    }
+    return undefined;
+  }
+
+  /** Drag a tab out of an outside window: into another one, or back onto the layout (with drop guides). */
+  private startOutsideDrag(e: PointerEvent, key: string, id: string, win: Window): void {
+    if (e.button !== 0) return;
+    const sx0 = e.screenX;
+    const sy0 = e.screenY;
+    let moved = false;
+    const inside = (ev: PointerEvent) => ev.clientX >= 0 && ev.clientY >= 0 && ev.clientX <= win.innerWidth && ev.clientY <= win.innerHeight;
+    const move = (ev: PointerEvent) => {
+      if (!moved && Math.hypot(ev.screenX - sx0, ev.screenY - sy0) < 6) return;
+      moved = true;
+      if (inside(ev)) {
+        this.clearGuest();
+        return;
+      }
+      const p = this.toClient(ev.screenX, ev.screenY);
+      this.hoverAt(id, p.x, p.y);
+    };
+    const up = (ev: PointerEvent) => {
+      win.removeEventListener("pointermove", move);
+      win.removeEventListener("pointerup", up);
+      const g = this._guest;
+      this.clearGuest();
+      if (!moved || inside(ev)) return;
+      const into = this.outsideAt(ev.screenX, ev.screenY, key);
+      if (into) {
+        this.popOut(id, { into });
+        return;
+      }
+      const placed = g ? this.applyDrop(ops.comeInside(this._model, id), id, g) : undefined;
+      this.commit(placed ?? ops.comeInside(this._model, id), placed ? "place" : "popin");
+    };
+    win.addEventListener("pointermove", move);
+    win.addEventListener("pointerup", up);
+  }
+
+  /** Show drop guides for a view at a client point of this manager (used by drags that started elsewhere). */
+  private hoverAt(id: string, x: number, y: number, caps?: Caps): void {
+    const g: DragState = { id, mode: "loose", startX: x, startY: y, x, y, origin: this._model, pointerId: -1, caps };
+    this.findTarget(g);
+    this._guest = g;
+  }
+
+  private clearGuest(): void {
+    if (this._guest) this._guest = undefined;
+  }
+
+  /** Apply the drop a drag state points at to `model` (pure); undefined when it points nowhere. */
+  private applyDrop(model: FlexdockModel, id: string, d: DragState): FlexdockModel | undefined {
+    if (d.edge) return ops.placeAtEdge(model, id, d.edge);
+    if (d.gap) return ops.insertBetween(model, id, d.gap.path, d.gap.after, d.gap.win);
+    if (d.fill && d.target?.zone) return ops.fillDocs(model, id, d.fill.path, d.fill.win);
+    if (d.target?.zone) return ops.place(model, id, d.target.view, d.target.zone);
+    return undefined;
+  }
+
+  // ------------------------------------------------------------- drag between managers
+
+  /** Another manager in the same drag group whose box contains a client point (not this one). */
+  private peerAt(x: number, y: number): FlexdockManager | undefined {
+    if (!this.dragGroup) return undefined;
+    const own = this.getBoundingClientRect();
+    if (x >= own.left && x <= own.right && y >= own.top && y <= own.bottom) return undefined;
+    for (const m of managers) {
+      if (m === this || m.dragGroup !== this.dragGroup || !m.isConnected) continue;
+      const r = m.getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return m;
+    }
+    return undefined;
+  }
+
+  /**
+   * Move a view, with its content element, from this manager to another one: `at` is any `ViewSpot`
+   * (default `"auto"`). One undoable change in each manager (reason `"transfer"`), and a
+   * `flexdock-transfer` event on both. Throws if the target already has a view with this id.
+   */
+  transferView(id: string, target: FlexdockManager, at: import("./model.js").ViewSpot = "auto"): void {
+    const info = this._model.views[id];
+    if (!info || target === this) return;
+    if (target.hasView(id)) throw new Error(`flexdock: the target already has a view with id "${id}"`);
+    const spot = typeof at === "object" && "float" in at ? { float: target.fitBox({ ...target.defaultBox(), ...(at.float === true ? {} : at.float) }) } : at;
+    const next = ops.enlist(target._model, id, ops.copy(info), spot);
+    this.handOver(id, target, next);
+  }
+
+  private handOver(id: string, target: FlexdockManager, next: FlexdockModel): void {
+    const el = this.getViewElement(id);
+    const make = this.factories.get(id);
+    this.factories.delete(id);
+    this.shown.delete(id);
+    if (this._peek === id) this._peek = undefined;
+    this.commit(ops.forget(this._model, id), "transfer");
+    if (make) target.factories.set(id, make);
+    if (el) target.mount(id, el);
+    target.shown.delete(id);
+    target.commit(next, "transfer");
+    const detail = { id, from: this, to: target };
+    this.dispatchEvent(new CustomEvent("flexdock-transfer", { detail: { ...detail, direction: "out" }, bubbles: true, composed: true }));
+    target.dispatchEvent(new CustomEvent("flexdock-transfer", { detail: { ...detail, direction: "in" }, bubbles: true, composed: true }));
+  }
+
+  /** Drop a view dragged from `source` where this manager's guide points. Returns false when it cannot land. */
+  private takeGuest(source: FlexdockManager, id: string): boolean {
+    const g = this._guest;
+    this._guest = undefined;
+    const info = source._model.views[id];
+    if (!g || !info || this.hasView(id)) return false;
+    if (!this.emitBefore("flexdock-beforemove", { id, target: g.target?.view, zone: g.edge ?? (g.gap ? "between" : g.target?.zone ?? "into"), from: source })) return false;
+    const base = ops.adopt(this._model, id, info);
+    const next = this.applyDrop(base, id, g) ?? (this._model.root ? undefined : ops.reveal(base, id));
+    if (!next) return false;
+    source.handOver(id, this, next);
+    return true;
   }
 
   // ------------------------------------------------------------- internals
@@ -372,13 +751,8 @@ export class FlexdockManager extends LitElement {
     this.keepFocus = this.keepFocus || this.hasFocus();
     if (record && next !== prev && !SILENT.includes(reason)) this.timeline.push(prev);
     this._model = next;
-    if (this.storageKey && reason !== "set") {
-      try {
-        localStorage.setItem(this.storageKey, JSON.stringify(next));
-      } catch {
-        /* storage full or disabled */
-      }
-    }
+    if (reason !== "set") this.persist();
+    this.reconcileOutside(OPEN_ON.includes(reason));
     if (prev.focus !== next.focus && next.focus) {
       this.dispatchEvent(new CustomEvent("flexdock-focus", { detail: { id: next.focus, previous: prev.focus }, bubbles: true, composed: true }));
     }
@@ -387,6 +761,16 @@ export class FlexdockManager extends LitElement {
     }
     if (!SILENT.includes(reason) && reason !== "set") this._say = `${reason}`;
     this.requestUpdate();
+  }
+
+  /** Save the model under `storageKey` (when set). */
+  private persist(): void {
+    if (!this.storageKey) return;
+    try {
+      localStorage.setItem(this.storageKey, JSON.stringify(this._model));
+    } catch {
+      /* storage full or disabled */
+    }
   }
 
   private loadStored(fallback: FlexdockModel): FlexdockModel | undefined {
@@ -467,7 +851,7 @@ export class FlexdockManager extends LitElement {
     return {
       model: this._model,
       labels: this.t,
-      popped: new Set(this.popped.keys()),
+      popped: new Set((this._model.outside ?? []).flatMap((o) => o.views)),
       gap: g ? { path: g.path.join("."), after: g.after, win: g.win ?? "" } : undefined,
       dragging: Boolean(this._drag)
     };
@@ -496,7 +880,9 @@ export class FlexdockManager extends LitElement {
       ${m.windows.map((w, i) => html`<flexdock-window .key=${w.key} .box=${w.box} .tree=${w.tree} .layer=${i} .ctx=${ctx}></flexdock-window>`)}
       ${this.renderGuide()}
       ${this.renderMenu()}
+      ${this.renderTabMenu()}
       ${this.renderPalette()}
+      ${this.renderNotice()}
       <div class="sr" role="status" aria-live="polite">${this._say}</div>
     </div>`;
   }
@@ -509,8 +895,95 @@ export class FlexdockManager extends LitElement {
     return html`<flexdock-flyout .view=${id} .side=${where.side} .ctx=${ctx}></flexdock-flyout>`;
   }
 
+  private renderNotice(): TemplateResult | typeof nothing {
+    if (!this._blocked.length) return nothing;
+    const t = this.t;
+    return html`<flexdock-notice .message=${t.reopenBlocked}
+      .actions=${[{ label: t.reopen, action: "outside-reopen", primary: true }, { label: t.keepDocked, action: "outside-dismiss" }]}></flexdock-notice>`;
+  }
+
+  private renderTabMenu(): TemplateResult | typeof nothing {
+    const m = this._tabMenu;
+    if (!m) return nothing;
+    return html`<flexdock-tab-menu .view=${m.id} .items=${m.items} .x=${m.x} .y=${m.y} .label=${this.t.tabMenu}></flexdock-tab-menu>`;
+  }
+
+  /** The built-in tab context menu items for a view (before the `tabMenu` hook). */
+  tabMenuItems(id: string): TabMenuItem[] {
+    const c = this.caps(id);
+    const t = this.t;
+    const where = ops.locate(this._model, id);
+    const s = where.place === "tree" ? where.stack : undefined;
+    const views = s?.views ?? [];
+    const pinned = this.hasPin(id);
+    const others = ops.closeSet(this._model, id, "others");
+    const right = ops.closeSet(this._model, id, "right");
+    const floating = where.place === "tree" && Boolean(where.window);
+    const out: TabMenuItem[] = [
+      { key: "close", label: t.dismiss, disabled: c.dismiss === false },
+      { key: "close-others", label: t.closeOthers, disabled: !others.length },
+      { key: "close-right", label: t.closeRight, disabled: !right.length },
+      { key: "close-all", label: t.closeAll, disabled: !ops.closeSet(this._model, id, "all").length },
+      "separator",
+      { key: "pin", label: pinned ? t.unpin : t.pin, checked: pinned },
+      { key: "float", label: floating ? t.dock : t.float, disabled: c.float === false && !floating },
+      { key: "popout", label: t.popout, disabled: c.popout === false || Boolean(ops.outsideOf(this._model, id)) },
+      { key: "split-right", label: t.splitRight, disabled: views.length < 2 || c.move === false },
+      { key: "split-down", label: t.splitDown, disabled: views.length < 2 || c.move === false }
+    ];
+    if (s && !s.docs && !floating) out.push({ key: "stow", label: t.stow, disabled: c.hide === false });
+    return out;
+  }
+
+  /** Open the tab context menu of a view (at a client point, default: under its tab). */
+  openTabMenu(id: string, at?: { x: number; y: number }): void {
+    if (ops.locate(this._model, id).place !== "tree") return;
+    const host = this.getBoundingClientRect();
+    let x = at?.x;
+    let y = at?.y;
+    if (x === undefined || y === undefined) {
+      const r = this.renderRoot.querySelector(`[id=${attr(`tab-${id}`)}], [id=${attr(`t-${id}`)}]`)?.getBoundingClientRect();
+      x = r?.left ?? host.left + 20;
+      y = r?.bottom ?? host.top + 20;
+    }
+    const base = this.tabMenuItems(id);
+    const items = this.tabMenu ? this.tabMenu(id, base) : base;
+    this._menu = undefined;
+    this._tabMenu = { id, items, x: Math.max(0, Math.min(x - host.left, host.width - 220)), y: Math.max(0, y - host.top) };
+    void this.updateComplete.then(() => this.renderRoot.querySelector<HTMLElement & { focusFirst(): void }>("flexdock-tab-menu")?.focusFirst());
+  }
+
+  /** Run a built-in tab command for a view. */
+  runTabCommand(key: TabCommand, id: string): void {
+    const where = ops.locate(this._model, id);
+    switch (key) {
+      case "close": return this.dismiss(id);
+      case "close-others": void this.dismissMany(ops.closeSet(this._model, id, "others")); return;
+      case "close-right": void this.dismissMany(ops.closeSet(this._model, id, "right")); return;
+      case "close-all": void this.dismissMany(ops.closeSet(this._model, id, "all")); return;
+      case "pin": return this.pin(id, !this.hasPin(id));
+      case "float":
+        if (where.place === "tree" && where.window) return this.dockToEdge(id, "edge-right");
+        return this.detach(id);
+      case "popout": void this.popOut(id); return;
+      case "stow": return this.stow(id);
+      case "split-right":
+      case "split-down": {
+        const other = where.place === "tree" ? where.stack.views.find((v) => v !== id) : undefined;
+        if (other) this.place(id, other, key === "split-right" ? "right" : "below");
+        return;
+      }
+    }
+  }
+
+  private closeTabMenu(refocus: boolean): void {
+    const id = this._tabMenu?.id;
+    this._tabMenu = undefined;
+    if (refocus && id) void this.updateComplete.then(() => this.renderRoot.querySelector<HTMLElement>(`[id=${attr(`tab-${id}`)}]`)?.focus());
+  }
+
   private renderGuide(): TemplateResult | typeof nothing {
-    const d = this._drag;
+    const d = this._drag?.peer || this._drag?.beyond ? undefined : (this._drag ?? this._guest);
     if (!d || d.mode === "pending" || d.mode === "tab") return nothing;
     const host = this.getBoundingClientRect();
     const main = this.mainRect();
@@ -618,6 +1091,18 @@ export class FlexdockManager extends LitElement {
       case "gutter-key":
         return this.keyGutter(r["event"] as KeyboardEvent, r["path"] as number[], r["after"] as number, r["axis"] as "row" | "column",
           r["weights"] as number[], r["win"] as string | undefined);
+      case "tab-menu": return this.openTabMenu(id, r["keyboard"] ? undefined : { x: Number(r["x"]), y: Number(r["y"]) });
+      case "tab-menu-close": return this.closeTabMenu(true);
+      case "tab-menu-choose": {
+        const item = this._tabMenu?.items[Number(r["index"])];
+        this.closeTabMenu(true);
+        if (!item || item === "separator" || item.disabled) return;
+        if (item.run) item.run(id);
+        else this.runTabCommand(item.key as TabCommand, id);
+        return;
+      }
+      case "outside-reopen": return this.reopenWindows();
+      case "outside-dismiss": return this.keepWindowsDocked();
       case "palette-query": this._palette = { query: String(r["query"] ?? ""), index: 0 }; return;
       case "palette-index": if (this._palette) this._palette = { ...this._palette, index: Number(r["index"]) }; return;
       case "palette-close": this._palette = undefined; return;
@@ -656,6 +1141,7 @@ export class FlexdockManager extends LitElement {
   private onOutside = (e: PointerEvent): void => {
     const path = e.composedPath();
     if (this._menu && !path.some((n) => (n as HTMLElement).classList?.contains("menu"))) this._menu = undefined;
+    if (this._tabMenu && !path.some((n) => (n as HTMLElement).classList?.contains("tab-menu"))) this._tabMenu = undefined;
     if (this._palette && !path.some((n) => (n as HTMLElement).classList?.contains("palette"))) this._palette = undefined;
     if (this._peek && !path.some((n) => {
       const el = n as HTMLElement;
@@ -702,6 +1188,7 @@ export class FlexdockManager extends LitElement {
     if (!d) return;
     this.endDragListeners();
     this._drag = undefined;
+    d.peer?.clearGuest();
     if (this._model !== d.origin) this.commit(d.origin, "cancel", false);
     else this.requestUpdate();
     this.dispatchEvent(new CustomEvent("flexdock-dragcancel", { detail: { id: d.id }, bubbles: true, composed: true }));
@@ -734,7 +1221,20 @@ export class FlexdockManager extends LitElement {
       const box = { ...b, x: b.x + e.clientX - d.startX, y: b.y + e.clientY - d.startY };
       this._model = ops.moveWindow(this._model, next.windowKey, box);
     }
-    if (next.mode === "loose" || next.mode === "window") this.findTarget(next);
+    if (next.mode === "loose" || next.mode === "window") {
+      next.sx = e.screenX;
+      next.sy = e.screenY;
+      next.beyond = next.mode === "loose" && (e.clientX < 0 || e.clientY < 0 || e.clientX > window.innerWidth || e.clientY > window.innerHeight);
+      const peer = next.mode === "loose" && !next.beyond ? this.peerAt(e.clientX, e.clientY) : undefined;
+      if (d.peer && d.peer !== peer) d.peer.clearGuest();
+      next.peer = peer;
+      if (peer) {
+        peer.hoverAt(d.id, e.clientX, e.clientY, this.caps(d.id));
+        for (const k of ["target", "gap", "fill", "edge", "preview"] as const) next[k] = undefined;
+      } else if (next.beyond) {
+        for (const k of ["target", "gap", "fill", "edge", "preview"] as const) next[k] = undefined;
+      } else this.findTarget(next);
+    }
     this._drag = next;
     this.requestUpdate();
   };
@@ -746,7 +1246,7 @@ export class FlexdockManager extends LitElement {
     d.edge = undefined;
     d.preview = undefined;
     const main = this.mainRect();
-    if (main && !this.caps(d.id).docsOnly) {
+    if (main && !(d.caps ?? this.caps(d.id)).docsOnly) {
       const edge = hit(edgeSpots(main), d.x, d.y);
       if (edge) {
         d.edge = edge;
@@ -760,7 +1260,7 @@ export class FlexdockManager extends LitElement {
       const r = w.getBoundingClientRect();
       return d.x >= r.left && d.x <= r.right && d.y >= r.top && d.y <= r.bottom;
     });
-    if (!this.caps(d.id).docsOnly) {
+    if (!(d.caps ?? this.caps(d.id)).docsOnly) {
       const gutters = Array.from(this.renderRoot.querySelectorAll<HTMLElement>(".gutter[data-path]"))
         .filter((g) => (overWindow ? inWindow(g) : !inWindow(g)) && g.dataset["win"] !== d.windowKey);
       for (const g of gutters.reverse()) {
@@ -796,7 +1296,7 @@ export class FlexdockManager extends LitElement {
       if (d.target.zone) d.preview = rect;
       return;
     }
-    if (this.caps(d.id).docsOnly && !under.hasAttribute("data-docs")) return;
+    if ((d.caps ?? this.caps(d.id)).docsOnly && !under.hasAttribute("data-docs")) return;
     const first = under.querySelector<HTMLElement>(".tab")?.dataset["view"] ?? under.dataset["stack"]!;
     const rect = under.getBoundingClientRect();
     const zone = hit(compassSpots(rect), d.x, d.y);
@@ -814,6 +1314,23 @@ export class FlexdockManager extends LitElement {
       this.timeline.push(this._model);
       this.commit(this._model, "reorder", false);
       return;
+    }
+    if (d.peer) {
+      if (d.peer.takeGuest(this, d.id)) return;
+      this.requestUpdate();
+      return;
+    }
+    if (d.mode === "loose" && d.sx !== undefined && d.sy !== undefined) {
+      const into = this.outsideAt(d.sx, d.sy);
+      if (into) {
+        this.popOut(d.id, { into });
+        return;
+      }
+      if (d.beyond) {
+        if (this.caps(d.id).popout !== false) this.popOut(d.id, { box: { x: d.sx - 60, y: d.sy - 20 } });
+        else this.requestUpdate();
+        return;
+      }
     }
     if (d.edge) return this.dockToEdge(d.id, d.edge);
     if (d.gap) return this.dropBetween(d.id, d.gap.path, d.gap.after, d.gap.win);
@@ -1001,5 +1518,6 @@ declare global {
     "flexdock-beforeclose": CustomEvent<{ id: string }>;
     "flexdock-beforemove": CustomEvent<{ id: string; target?: string; zone: DropZone | EdgeZone | "between" }>;
     "flexdock-dragcancel": CustomEvent<{ id: string }>;
+    "flexdock-transfer": CustomEvent<{ id: string; from: FlexdockManager; to: FlexdockManager; direction: "in" | "out" }>;
   }
 }

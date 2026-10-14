@@ -11,12 +11,14 @@ export class FlexdockTabstrip extends FlexdockPart {
   static override properties = {
     views: { attribute: false },
     current: {},
+    pinned: { attribute: false },
     docs: { type: Boolean },
     win: {},
     ctx: { attribute: false }
   };
   views: string[] = [];
   current = "";
+  pinned: string[] = [];
   docs = false;
   win?: string;
   ctx!: DockContext;
@@ -90,7 +92,7 @@ export class FlexdockTabstrip extends FlexdockPart {
     return html`${scroller(-1)}<div class="tabs" role="tablist" aria-label=${m.views[this.current]?.title ?? ""}
         @wheel=${(e: WheelEvent) => this.wheel(e)} @scroll=${() => this.markOverflow()}>${this.views.map((v) => {
           const info = m.views[v];
-          return html`<flexdock-tab .view=${v} .info=${info} .selected=${v === this.current} .win=${this.win}
+          return html`<flexdock-tab .view=${v} .info=${info} .selected=${v === this.current} .win=${this.win} .pinned=${this.pinned.includes(v)}
             .closable=${this.docs && info?.caps?.dismiss !== false} .closeLabel=${this.ctx.labels.dismiss}></flexdock-tab>`;
         })}</div>${scroller(1)}`;
   }

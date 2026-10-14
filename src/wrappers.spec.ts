@@ -36,6 +36,20 @@ describe("bridge", () => {
   });
 });
 
+describe("bridge: drag groups, tab menu hook and transfer events", () => {
+  it("passes dragGroup / tabMenu and forwards flexdock-transfer", () => {
+    const el = document.createElement("flexdock-manager");
+    const hook = (_id: string, items: unknown[]) => items as never;
+    applyProps(el, { dragGroup: "g", tabMenu: hook });
+    expect(el.dragGroup).toBe("g");
+    expect(el.tabMenu).toBe(hook);
+    const transfer = vi.fn();
+    bindEvents(el, () => ({ transfer }));
+    el.dispatchEvent(new CustomEvent("flexdock-transfer", { detail: { id: "a", direction: "in" } }));
+    expect(transfer).toHaveBeenCalledWith({ id: "a", direction: "in" });
+  });
+});
+
 describe("react", () => {
   it("renders the element, sets props, forwards the ref and events", async () => {
     const host = document.body.appendChild(document.createElement("div"));

@@ -3,6 +3,7 @@ import "./index.js";
 import type { FlexdockManager } from "./manager.js";
 import type { FlexdockModel, ViewContent, ViewOptions } from "./model.js";
 import type { FlexdockLabels } from "./labels.js";
+import type { TabMenuItem } from "./components/index.js";
 import type { ChangeReason } from "./manager.js";
 import { applyProps, bindEvents, type FlexdockHandlers } from "./bridge.js";
 
@@ -10,7 +11,7 @@ export type { FlexdockHandlers, FlexdockProps } from "./bridge.js";
 
 /**
  * Vue 3 wrapper around `<flexdock-manager>`. Supports `v-model:model`.
- * Emits: `layout-change`, `update:model`, `view-focus`, `view-show`, `before-close`, `before-move`, `drag-cancel`.
+ * Emits: `layout-change`, `update:model`, `view-focus`, `view-show`, `before-close`, `before-move`, `drag-cancel`, `transfer`.
  * Exposes `element` (the underlying `<flexdock-manager>`) plus `addView`, `removeView`, `getViewElement` and `hasView`.
  */
 export const FlexdockLayout = defineComponent({
@@ -21,7 +22,9 @@ export const FlexdockLayout = defineComponent({
     snap: { type: Number, default: undefined },
     storageKey: { type: String, default: undefined },
     keepEmpty: { type: Boolean, default: undefined },
-    labels: { type: Object as PropType<Partial<FlexdockLabels>>, default: undefined }
+    labels: { type: Object as PropType<Partial<FlexdockLabels>>, default: undefined },
+    dragGroup: { type: String, default: undefined },
+    tabMenu: { type: Function as PropType<(viewId: string, items: TabMenuItem[]) => TabMenuItem[]>, default: undefined }
   },
   emits: {
     "layout-change": (_d: { model: FlexdockModel; reason: ChangeReason }) => _d !== undefined,
@@ -30,7 +33,8 @@ export const FlexdockLayout = defineComponent({
     "view-show": (_d: { id: string }) => _d !== undefined,
     "before-close": (_e: CustomEvent<{ id: string }>) => _e !== undefined,
     "before-move": (_e: CustomEvent) => _e !== undefined,
-    "drag-cancel": (_d: { id: string }) => _d !== undefined
+    "drag-cancel": (_d: { id: string }) => _d !== undefined,
+    transfer: (_d: { id: string; direction: "in" | "out" }) => _d !== undefined
   },
   setup(props, { emit, slots, expose }) {
     const element = ref<FlexdockManager | null>(null);
@@ -41,7 +45,8 @@ export const FlexdockLayout = defineComponent({
       viewshow: (d) => emit("view-show", d),
       beforeclose: (e) => emit("before-close", e),
       beforemove: (e) => emit("before-move", e),
-      dragcancel: (d) => emit("drag-cancel", d)
+      dragcancel: (d) => emit("drag-cancel", d),
+      transfer: (d) => emit("transfer", d)
     };
     const sync = () => { if (element.value) applyProps(element.value, { ...props }); };
     onMounted(() => {

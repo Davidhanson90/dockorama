@@ -13,5 +13,6 @@ export const icons = {
   popout: frame(svg`<path d="M9 2.5h4.5V7M13.5 2.5L7.5 8.5M11.5 9.5v3a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3"/>`),
   more: frame(svg`<circle cx="3.5" cy="8" r=".6"/><circle cx="8" cy="8" r=".6"/><circle cx="12.5" cy="8" r=".6"/>`),
   arrow: (deg: number) => frame(svg`<path transform="rotate(${deg} 8 8)" d="M8 12.5V3.5M4.5 7L8 3.5 11.5 7"/>`),
+  pin: frame(svg`<path d="M6 2.5h4M7 2.5v4L4.5 9h7L9 6.5v-4M8 9v4.5"/>`),
   join: frame(svg`<rect x="3" y="3" width="10" height="10" rx="1.5"/><path d="M3 6h10"/>`)
 };

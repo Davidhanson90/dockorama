@@ -89,7 +89,7 @@ test("overflowing tabs scroll with the wheel and buttons", async ({ page }) => {
 test("pop-out moves content to a new browser window and back", async ({ page, context }) => {
   await open(page, "guide/popout");
   const [popup] = await Promise.all([context.waitForEvent("page"), page.getByRole("button", { name: "Pop out Output" }).click()]);
-  await expect(popup.locator('[data-view="log"]')).toContainText("Build finished");
+  await expect(popup.locator('.fdo-body > [data-view="log"]')).toContainText("Build finished");
   await expect(dock(page).locator(".away")).toBeVisible();
   await page.screenshot({ path: "e2e-results/2x-popout.png" });
   await popup.close();

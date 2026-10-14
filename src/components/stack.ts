@@ -61,7 +61,7 @@ export class FlexdockStack extends FlexdockPart {
     };
     return html`<div class="bar" part="bar" @pointerdown=${onBar} @dblclick=${() => cur && this.request("zoom", { id: cur })}>
         ${tabbed
-          ? html`<flexdock-tabstrip .views=${s.views} .current=${cur} .docs=${Boolean(s.docs)} .win=${win} .ctx=${ctx}></flexdock-tabstrip>`
+          ? html`<flexdock-tabstrip .views=${s.views} .current=${cur} .pinned=${s.pinned ?? []} .docs=${Boolean(s.docs)} .win=${win} .ctx=${ctx}></flexdock-tabstrip>`
           : html`<span class="title" id="t-${cur}">${info?.icon ? html`<span class="glyph">${info.icon}</span>` : nothing}${info?.title ?? cur}</span>`}
         ${cur ? html`<flexdock-toolbar .view=${cur} .docs=${Boolean(s.docs)} .win=${win} .ctx=${ctx}></flexdock-toolbar>` : nothing}
       </div>

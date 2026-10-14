@@ -57,7 +57,7 @@ export const styles = css`
   *, *::before, *::after { box-sizing: border-box; }
   /* UI parts render in this shadow root; class rules below give each its layout. */
   flexdock-split, flexdock-gutter, flexdock-stack, flexdock-docs, flexdock-view, flexdock-window, flexdock-drop-guide,
-  flexdock-rail, flexdock-flyout, flexdock-menu, flexdock-palette, flexdock-tab { display: block; }
+  flexdock-rail, flexdock-flyout, flexdock-menu, flexdock-palette, flexdock-tab, flexdock-tab-menu { display: block; }
   flexdock-tabstrip, flexdock-toolbar { display: contents; }
   .frame { position: absolute; inset: 0; display: flex; flex-direction: column; }
   .middle { flex: 1 1 auto; display: flex; min-height: 0; position: relative; }
@@ -177,6 +177,18 @@ export const styles = css`
   }
   .palette ul { list-style: none; margin: 6px 0 0; padding: 0; max-height: 300px; overflow: auto; }
   .palette small { color: var(--fd-ink-soft); margin-inline-start: auto; }
+  .menu button[disabled] { opacity: 0.45; cursor: default; background: none; }
+  .menu button[aria-checked="true"]::after { content: "\\2713"; margin-inline-start: auto; color: var(--fd-accent); }
+  .tab[data-pinned] { padding-inline: 8px; gap: 4px; }
+  .tab .pin { display: inline-flex; color: var(--fd-ink-soft); }
+  .tab .pin svg { width: 11px; height: 11px; }
+  .notice {
+    position: absolute; z-index: 70; top: 8px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; align-items: center;
+    max-width: min(640px, 94%); padding: 8px 10px 8px 14px; border-radius: var(--fd-radius); background: var(--fd-surface);
+    color: var(--fd-ink); border: 1px solid var(--fd-accent); box-shadow: var(--fd-shadow);
+  }
+  .notice-btn { width: auto; padding: 0 10px; height: 28px; white-space: nowrap; border: 1px solid var(--fd-line); }
+  .notice-btn[data-primary] { background: var(--fd-accent); color: var(--fd-accent-ink); border-color: var(--fd-accent); }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   @media (prefers-reduced-motion: reduce) { .drawer, .preview { animation: none; transition: none; } }
 `;

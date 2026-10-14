@@ -44,6 +44,8 @@ export interface StackNode {
   current: string;
   /** Editor-style document area: tabs always shown, kept even when empty. */
   docs?: boolean;
+  /** Pinned views: always first in `views`, drawn compact. */
+  pinned?: string[];
 }
 
 export type DockNode = SplitNode | StackNode;
@@ -61,6 +63,18 @@ export interface FloatWindow {
   tree: DockNode;
 }
 
+/**
+ * A separate browser window holding the content of one or more views. The views stay in their place in the
+ * layout (which shows a placeholder) so bringing them back puts them where they were.
+ */
+export interface OutsideWindow {
+  key: string;
+  views: string[];
+  current: string;
+  /** Screen position and outer size, when known. */
+  box?: Box;
+}
+
 export interface FlexdockModel {
   v: 1;
   views: Record<string, ViewInfo>;
@@ -68,6 +82,8 @@ export interface FlexdockModel {
   windows: FloatWindow[];
   drawers: Record<Side, string[]>;
   parked: string[];
+  /** Views whose content is open in separate browser windows (re-opened on load). */
+  outside?: OutsideWindow[];
   focus?: string;
   zoom?: string;
 }

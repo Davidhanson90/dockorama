@@ -14,7 +14,8 @@ export class FlexdockTab extends FlexdockPart {
     selected: { type: Boolean },
     closable: { type: Boolean },
     closeLabel: { attribute: "close-label" },
-    win: {}
+    win: {},
+    pinned: { type: Boolean }
   };
   view = "";
   info?: ViewInfo;
@@ -22,19 +23,37 @@ export class FlexdockTab extends FlexdockPart {
   closable = false;
   closeLabel = "Close";
   win?: string;
+  /** Pinned tabs are drawn compact (glyph only when there is one) and never show a close button. */
+  pinned = false;
 
   override connectedCallback(): void {
     super.connectedCallback();
+    this.addEventListener("contextmenu", this.onContext);
+    this.addEventListener("keydown", this.onKeyDown);
     this.addEventListener("click", this.onClick);
     this.addEventListener("pointerdown", this.onDown);
     this.addEventListener("auxclick", this.onAux);
   }
   override disconnectedCallback(): void {
     super.disconnectedCallback();
+    this.removeEventListener("contextmenu", this.onContext);
+    this.removeEventListener("keydown", this.onKeyDown);
     this.removeEventListener("click", this.onClick);
     this.removeEventListener("pointerdown", this.onDown);
     this.removeEventListener("auxclick", this.onAux);
   }
+  private readonly onContext = (e: MouseEvent): void => {
+    e.preventDefault();
+    this.request("tab-menu", { id: this.view, x: e.clientX, y: e.clientY });
+  };
+  /** Shift+F10 or the menu key open the tab menu from the keyboard. */
+  private readonly onKeyDown = (e: KeyboardEvent): void => {
+    if (!(e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey))) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const r = this.getBoundingClientRect();
+    this.request("tab-menu", { id: this.view, x: r.left, y: r.bottom, keyboard: true });
+  };
   private readonly onClick = (): void => this.request("reveal", { id: this.view });
   private readonly onDown = (event: PointerEvent): void => this.request("grab", { id: this.view, win: this.win, event, source: this });
   private readonly onAux = (e: MouseEvent): void => {
@@ -50,12 +69,17 @@ export class FlexdockTab extends FlexdockPart {
     this.mark("data-view", this.view);
     this.mark("aria-selected", this.selected ? "true" : "false");
     this.mark("tabindex", this.selected ? "0" : "-1");
+    this.mark("data-pinned", this.pinned);
+    this.mark("aria-haspopup", "menu");
   }
 
   override render(): TemplateResult {
     const title = this.info?.title ?? this.view;
-    return html`${this.info?.icon ? html`<span class="glyph">${this.info.icon}</span>` : nothing}<span class="label">${title}</span>
-      ${this.closable
+    const compact = this.pinned && Boolean(this.info?.icon);
+    if (this.pinned) this.title = title;
+    return html`${this.info?.icon ? html`<span class="glyph">${this.info.icon}</span>` : nothing}${compact ? nothing : html`<span class="label">${title}</span>`}
+      ${this.pinned ? html`<span class="pin" part="tab-pin" aria-hidden="true">${icons.pin}</span>` : nothing}
+      ${this.closable && !this.pinned
         ? html`<button class="btn" part="tab-close" tabindex="-1" aria-label="${this.closeLabel} ${title}"
             @pointerdown=${(e: Event) => e.stopPropagation()}
             @click=${(e: Event) => { e.stopPropagation(); this.request("dismiss", { id: this.view }); }}>${icons.close}</button>`

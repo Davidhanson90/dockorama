@@ -1,4 +1,5 @@
 import type { ChangeReason, FlexdockManager } from "./manager.js";
+import type { TabMenuItem } from "./components/index.js";
 import type { DropZone, EdgeZone, FlexdockModel } from "./model.js";
 import type { FlexdockLabels } from "./labels.js";
 
@@ -10,6 +11,10 @@ export interface FlexdockProps {
   storageKey?: string;
   keepEmpty?: boolean;
   labels?: Partial<FlexdockLabels>;
+  /** Managers sharing a drag group accept each other's views. */
+  dragGroup?: string;
+  /** Customise the tab context menu. */
+  tabMenu?: (viewId: string, items: TabMenuItem[]) => TabMenuItem[];
 }
 
 /** Event callbacks shared by every framework wrapper (names are wrapper-neutral). */
@@ -22,10 +27,12 @@ export interface FlexdockHandlers {
   /** Call `event.preventDefault()` to stop the move. */
   beforemove?: (event: CustomEvent<{ id: string; target?: string; zone: DropZone | EdgeZone | "between" }>) => void;
   dragcancel?: (detail: { id: string }) => void;
+  /** A view moved to (`direction: "out"`) or from (`"in"`) another manager. */
+  transfer?: (detail: { id: string; from: FlexdockManager; to: FlexdockManager; direction: "in" | "out" }) => void;
 }
 
-export const PROP_KEYS = ["model", "theme", "snap", "storageKey", "keepEmpty", "labels"] as const;
-export const EVENT_KEYS = ["change", "focus", "viewshow", "beforeclose", "beforemove", "dragcancel"] as const;
+export const PROP_KEYS = ["model", "theme", "snap", "storageKey", "keepEmpty", "labels", "dragGroup", "tabMenu"] as const;
+export const EVENT_KEYS = ["change", "focus", "viewshow", "beforeclose", "beforemove", "dragcancel", "transfer"] as const;
 const RAW = new Set<string>(["beforeclose", "beforemove"]);
 
 /** Copy defined props onto the element (skips unchanged values so models are not set twice). */

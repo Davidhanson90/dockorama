@@ -1,4 +1,4 @@
-import type { ViewSpot,
+import type { ViewSpot, OutsideWindow,
   Box, DockNode, DropZone, EdgeZone, FlexdockModel, Side, SplitNode, StackNode, ViewInfo, Whereabouts
 } from "./model.js";
 
@@ -119,9 +119,17 @@ export function normalize(input: FlexdockModel): FlexdockModel {
   const fix = (node: DockNode | null): DockNode | null => {
     if (!node) return null;
     if (node.kind === "stack") {
-      const views = node.views.filter((v) => known(v) && !seen.has(v) && (seen.add(v), true));
+      let views = node.views.filter((v) => known(v) && !seen.has(v) && (seen.add(v), true));
       if (!views.length && !node.docs) return null;
-      return { ...node, views, current: views.includes(node.current) ? node.current : (views[0] ?? "") };
+      const out: StackNode = { ...node, views, current: views.includes(node.current) ? node.current : (views[0] ?? "") };
+      if (node.pinned) {
+        const pinned = views.filter((v) => node.pinned!.includes(v));
+        views = [...pinned, ...views.filter((v) => !pinned.includes(v))];
+        out.views = views;
+        if (pinned.length) out.pinned = pinned;
+        else delete out.pinned;
+      }
+      return out;
     }
     const children: DockNode[] = [];
     const weights: number[] = [];
@@ -143,6 +151,17 @@ export function normalize(input: FlexdockModel): FlexdockModel {
   m.parked = m.parked.filter((v) => known(v) && !seen.has(v) && (seen.add(v), true));
   if (m.focus && !seen.has(m.focus)) delete m.focus;
   if (m.zoom && !seen.has(m.zoom)) delete m.zoom;
+  if (m.outside) {
+    const inTree = new Set([...viewsIn(m.root), ...m.windows.flatMap((w) => viewsIn(w.tree))]);
+    const taken = new Set<string>();
+    m.outside = m.outside
+      .map((o) => {
+        const views = (o.views ?? []).filter((v) => inTree.has(v) && !taken.has(v) && (taken.add(v), true));
+        return { ...o, views, current: views.includes(o.current) ? o.current : (views[0] ?? "") };
+      })
+      .filter((o) => o.key && o.views.length);
+    if (!m.outside.length) delete m.outside;
+  }
   return m;
 }
 
@@ -329,7 +348,7 @@ export function reorder(model: FlexdockModel, id: string, index: number): Flexdo
   };
   m.root = mapTree(m.root, apply);
   m.windows = m.windows.map((w) => ({ ...w, tree: mapTree(w.tree, apply)! }));
-  return m;
+  return normalize(m);
 }
 
 /** Set the weights of the split at `path` (in the root, or in a window). */
@@ -463,3 +482,78 @@ export function fillDocs(model: FlexdockModel, id: string, path: number[], windo
   return out;
 }
 
+
+/** Pin or unpin a view in its group (pinned views sit first, in pin order). */
+export function pin(model: FlexdockModel, id: string, on = true): FlexdockModel {
+  const where = locate(model, id);
+  if (where.place !== "tree") return model;
+  const has = where.stack.pinned?.includes(id) ?? false;
+  if (has === on) return model;
+  const m = copy(model);
+  const apply = (s: StackNode): DockNode => {
+    if (!s.views.includes(id)) return s;
+    const pinned = on ? [...(s.pinned ?? []), id] : (s.pinned ?? []).filter((v) => v !== id);
+    return { ...s, pinned };
+  };
+  m.root = mapTree(m.root, apply);
+  m.windows = m.windows.map((w) => ({ ...w, tree: mapTree(w.tree, apply)! }));
+  return normalize(m);
+}
+
+/** The outside (browser) window holding a view's content, if any. */
+export function outsideOf(model: FlexdockModel, id: string): OutsideWindow | undefined {
+  return model.outside?.find((o) => o.views.includes(id));
+}
+
+/** Record that a view's content is in an outside window `key` (created when new). */
+export function goOutside(model: FlexdockModel, id: string, key: string, box?: Box): FlexdockModel {
+  if (locate(model, id).place !== "tree") return model;
+  const m = copy(model);
+  const list = (m.outside ?? []).map((o) => ({ ...o, views: o.views.filter((v) => v !== id) }));
+  const target = list.find((o) => o.key === key);
+  if (target) {
+    target.views.push(id);
+    target.current = id;
+    if (box) target.box = { ...box };
+  } else {
+    list.push({ key, views: [id], current: id, ...(box ? { box: { ...box } } : {}) });
+  }
+  m.outside = list;
+  return normalize(m);
+}
+
+/** Bring a view's content back from its outside window. */
+export function comeInside(model: FlexdockModel, id: string): FlexdockModel {
+  if (!outsideOf(model, id)) return model;
+  const m = copy(model);
+  m.outside = m.outside!.map((o) => ({ ...o, views: o.views.filter((v) => v !== id) }));
+  return normalize(m);
+}
+
+/** Set the selected view or box of an outside window. */
+export function tuneOutside(model: FlexdockModel, key: string, change: { current?: string; box?: Box }): FlexdockModel {
+  const m = copy(model);
+  m.outside = (m.outside ?? []).map((o) => (o.key === key
+    ? { ...o, ...(change.current && o.views.includes(change.current) ? { current: change.current } : {}), ...(change.box ? { box: { ...change.box } } : {}) }
+    : o));
+  return normalize(m);
+}
+
+/** Register a view coming from another manager as parked (place it afterwards). Throws if the id is taken. */
+export function adopt(model: FlexdockModel, id: string, info: ViewInfo): FlexdockModel {
+  if (id in model.views) throw new Error(`flexdock: a view with id "${id}" already exists`);
+  const m = copy(model);
+  m.views[id] = copy(info);
+  m.parked.push(id);
+  return m;
+}
+
+/** Which views a "close …" command covers, relative to `id` in its group. */
+export function closeSet(model: FlexdockModel, id: string, which: "others" | "right" | "all"): string[] {
+  const where = locate(model, id);
+  if (where.place !== "tree") return [];
+  const views = where.stack.views;
+  const pinned = where.stack.pinned ?? [];
+  const pick = which === "all" ? views : which === "others" ? views.filter((v) => v !== id) : views.slice(views.indexOf(id) + 1);
+  return pick.filter((v) => !pinned.includes(v));
+}

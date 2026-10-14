@@ -34,11 +34,12 @@ interface FlexdockModel {
   windows: FloatWindow[];             // { key, box: {x,y,w,h}, tree }
   drawers: Record<Side, string[]>;    // Side = "start" | "end" | "top" | "bottom"
   parked: string[];
+  outside?: OutsideWindow[];          // { key, views, current, box? } separate browser windows
   focus?: string; zoom?: string;
 }
 type DockNode = SplitNode | StackNode;
 interface SplitNode { kind: "split"; axis: "row" | "column"; children: DockNode[]; weights: number[]; }
-interface StackNode { kind: "stack"; views: string[]; current: string; docs?: boolean; }
+interface StackNode { kind: "stack"; views: string[]; current: string; docs?: boolean; pinned?: string[]; }
 interface Caps { dismiss?, hide?, float?, move?, zoom?, popout?: boolean; docsOnly?: boolean }
 ```
 
@@ -60,10 +61,23 @@ the view as one undoable change (`reason: "add"`). `content` is an `Element`, a 
 Errors are thrown before anything changes (duplicate id, target not in the layout, no document area).
 The pure counterpart is `enlist(model, id, info, spot)`.
 
+## Between managers and windows
+- `drag-group` (`dragGroup`): managers with the same group exchange views by drag; `transferView(id, target, at?)`
+  from code; `flexdock-transfer` `{ id, from, to, direction: "in" | "out" }` on both; change reason `"transfer"`.
+- Outside windows ("pop-outs") are model data (`outside`), so they persist and undo. `popOut(id, { into?, box? })`,
+  `popIn(id)`, `blockedWindows`, `reopenWindows()`, `keepWindowsDocked()`; reasons `"popout"` / `"popin"`.
+  Tabs drag into and out of them by screen coordinates; dragging a tab past the browser window edge pops it out.
+
+## Tab context menu
+`<flexdock-tab-menu>` on right-click / Shift+F10. Item keys (`TabCommand`): `close`, `close-others`, `close-right`,
+`close-all`, `pin`, `float`, `popout`, `split-right`, `split-down`, `stow`. Hook: `tabMenu(viewId, items) => items`
+with custom `{ key, label, run }` items. Helpers: `dismissMany`, `pin(id, on?)`, `hasPin`, `openTabMenu`,
+`tabMenuItems`, `runTabCommand`. Pure: `pin`, `closeSet`, `adopt`, `goOutside`, `comeInside`, `tuneOutside`, `outsideOf`.
+
 ## Keyboard (flexdock's own scheme)
 `Ctrl+.` palette · `Alt+ArrowKeys` focus neighbouring view · `Alt+Shift+ArrowKeys` move focused view
 to that side of its group · `Alt+PageUp/PageDown` cycle tabs · `Alt+Z` zoom · `Alt+H` stow ·
-`Alt+F` float · `Alt+Backspace` dismiss · `Ctrl+Alt+Z/Y` undo/redo. Splitters: arrow keys, Home/End.
+`Alt+F` float · `Alt+Backspace` dismiss · `Ctrl+Alt+Z/Y` undo/redo · `Shift+F10` / menu key: tab menu. Splitters: arrow keys, Home/End.
 
 ## Extras
 Undo/redo, presets & workspaces, localStorage persistence, pop-out to a browser window, command

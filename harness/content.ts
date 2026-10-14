@@ -300,7 +300,8 @@ add({
   <tr><td><code>flexdock-viewshow</code></td><td><code>{ id }</code></td><td>A view is shown for the first time</td></tr>
   <tr><td><code>flexdock-beforeclose</code></td><td><code>{ id }</code></td><td>Before closing; <code>preventDefault()</code> to keep it</td></tr>
   <tr><td><code>flexdock-beforemove</code></td><td><code>{ id, target?, zone }</code></td><td>Before a dock/move; cancellable (<code>zone</code> may be <code>"between"</code>)</td></tr>
-  <tr><td><code>flexdock-dragcancel</code></td><td><code>{ id }</code></td><td>A drag was cancelled (Esc or pointer cancel); layout restored</td></tr></table>
+  <tr><td><code>flexdock-dragcancel</code></td><td><code>{ id }</code></td><td>A drag was cancelled (Esc or pointer cancel); layout restored</td></tr>
+  <tr><td><code>flexdock-transfer</code></td><td><code>{ id, from, to, direction }</code></td><td>A view moved between two managers; fired on both (<code>direction</code> <code>"out"</code> / <code>"in"</code>). See <a href="#/guide/cross-dock">Dragging between docks</a></td></tr></table>
   ${ex("events")}`,
   examples: [{ id: "events", code: `${basic}
 for (const type of ["flexdock-change", "flexdock-focus", "flexdock-viewshow", "flexdock-beforeclose", "flexdock-beforemove"]) {
@@ -350,11 +351,95 @@ sync();` }]
 add({
   slug: "guide/popout", title: "Pop-out windows", section: "Guides",
   body: `<h1>Pop-out windows</h1>
-  <p class="lead">Move a view's content into its own browser window — great for second monitors. Choose “Open in new browser window” from the ⋯ menu, or call <code>popOut(id)</code>.</p>
-  <p>The content element itself moves (state is kept). Closing the browser window, or “Bring back”, returns it. Popup blockers apply: call it from a user gesture.</p>
+  <p class="lead">Move a view's content into its own browser window — great for second monitors. Choose “Open in new browser window” from the ⋯ menu or the tab's right-click menu, drag a tab past the edge of the browser window, or call <code>popOut(id)</code>.</p>
+  <p>The content element itself moves, so its state is kept. The view keeps its place in the layout, which shows a “Bring back” placeholder. Closing the browser window, the ↙ button on its tab, or “Bring back” returns it.</p>
+  <h2>Several views in one window</h2>
+  <p>An outside window has its own tab bar. Drag a tab from the dock and let go over an outside window to add it there, or call <code>popOut(id, { into: key })</code>. Drag a tab out of an outside window and let go over the dock: the drop guides show where it will land. Let go over another outside window to move it there.</p>
+  <h2>Saved and re-opened</h2>
+  <p>Outside windows are part of the model (<code>model.outside</code>: <code>{ key, views, current, box? }</code>, where <code>box</code> is the window's screen position and size), so they are saved with <code>storage-key</code>, snapshots and undo. On load flexdock opens them again. Browsers only allow pop-ups after a click or key press, so when they're blocked a notice offers <em>Re-open windows</em> or <em>Keep them here</em>; from code, <code>blockedWindows</code>, <code>reopenWindows()</code> and <code>keepWindowsDocked()</code>.</p>
+  <pre><code>dock.popOut("log");                          // new window
+dock.popOut("notes", { into: dock.model.outside[0].key }); // join it
+dock.popOut("main", { box: { x: 1600, y: 80, w: 800, h: 600 } }); // screen position
+dock.popIn("log");</code></pre>
+  <p><strong>Browser limits:</strong> dragging between windows uses screen coordinates, which browsers report with no exact size for their own toolbars, so landing spots in the main window can be off by the height of the browser's toolbar. Some browsers open pop-ups as tabs, and some ignore the requested position. One pop-up per click is the usual limit, so re-opening several windows may take several clicks.</p>
   ${ex("popout")}`,
   examples: [{ id: "popout", code: `${basic}
-button("Pop out Output", () => log(dock.popOut("log") ? "opened" : "blocked"));` }]
+dock.storageKey = "flexdock-demo-popout";
+dock.addEventListener("flexdock-change", (e) => {
+  if (e.detail.reason === "popout" || e.detail.reason === "popin") log(e.detail.reason + ": " + JSON.stringify((dock.model.outside ?? []).map((o) => o.views)));
+});
+button("Pop out Output", () => log(dock.popOut("log") ? "opened" : "blocked"));
+button("Add notes.md to that window", () => {
+  const key = dock.model.outside?.[0]?.key;
+  log(key && dock.popOut("notes", { into: key }) ? "joined" : "open a window first");
+});
+button("Bring everything back", () => { for (const o of dock.model.outside ?? []) for (const v of o.views) dock.popIn(v); });` }]
+});
+
+add({
+  slug: "guide/cross-dock", title: "Dragging between docks", section: "Guides",
+  body: `<h1>Dragging between docks</h1>
+  <p class="lead">Give several <code>&lt;flexdock-manager&gt;</code> elements the same <code>drag-group</code> and views can be dragged from one to another. The drop guides appear in the dock under the pointer, and the content element moves with the view.</p>
+  <pre><code>&lt;flexdock-manager drag-group="desk"&gt;…&lt;/flexdock-manager&gt;
+&lt;flexdock-manager drag-group="desk"&gt;…&lt;/flexdock-manager&gt;</code></pre>
+  <ul>
+    <li>Managers without a <code>drag-group</code>, or with a different one, never exchange views.</li>
+    <li>The move is one undoable change in <em>each</em> manager (<code>reason: "transfer"</code>): the source forgets the view, the target registers it with the same title, icon and caps.</li>
+    <li>Both managers fire <code>flexdock-transfer</code> with <code>{ id, from, to, direction }</code>. The target's <code>flexdock-beforemove</code> (with <code>from</code>) can veto the drop.</li>
+    <li>A drop is refused when the target already has a view with that id, or when the pointer is not on a drop target.</li>
+    <li>Lazy views that haven't been shown yet move their factory, so the content is still created on first show.</li>
+  </ul>
+  <p>From code: <code>source.transferView(id, target, at?)</code>, where <code>at</code> is any <a href="#/guide/add-views">ViewSpot</a>.</p>
+  ${ex("cross-dock")}`,
+  examples: [{ id: "cross-dock", height: 440, code: `host.style.cssText += ";display:flex;gap:8px";
+const make = (key, names) => {
+  const dock = document.createElement("flexdock-manager");
+  dock.dataset.dock = key;
+  dock.dragGroup = "demo";
+  dock.style.flex = "1 1 0";
+  host.append(dock);
+  for (const n of names) dock.insertAdjacentHTML("beforeend", '<div class="v" data-view="' + n + '"><h3>' + n + '</h3><input placeholder="type here, then drag the tab"></div>');
+  dock.model = createModel(Object.fromEntries(names.map((n) => [n, { title: n }])), row([stack([names[0]]), docs(names.slice(1))], [1, 2]));
+  dock.addEventListener("flexdock-transfer", (e) => log(key + ": " + e.detail.direction + " " + e.detail.id));
+  return dock;
+};
+const left = make("left", ["Inbox", "Draft", "Sent"]);
+const right = make("right", ["Calendar", "Tasks"]);
+button("Move Draft to the right (code)", () => left.hasView("Draft") && left.transferView("Draft", right, "docs"));
+button("Undo both", () => { left.undo(); right.undo(); });` }]
+});
+
+add({
+  slug: "guide/tab-menu", title: "Tab context menu", section: "Guides",
+  body: `<h1>Tab context menu</h1>
+  <p class="lead">Right-click a tab, or focus it and press <span class="kbd">Shift</span>+<span class="kbd">F10</span> (or the menu key), for IDE-style tab commands.</p>
+  <table><tr><th>Item key</th><th>Does</th></tr>
+  <tr><td><code>close</code></td><td>Close this view</td></tr>
+  <tr><td><code>close-others</code> / <code>close-right</code> / <code>close-all</code></td><td>Close other / later / all tabs of the group, in one undoable change. Pinned tabs are kept; each view still asks <code>flexdock-beforeclose</code>.</td></tr>
+  <tr><td><code>pin</code></td><td>Pin or unpin: pinned tabs sit first, drawn compact (just the icon when there is one), with no close button</td></tr>
+  <tr><td><code>float</code></td><td>Float in a window (or dock back)</td></tr>
+  <tr><td><code>popout</code></td><td>Open in a separate browser window</td></tr>
+  <tr><td><code>split-right</code> / <code>split-down</code></td><td>Move to a new group beside / below</td></tr>
+  <tr><td><code>stow</code></td><td>Auto-hide to an edge (docked tool groups only)</td></tr></table>
+  <p>The menu is a <code>&lt;flexdock-tab-menu&gt;</code> (<code>role="menu"</code>): arrow keys, <span class="kbd">Home</span>/<span class="kbd">End</span> and first-letter typing move, <span class="kbd">Enter</span> chooses, <span class="kbd">Esc</span> or <span class="kbd">Tab</span> close and focus goes back to the tab.</p>
+  <h2>Customising</h2>
+  <p>Set <code>tabMenu</code> to a function that gets the view id and the built-in items and returns the items to show. Add your own <code>{ key, label, run }</code>, drop or relabel built-ins, or disable them.</p>
+  <pre><code>dock.tabMenu = (id, items) =&gt; [
+  ...items.filter((i) =&gt; i === "separator" || i.key !== "stow"),
+  "separator",
+  { key: "copy-title", label: "Copy title", run: (v) =&gt; navigator.clipboard.writeText(dock.model.views[v].title) }
+];</code></pre>
+  <p>From code: <code>openTabMenu(id, at?)</code>, <code>tabMenuItems(id)</code>, <code>runTabCommand(key, id)</code>, <code>dismissMany(ids)</code>, <code>pin(id, on?)</code>, <code>hasPin(id)</code>.</p>
+  ${ex("tab-menu")}`,
+  examples: [{ id: "tab-menu", height: 440, code: `${basic}
+view("readme", "<h3>README.md</h3>");
+view("todo", "<h3>TODO.md</h3>");
+dock.addView("readme", { title: "README.md", icon: "📘" }, { view: "main", zone: "into" });
+dock.addView("todo", { title: "TODO.md" }, { view: "main", zone: "into" });
+dock.pin("readme");
+dock.tabMenu = (id, items) => [...items, "separator", { key: "log-id", label: "Log view id", run: (v) => log("custom item: " + v) }];
+dock.addEventListener("flexdock-change", (e) => log(e.detail.reason));
+button("Open menu for main.ts", () => dock.openTabMenu("main"));` }]
 });
 
 add({
@@ -385,7 +470,7 @@ add({
   body: `<h1>Multiple docks</h1>
   <p class="lead">Put as many <code>&lt;flexdock-manager&gt;</code> elements on a page as you like. Each one owns its own layout model, undo history, drag state, focus and saved layout.</p>
   <p>Give each manager its own <code>storage-key</code> so their saved layouts don't overwrite each other. Events are dispatched by the manager they happened in, so listen on each element separately.</p>
-  <p><strong>Not supported yet:</strong> dragging a view from one manager into another. Drops only land inside the manager the drag started in; dropping outside floats the view in its own manager.</p>
+  <p>By default a drag stays inside the manager it started in. To let views move between managers, give them the same <code>drag-group</code>: see <a href="#/guide/cross-dock">Dragging between docks</a>.</p>
   ${ex("multiple")}`,
   examples: [{ id: "multiple", height: 440, code: `host.style.cssText += ";display:flex;gap:8px";
 const make = (key, names) => {
@@ -856,7 +941,10 @@ add({
   <tr><td><code>storageKey</code> (attr <code>storage-key</code>)</td><td><code>string</code></td><td>Auto-save/restore in localStorage.</td></tr>
   <tr><td><code>labels</code></td><td><code>Partial&lt;FlexdockLabels&gt;</code></td><td>UI strings.</td></tr>
   <tr><td><code>restored</code></td><td><code>boolean</code> (read-only)</td><td>Whether the last model came from storage.</td></tr>
-  <tr><td><code>canUndo</code>, <code>canRedo</code></td><td><code>boolean</code></td><td>History state.</td></tr></table>
+  <tr><td><code>canUndo</code>, <code>canRedo</code></td><td><code>boolean</code></td><td>History state.</td></tr>
+  <tr><td><code>dragGroup</code> (attr <code>drag-group</code>)</td><td><code>string</code></td><td>Managers with the same group accept each other's views. See <a href="#/guide/cross-dock">Dragging between docks</a>.</td></tr>
+  <tr><td><code>tabMenu</code></td><td><code>(id, items: TabMenuItem[]) =&gt; TabMenuItem[]</code></td><td>Customise the tab context menu. See <a href="#/guide/tab-menu">Tab context menu</a>.</td></tr>
+  <tr><td><code>blockedWindows</code></td><td><code>string[]</code> (read-only)</td><td>Keys of saved outside windows the browser refused to open.</td></tr></table>
   <h2>Methods</h2>
   <table><tr><th>Method</th><th>Description</th></tr>
   <tr><td><code>place(id, target, zone, index?)</code></td><td>Move beside / into the group holding <code>target</code>. Zones: <code>left</code>, <code>right</code>, <code>above</code>, <code>below</code>, <code>into</code>.</td></tr>
@@ -873,7 +961,12 @@ add({
   <tr><td><code>addView(id, info, near?)</code> / <code>forget(id)</code></td><td>Register a view whose <code>data-view</code> child you add yourself / remove from the model only.</td></tr>
   <tr><td><code>undo()</code> / <code>redo()</code></td><td>History.</td></tr>
   <tr><td><code>snapshot()</code> / <code>restore(model)</code></td><td>Copy out / apply (undoable).</td></tr>
-  <tr><td><code>popOut(id)</code> / <code>popIn(id)</code></td><td>Separate browser window.</td></tr>
+  <tr><td><code>popOut(id, { into?, box? })</code> / <code>popIn(id)</code></td><td>Separate browser window (new, or join outside window <code>into</code>; <code>box</code> = screen position/size). Saved in <code>model.outside</code>. See <a href="#/guide/popout">Pop-out windows</a>.</td></tr>
+  <tr><td><code>reopenWindows()</code> / <code>keepWindowsDocked()</code></td><td>Retry blocked outside windows (from a click) / give up on them (undoable).</td></tr>
+  <tr><td><code>transferView(id, target, at?)</code></td><td>Move a view and its element to another manager; one undoable change in each. Throws if the target has the id.</td></tr>
+  <tr><td><code>dismissMany(ids)</code></td><td>Close several views in one undoable change; returns the ids closed.</td></tr>
+  <tr><td><code>pin(id, on?)</code> / <code>hasPin(id)</code></td><td>Pin / unpin a tab; whether it is pinned.</td></tr>
+  <tr><td><code>openTabMenu(id, at?)</code>, <code>tabMenuItems(id)</code>, <code>runTabCommand(key, id)</code></td><td>Tab context menu from code.</td></tr>
   <tr><td><code>dropBetween(id, path, after, windowKey?)</code></td><td>Insert as a new group between two siblings (what a gutter drop does).</td></tr>
   <tr><td><code>dropIntoDocs(id, path, windowKey?)</code></td><td>Put a view into an empty document area.</td></tr>
   <tr><td><code>cancelDrag()</code></td><td>Abort the current drag and restore the layout (what <span class="kbd">Esc</span> does).</td></tr>
@@ -901,7 +994,7 @@ add({
   <table><tr><th>Properties</th><td><code>views</code>, <code>current</code>, <code>docs</code>, <code>win</code>, <code>ctx</code></td></tr><tr><th>Requests</th><td>—</td></tr><tr><th>CSS parts</th><td><code>tab-scroll</code></td></tr><tr><th>State attributes</th><td><code>data-overflow</code>, <code>data-can-back</code>, <code>data-can-fwd</code></td></tr></table>
   <h3 id="flexdock-tab">&lt;flexdock-tab&gt; <small><code>FlexdockTab</code></small></h3>
   <p>One <code>role="tab"</code>. Click to select, drag to move or reorder, middle-click or the close button to close.</p>
-  <table><tr><th>Properties</th><td><code>view</code>, <code>info</code>, <code>selected</code>, <code>closable</code>, <code>closeLabel</code>, <code>win</code></td></tr><tr><th>Requests</th><td><code>reveal</code>, <code>grab</code>, <code>dismiss</code></td></tr><tr><th>CSS parts</th><td><code>tab</code>, <code>tab-current</code>, <code>tab-close</code></td></tr><tr><th>State attributes</th><td><code>data-view</code>, <code>aria-selected</code></td></tr></table>
+  <table><tr><th>Properties</th><td><code>view</code>, <code>info</code>, <code>selected</code>, <code>closable</code>, <code>closeLabel</code>, <code>win</code>, <code>pinned</code></td></tr><tr><th>Requests</th><td><code>reveal</code>, <code>grab</code>, <code>dismiss</code>, <code>tab-menu</code></td></tr><tr><th>CSS parts</th><td><code>tab</code>, <code>tab-current</code>, <code>tab-close</code>, <code>tab-pin</code></td></tr><tr><th>State attributes</th><td><code>data-view</code>, <code>aria-selected</code>, <code>data-pinned</code></td></tr></table>
   <h3 id="flexdock-toolbar">&lt;flexdock-toolbar&gt; <small><code>FlexdockToolbar</code></small></h3>
   <p>The action buttons in a group header: auto-hide, zoom, more actions and close. Buttons follow the view's <code>caps</code>.</p>
   <table><tr><th>Properties</th><td><code>view</code>, <code>docs</code>, <code>win</code>, <code>ctx</code></td></tr><tr><th>Requests</th><td><code>stow</code>, <code>zoom</code>, <code>menu</code>, <code>dismiss</code></td></tr><tr><th>CSS parts</th><td><code>action</code> plus <code>stow</code>, <code>zoom</code>, <code>more</code>, <code>close</code></td></tr><tr><th>State attributes</th><td>—</td></tr></table>
@@ -923,6 +1016,12 @@ add({
   <h3 id="flexdock-menu">&lt;flexdock-menu&gt; <small><code>FlexdockMenu</code></small></h3>
   <p>The <code>role="menu"</code> popup behind ⋯: the group's tab list (as radio items) and the view's commands. Arrow keys move, <span class="kbd">Esc</span> closes.</p>
   <table><tr><th>Properties</th><td><code>entries</code> (<code>MenuEntry[]</code>), <code>x</code>, <code>y</code></td></tr><tr><th>Requests</th><td>The chosen entry's action, <code>menu-close</code></td></tr><tr><th>CSS parts</th><td><code>menu</code></td></tr><tr><th>State attributes</th><td>—</td></tr></table>
+  <h3 id="flexdock-tab-menu">&lt;flexdock-tab-menu&gt; <small><code>FlexdockTabMenu</code></small></h3>
+  <p>A tab's right-click / <span class="kbd">Shift</span>+<span class="kbd">F10</span> menu (<code>role="menu"</code>). Arrow keys, <span class="kbd">Home</span>/<span class="kbd">End</span> and first-letter typing move; <span class="kbd">Esc</span>/<span class="kbd">Tab</span> close. Method: <code>focusFirst()</code>.</p>
+  <table><tr><th>Properties</th><td><code>view</code>, <code>items</code> (<code>TabMenuItem[]</code>), <code>x</code>, <code>y</code>, <code>label</code></td></tr><tr><th>Requests</th><td><code>tab-menu-choose</code>, <code>tab-menu-close</code></td></tr><tr><th>CSS parts</th><td><code>menu tab-menu</code></td></tr><tr><th>State attributes</th><td><code>data-key</code>, <code>aria-checked</code>, <code>disabled</code> on items</td></tr></table>
+  <h3 id="flexdock-notice">&lt;flexdock-notice&gt; <small><code>FlexdockNotice</code></small></h3>
+  <p>A banner (<code>role="alertdialog"</code>) shown when the browser blocked re-opening saved outside windows, with <em>Re-open windows</em> / <em>Keep them here</em>.</p>
+  <table><tr><th>Properties</th><td><code>message</code>, <code>actions</code> (<code>NoticeAction[]</code>)</td></tr><tr><th>Requests</th><td><code>outside-reopen</code>, <code>outside-dismiss</code></td></tr><tr><th>CSS parts</th><td><code>notice</code></td></tr><tr><th>State attributes</th><td><code>data-primary</code> on the main button</td></tr></table>
   <h3 id="flexdock-palette">&lt;flexdock-palette&gt; <small><code>FlexdockPalette</code></small></h3>
   <p>The “go to view” search dialog (<span class="kbd">Ctrl</span>+<span class="kbd">.</span>). Arrow keys move, <span class="kbd">Enter</span> chooses, <span class="kbd">Esc</span> closes.</p>
   <table><tr><th>Properties</th><td><code>items</code>, <code>query</code>, <code>index</code>, <code>label</code>, <code>placeholder</code>, <code>empty</code></td></tr><tr><th>Requests</th><td><code>palette-query</code>, <code>palette-index</code>, <code>palette-choose</code>, <code>palette-close</code></td></tr><tr><th>CSS parts</th><td><code>palette</code></td></tr><tr><th>State attributes</th><td>—</td></tr></table>
@@ -931,7 +1030,8 @@ add({
   <h2>Model helpers (pure functions)</h2>
   <p><code>createModel</code>, <code>row</code>, <code>column</code>, <code>stack</code>, <code>docs</code>, <code>normalize</code>, <code>isModel</code>, <code>locate</code>, <code>viewsIn</code>, <code>stacksOf</code>,
   <code>place</code>, <code>placeAtEdge</code>, <code>detach</code>, <code>stow</code>, <code>unstow</code>, <code>dismiss</code>, <code>reveal</code>, <code>forget</code>, <code>addView</code>,
-  <code>select</code>, <code>reorder</code>, <code>setWeights</code>, <code>toggleZoom</code>, <code>catalogue</code>, <code>copy</code>, <code>emptyModel</code>.</p>
+  <code>select</code>, <code>reorder</code>, <code>setWeights</code>, <code>toggleZoom</code>, <code>catalogue</code>, <code>copy</code>, <code>emptyModel</code>,
+  <code>pin</code>, <code>closeSet</code>, <code>adopt</code>, <code>goOutside</code>, <code>comeInside</code>, <code>tuneOutside</code>, <code>outsideOf</code>.</p>
   <h2>Other exports</h2>
   <p><code>FlexdockMinimap</code> (<code>&lt;flexdock-minimap for&gt;</code>), the UI component classes above, <code>FlexdockPart</code> (their base class), <code>PARTS</code> (tag → class), <code>defineParts()</code>, <code>Workspaces</code>, <code>Timeline</code>, <code>DEFAULT_LABELS</code>, <code>geometry</code>, <code>VERSION</code>.</p>
   <h2>Events</h2><p>See <a href="#/guide/events">Events</a>.</p>`
