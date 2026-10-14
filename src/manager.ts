@@ -10,6 +10,7 @@ import { slotOf } from "./components/context.js";
 import { renderNode } from "./components/tree.js";
 import type { Box, Caps, DropZone, EdgeZone, FlexdockModel, LayoutMigrations, LayoutSource, OutsideWindow, Side, SizeLimits, SplitNode, ViewContent, ViewInfo, ViewOptions } from "./model.js";
 import * as ops from "./ops.js";
+import { stateEvents, type BeforeAddDetail, type CommandDetail, type CommandSource, type DragKind, type DragOverDetail, type DropDetail, type FlexdockStateEvents, type ResizeDetail } from "./events.js";
 
 /** Why the model changed (detail of `flexdock-change`). */
 export type ChangeReason =
@@ -69,6 +70,8 @@ interface DragState {
   /** Drop into an empty document area. */
   fill?: { path: number[]; win?: string; rect: Rect };
   edge?: EdgeZone;
+  /** Last spot reported through `flexdock-dragover`. */
+  over?: string;
   /** Model when the drag started (restored by Escape). */
   origin: FlexdockModel;
   preview?: Rect;
@@ -180,6 +183,8 @@ export class FlexdockManager extends LitElement {
   /** Keyboard docking in progress: the view, the chosen target (index into `moveTargets()`) and side. */
   private _keyMove?: { id: string; index: number; zone: DropZone | EdgeZone };
   private readonly shown = new Set<string>();
+  /** Views whose content slot was on screen after the last render (for `flexdock-viewshow` / `flexdock-viewhide`). */
+  private visible = new Set<string>();
   private readonly factories = new Map<string, () => Element>();
   private observer?: MutationObserver;
   private restoredFromStorage = false;
@@ -299,7 +304,9 @@ export class FlexdockManager extends LitElement {
   private close(id: string): void {
     if (this._peek === id) this._peek = undefined;
     if (this.dirtySet.has(id)) this.setDirty(id, false);
+    const before = this._model;
     this.commit(ops.dismiss(this._model, id), "dismiss");
+    if (before !== this._model) this.emit("flexdock-close", { id });
   }
 
   /** Ask `confirmClose`, or show the built-in dialog, before a dirty view closes. */
@@ -366,7 +373,10 @@ export class FlexdockManager extends LitElement {
       m = ops.dismiss(m, id);
       done.push(id);
     }
-    if (done.length) this.commit(m, "dismiss");
+    if (done.length) {
+      this.commit(m, "dismiss");
+      for (const id of done) this.emit("flexdock-close", { id });
+    }
     // Views with unsaved changes ask one at a time.
     void later.reduce((p, id) => p.then(() => this.dismiss(id)), Promise.resolve(true));
     return done;
@@ -415,6 +425,10 @@ export class FlexdockManager extends LitElement {
   /** Register a view whose `data-view` content is already (or will be) a child, and show it. */
   addView(id: string, info: ViewInfo, near?: { view: string; zone: DropZone }): void;
   addView(id: string, content: ViewContent | ViewInfo, extra?: ViewOptions | { view: string; zone: DropZone }): void {
+    const spot0 = isContent(content) ? ((extra ?? {}) as ViewOptions).at : undefined;
+    const title = isContent(content) ? (((extra ?? {}) as ViewOptions).title ?? id) : content.title;
+    const ask: BeforeAddDetail = spot0 === undefined ? { id, title } : { id, title, at: spot0 };
+    if (!this.emit("flexdock-beforeadd", ask, true)) return;
     if (!isContent(content)) {
       this.commit(ops.addView(this._model, id, content, extra as { view: string; zone: DropZone } | undefined), "add");
       return;
@@ -848,6 +862,11 @@ export class FlexdockManager extends LitElement {
     return this.emitBefore("flexdock-beforemove", { id, target, zone });
   }
 
+  /** Fire a public event (bubbles, composed). Returns false when a cancellable one was vetoed. */
+  private emit(type: string, detail: unknown, cancelable = false): boolean {
+    return this.dispatchEvent(new CustomEvent(type, { detail, cancelable, bubbles: true, composed: true }));
+  }
+
   private emitBefore(type: string, detail: unknown): boolean {
     return this.dispatchEvent(new CustomEvent(type, { detail, cancelable: true, bubbles: true, composed: true }));
   }
@@ -872,6 +891,7 @@ export class FlexdockManager extends LitElement {
     if (reason !== "focus") {
       this.dispatchEvent(new CustomEvent("flexdock-change", { detail: { model: next, reason }, bubbles: true, composed: true }));
     }
+    if (reason !== "set") for (const ev of stateEvents(prev, next)) this.emit(ev.type, ev.detail);
     if (!SILENT.includes(reason) && reason !== "set") this._say = `${reason}`;
     this.requestUpdate();
   }
@@ -974,18 +994,24 @@ export class FlexdockManager extends LitElement {
         (active?.querySelector<HTMLElement>('.tab[aria-selected="true"]') ?? active)?.focus({ preventScroll: true });
       }
     }
+    const now = new Set<string>();
     for (const slot of Array.from(this.renderRoot.querySelectorAll<HTMLSlotElement>("slot[name]"))) {
       const id = slot.name.slice(2);
-      if (!this.shown.has(id)) {
+      now.add(id);
+      if (this.visible.has(id)) continue;
+      const first = !this.shown.has(id);
+      if (first) {
         this.shown.add(id);
         const make = this.factories.get(id);
         if (make) {
           this.factories.delete(id);
           this.mount(id, make());
         }
-        this.dispatchEvent(new CustomEvent("flexdock-viewshow", { detail: { id }, bubbles: true, composed: true }));
       }
+      this.emit("flexdock-viewshow", { id, first });
     }
+    for (const id of this.visible) if (!now.has(id)) this.emit("flexdock-viewhide", { id });
+    this.visible = now;
     this.applyRetain();
   }
 
@@ -1150,6 +1176,12 @@ export class FlexdockManager extends LitElement {
     }
   }
 
+  /** Fire the cancellable `flexdock-command` for a menu choice. */
+  private askCommand(id: string, command: string, source: CommandSource, custom: boolean): boolean {
+    const detail: CommandDetail = { id, command, source, custom };
+    return this.emit("flexdock-command", detail, true);
+  }
+
   private closeTabMenu(refocus: boolean): void {
     const id = this._tabMenu?.id;
     this._tabMenu = undefined;
@@ -1240,7 +1272,10 @@ export class FlexdockManager extends LitElement {
     const r = (e as CustomEvent<PartRequest>).detail;
     e.stopPropagation();
     const id = r.id ?? "";
-    if (r.fromMenu) this._menu = undefined;
+    if (r.fromMenu) {
+      this._menu = undefined;
+      if (!this.askCommand(id, r.action, "pane-menu", false)) return;
+    }
     switch (r.action) {
       case "activate": return this.onStackPointer(r["event"] as PointerEvent, id, r["source"] as HTMLElement);
       case "grab": return this.startDrag(r["event"] as PointerEvent, id, r["win"] as string | undefined, r["source"] as HTMLElement);
@@ -1272,6 +1307,7 @@ export class FlexdockManager extends LitElement {
         const item = this._tabMenu?.items[Number(r["index"])];
         this.closeTabMenu(true);
         if (!item || item === "separator" || item.disabled) return;
+        if (!this.askCommand(id, item.key, "tab-menu", Boolean(item.run))) return;
         if (item.run) item.run(id);
         else this.runTabCommand(item.key as TabCommand, id);
         return;
@@ -1384,6 +1420,11 @@ export class FlexdockManager extends LitElement {
       if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < 6) return;
       next.mode = d.windowKey ? "window" : d.strip ? "tab" : "loose";
       this._menu = undefined;
+      if (!this.emit("flexdock-dragstart", { id: d.id, kind: next.mode as DragKind }, true)) {
+        this.endDragListeners();
+        this._drag = undefined;
+        return;
+      }
     }
     if (next.mode === "tab" && next.strip) {
       const r = next.strip.getBoundingClientRect();
@@ -1418,8 +1459,30 @@ export class FlexdockManager extends LitElement {
       } else this.findTarget(next);
     }
     this._drag = next;
+    this.reportOver(next);
     this.requestUpdate();
   };
+
+  /** Where a drag would drop right now. */
+  private spotOf(d: DragState): DragOverDetail {
+    if (d.mode === "tab") return { id: d.id, spot: "tabs" };
+    if (d.peer) return { id: d.id, spot: "other-dock" };
+    if (d.beyond) return { id: d.id, spot: "outside" };
+    if (d.edge) return { id: d.id, spot: d.edge };
+    if (d.gap) return { id: d.id, spot: "between" };
+    if (d.fill && d.target?.zone) return { id: d.id, spot: "empty" };
+    if (d.target?.zone) return { id: d.id, spot: d.target.zone, target: d.target.view };
+    return { id: d.id, spot: "none" };
+  }
+
+  /** Fire `flexdock-dragover` only when the drop spot or target changes. */
+  private reportOver(d: DragState): void {
+    const s = this.spotOf(d);
+    const sig = `${s.spot}|${s.target ?? ""}`;
+    if (d.over === sig) return;
+    d.over = sig;
+    this.emit("flexdock-dragover", s);
+  }
 
   private findTarget(d: DragState): void {
     d.target = undefined;
@@ -1492,25 +1555,34 @@ export class FlexdockManager extends LitElement {
     this.endDragListeners();
     this._drag = undefined;
     if (d.mode === "pending") return;
+    const spot = this.spotOf(d);
+    const done = this.finishDrop(d);
+    const report = (): void => {
+      const detail: DropDetail = { ...spot, moved: this._model !== d.origin || done === true };
+      this.emit("flexdock-drop", detail);
+    };
+    if (done instanceof Promise) void done.then(report);
+    else report();
+  };
+
+  /** Apply a drop. Returns true when it handed the view to another manager, a promise for pop-outs. */
+  private finishDrop(d: DragState): boolean | Promise<unknown> | void {
     if (d.mode === "tab") {
       this.timeline.push(this._model);
       this.commit(this._model, "reorder", false);
       return;
     }
     if (d.peer) {
-      if (d.peer.takeGuest(this, d.id)) return;
+      if (d.peer.takeGuest(this, d.id)) return true;
       this.requestUpdate();
       return;
     }
     if (d.mode === "loose" && d.sx !== undefined && d.sy !== undefined) {
       const into = this.outsideAt(d.sx, d.sy);
-      if (into) {
-        this.popOut(d.id, { into });
-        return;
-      }
+      if (into) return this.popOut(d.id, { into });
       if (d.beyond) {
-        if (this.caps(d.id).popout !== false) this.popOut(d.id, { box: { x: d.sx - 60, y: d.sy - 20 } });
-        else this.requestUpdate();
+        if (this.caps(d.id).popout !== false) return this.popOut(d.id, { box: { x: d.sx - 60, y: d.sy - 20 } });
+        this.requestUpdate();
         return;
       }
     }
@@ -1552,21 +1624,25 @@ export class FlexdockManager extends LitElement {
     for (const i of [index, index + 1]) if (this.splitAt(path, win)?.folded?.[i]) base = ops.fold(base, path, i, false, win);
     const split = this.splitAt(path, win);
     gutter.toggleAttribute("data-live", true);
+    const live = this.liveResize(() => this.splitResize(path, win));
     const move = (ev: PointerEvent) => {
       const delta = ((axis === "row" ? ev.clientX : ev.clientY) - start) * (rtl ? -1 : 1);
       const next = this.limitPair(split, index, shareSpace(sizes, index, delta));
       this._model = split?.fixed || split?.limits
         ? ops.resizeCells(base, path, next, win)
         : ops.setWeights(base, path, next.map((n) => Math.max(1, n)), win);
+      live();
       this.requestUpdate();
     };
     const up = () => {
       gutter.removeAttribute("data-live");
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      live.stop();
       if (this._model !== before) {
         this.timeline.push(before);
         this.commit(this._model, "resize", false);
+        this.emitResize(this.splitResize(path, win));
       }
     };
     window.addEventListener("pointermove", move);
@@ -1592,6 +1668,36 @@ export class FlexdockManager extends LitElement {
     if (getComputedStyle(this).direction === "rtl" && axis === "row" && e.key.startsWith("Arrow")) delta = -delta;
     const next = this.limitPair(split, index, shareSpace(sizes, index, delta, px ? 0 : total * 0.05));
     this.commit(px ? ops.resizeCells(this._model, path, next, win) : ops.setWeights(this._model, path, next, win), "resize");
+    this.emitResize(this.splitResize(path, win));
+  }
+
+  /** Resize detail for the split at `path`: weights, or px sizes where cells are fixed/limited. */
+  private splitResize(path: number[], win?: string): ResizeDetail | undefined {
+    const split = this.splitAt(path, win);
+    if (!split) return undefined;
+    return { kind: "split", path, ...(win ? { window: win } : {}), sizes: split.weights.slice() };
+  }
+
+  private emitResize(detail: ResizeDetail | undefined): void {
+    if (detail) this.emit("flexdock-resize", detail);
+  }
+
+  /** A live-resize reporter: fires `flexdock-resizing` at most once per animation frame. */
+  private liveResize(read: () => ResizeDetail | undefined): (() => void) & { stop(): void } {
+    let frame = 0;
+    const fn = (() => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        const d = read();
+        if (d) this.emit("flexdock-resizing", d);
+      });
+    }) as (() => void) & { stop(): void };
+    fn.stop = () => {
+      if (frame) cancelAnimationFrame(frame);
+      frame = 0;
+    };
+    return fn;
   }
 
   private splitAt(path: number[], win?: string): SplitNode | undefined {
@@ -1657,16 +1763,24 @@ export class FlexdockManager extends LitElement {
     if (!w) return;
     const start = { ...w.box };
     const before = this._model;
+    const read = (): ResizeDetail | undefined => {
+      const box = this._model.windows.find((x) => x.key === key)?.box;
+      return box ? { kind: "window", window: key, box: { ...box } } : undefined;
+    };
+    const live = this.liveResize(read);
     const move = (ev: PointerEvent) => {
       const box = snapBox({ ...start, w: Math.max(160, start.w + ev.clientX - e.clientX), h: Math.max(90, start.h + ev.clientY - e.clientY) }, this.snap);
       this._model = ops.moveWindow(this._model, key, box);
+      live();
       this.requestUpdate();
     };
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      live.stop();
       this.timeline.push(before);
       this.commit(this._model, "window", false);
+      this.emitResize(read());
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -1868,12 +1982,32 @@ declare global {
   interface HTMLElementEventMap {
     "flexdock-change": CustomEvent<{ model: FlexdockModel; reason: ChangeReason }>;
     "flexdock-focus": CustomEvent<{ id: string; previous?: string }>;
-    "flexdock-viewshow": CustomEvent<{ id: string }>;
+    "flexdock-viewshow": CustomEvent<{ id: string; first: boolean }>;
     "flexdock-beforeclose": CustomEvent<{ id: string }>;
     "flexdock-beforemove": CustomEvent<{ id: string; target?: string; zone: DropZone | EdgeZone | "between" }>;
     "flexdock-dragcancel": CustomEvent<{ id: string }>;
     "flexdock-dirty": CustomEvent<{ id: string; dirty: boolean }>;
     "flexdock-layoutissue": CustomEvent<{ source: LayoutSource; problems: string[]; fatal: boolean }>;
     "flexdock-transfer": CustomEvent<{ id: string; from: FlexdockManager; to: FlexdockManager; direction: "in" | "out" }>;
+    "flexdock-viewhide": CustomEvent<{ id: string }>;
+    "flexdock-close": CustomEvent<{ id: string }>;
+    "flexdock-beforeadd": CustomEvent<BeforeAddDetail>;
+    "flexdock-command": CustomEvent<CommandDetail>;
+    "flexdock-dragstart": CustomEvent<{ id: string; kind: DragKind }>;
+    "flexdock-dragover": CustomEvent<DragOverDetail>;
+    "flexdock-drop": CustomEvent<DropDetail>;
+    "flexdock-resize": CustomEvent<ResizeDetail>;
+    "flexdock-resizing": CustomEvent<ResizeDetail>;
+    "flexdock-float": CustomEvent<FlexdockStateEvents["flexdock-float"]>;
+    "flexdock-dock": CustomEvent<FlexdockStateEvents["flexdock-dock"]>;
+    "flexdock-stow": CustomEvent<FlexdockStateEvents["flexdock-stow"]>;
+    "flexdock-unstow": CustomEvent<FlexdockStateEvents["flexdock-unstow"]>;
+    "flexdock-pin": CustomEvent<FlexdockStateEvents["flexdock-pin"]>;
+    "flexdock-unpin": CustomEvent<FlexdockStateEvents["flexdock-unpin"]>;
+    "flexdock-popout": CustomEvent<FlexdockStateEvents["flexdock-popout"]>;
+    "flexdock-popin": CustomEvent<FlexdockStateEvents["flexdock-popin"]>;
+    "flexdock-collapse": CustomEvent<FlexdockStateEvents["flexdock-collapse"]>;
+    "flexdock-expand": CustomEvent<FlexdockStateEvents["flexdock-expand"]>;
+    "flexdock-viewremove": CustomEvent<FlexdockStateEvents["flexdock-viewremove"]>;
   }
 }

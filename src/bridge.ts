@@ -1,5 +1,6 @@
 import type { ChangeReason, FlexdockManager } from "./manager.js";
 import type { TabMenuItem } from "./components/index.js";
+import type { BeforeAddDetail, CommandDetail, DragKind, DragOverDetail, DropDetail, FlexdockStateEvents, ResizeDetail } from "./events.js";
 import type { DropZone, EdgeZone, FlexdockModel, LayoutMigrations, LayoutSource } from "./model.js";
 import type { FlexdockLabels } from "./labels.js";
 
@@ -27,7 +28,30 @@ export interface FlexdockProps {
 export interface FlexdockHandlers {
   change?: (detail: { model: FlexdockModel; reason: ChangeReason }) => void;
   focus?: (detail: { id: string; previous?: string }) => void;
-  viewshow?: (detail: { id: string }) => void;
+  viewshow?: (detail: { id: string; first: boolean }) => void;
+  viewhide?: (detail: { id: string }) => void;
+  close?: (detail: { id: string }) => void;
+  /** Call `event.preventDefault()` to stop the view being added. */
+  beforeadd?: (event: CustomEvent<BeforeAddDetail>) => void;
+  /** Call `event.preventDefault()` to stop a menu command. */
+  command?: (event: CustomEvent<CommandDetail>) => void;
+  /** Call `event.preventDefault()` to stop the drag. */
+  dragstart?: (event: CustomEvent<{ id: string; kind: DragKind }>) => void;
+  dragover?: (detail: DragOverDetail) => void;
+  drop?: (detail: DropDetail) => void;
+  resize?: (detail: ResizeDetail) => void;
+  resizing?: (detail: ResizeDetail) => void;
+  float?: (detail: FlexdockStateEvents["flexdock-float"]) => void;
+  dock?: (detail: FlexdockStateEvents["flexdock-dock"]) => void;
+  stow?: (detail: FlexdockStateEvents["flexdock-stow"]) => void;
+  unstow?: (detail: FlexdockStateEvents["flexdock-unstow"]) => void;
+  pin?: (detail: FlexdockStateEvents["flexdock-pin"]) => void;
+  unpin?: (detail: FlexdockStateEvents["flexdock-unpin"]) => void;
+  popout?: (detail: FlexdockStateEvents["flexdock-popout"]) => void;
+  popin?: (detail: FlexdockStateEvents["flexdock-popin"]) => void;
+  collapse?: (detail: FlexdockStateEvents["flexdock-collapse"]) => void;
+  expand?: (detail: FlexdockStateEvents["flexdock-expand"]) => void;
+  viewremove?: (detail: FlexdockStateEvents["flexdock-viewremove"]) => void;
   /** Call `event.preventDefault()` to keep the view open. */
   beforeclose?: (event: CustomEvent<{ id: string }>) => void;
   /** Call `event.preventDefault()` to stop the move. */
@@ -42,8 +66,12 @@ export interface FlexdockHandlers {
 }
 
 export const PROP_KEYS = ["model", "theme", "snap", "storageKey", "keepEmpty", "labels", "dragGroup", "tabMenu", "confirmClose", "layoutVersion", "migrations", "retain"] as const;
-export const EVENT_KEYS = ["change", "focus", "viewshow", "beforeclose", "beforemove", "dragcancel", "transfer", "dirty", "layoutissue"] as const;
-const RAW = new Set<string>(["beforeclose", "beforemove"]);
+export const EVENT_KEYS = [
+  "change", "focus", "viewshow", "viewhide", "beforeclose", "close", "beforemove", "beforeadd", "command", "dragstart", "dragover", "drop",
+  "dragcancel", "transfer", "dirty", "layoutissue", "resize", "resizing", "float", "dock", "stow", "unstow", "pin", "unpin", "popout", "popin",
+  "collapse", "expand", "viewremove"
+] as const;
+const RAW = new Set<string>(["beforeclose", "beforemove", "beforeadd", "command", "dragstart"]);
 
 /** Copy defined props onto the element (skips unchanged values so models are not set twice). */
 export function applyProps(el: FlexdockManager, props: FlexdockProps): void {

@@ -299,24 +299,79 @@ button("Toggle direction", () => { dock.dir = dock.dir === "rtl" ? "ltr" : "rtl"
 add({
   slug: "guide/events", title: "Events", section: "Guides",
   body: `<h1>Events</h1>
-  <table><tr><th>Event</th><th>Detail</th><th>When</th></tr>
-  <tr><td><code>flexdock-change</code></td><td><code>{ model, reason }</code></td><td>After every layout change</td></tr>
-  <tr><td><code>flexdock-focus</code></td><td><code>{ id, previous }</code></td><td>The active view changed</td></tr>
-  <tr><td><code>flexdock-viewshow</code></td><td><code>{ id }</code></td><td>A view is shown for the first time</td></tr>
-  <tr><td><code>flexdock-beforeclose</code></td><td><code>{ id }</code></td><td>Before closing; <code>preventDefault()</code> to keep it</td></tr>
-  <tr><td><code>flexdock-beforemove</code></td><td><code>{ id, target?, zone }</code></td><td>Before a dock/move; cancellable (<code>zone</code> may be <code>"between"</code>)</td></tr>
-  <tr><td><code>flexdock-dragcancel</code></td><td><code>{ id }</code></td><td>A drag was cancelled (Esc or pointer cancel); layout restored</td></tr>
-  <tr><td><code>flexdock-dirty</code></td><td><code>{ id, dirty }</code></td><td><code>setDirty</code> changed a view's unsaved state</td></tr>
-  <tr><td><code>flexdock-layoutissue</code></td><td><code>{ source, problems, fatal }</code></td><td>An assigned, restored or stored layout had problems; <code>fatal</code>: it was not used. See <a href="#/guide/versions">Layout versions</a></td></tr>
-  <tr><td><code>flexdock-transfer</code></td><td><code>{ id, from, to, direction }</code></td><td>A view moved between two managers; fired on both (<code>direction</code> <code>"out"</code> / <code>"in"</code>). See <a href="#/guide/cross-dock">Dragging between docks</a></td></tr></table>
-  ${ex("events")}`,
-  examples: [{ id: "events", code: `${basic}
-for (const type of ["flexdock-change", "flexdock-focus", "flexdock-viewshow", "flexdock-beforeclose", "flexdock-beforemove"]) {
-  dock.addEventListener(type, (e) => log(type + " " + JSON.stringify(e.detail.reason ?? e.detail.id ?? e.detail)));
-}
-dock.addEventListener("flexdock-beforeclose", (e) => {
-  if (e.detail.id === "main" && !confirm("Close main.ts?")) e.preventDefault();
-});` }]
+  <p class="lead">Every event is a <code>CustomEvent</code> fired on <code>&lt;flexdock-manager&gt;</code>. They bubble and cross shadow roots (<code>composed</code>),
+  and are typed through <code>HTMLElementEventMap</code>, so <code>dock.addEventListener("flexdock-float", (e) =&gt; e.detail.window)</code> is checked by TypeScript.
+  Cancellable events stop the action when you call <code>preventDefault()</code>.</p>
+  <h2>Live event log</h2>
+  <p>Drag tabs, float or stow views, resize splitters, use the tab menu (right-click a tab) — each event is logged below. <code>flexdock-resizing</code> is left out to keep the log readable.</p>
+  ${ex("events")}
+  <h2>Reference</h2>
+  <table><tr><th>Group</th><th>Event</th><th>Detail</th><th>Cancellable</th><th>When</th></tr>
+  <tr><td>Layout</td><td><code>flexdock-change</code></td><td><code>{ model, reason }</code></td><td></td><td>After every layout change (also fires alongside every state event below)</td></tr>
+  <tr><td>Layout</td><td><code>flexdock-focus</code></td><td><code>{ id, previous? }</code></td><td></td><td>The active view changed</td></tr>
+  <tr><td>Layout</td><td><code>flexdock-layoutissue</code></td><td><code>{ source, problems, fatal }</code></td><td></td><td>An assigned, restored or stored layout had problems; <code>fatal</code>: it was not used</td></tr>
+  <tr><td>Views</td><td><code>flexdock-beforeadd</code></td><td><code>{ id, title, at? }</code></td><td>✔</td><td>Before <code>addView</code> registers a view</td></tr>
+  <tr><td>Views</td><td><code>flexdock-viewshow</code></td><td><code>{ id, first }</code></td><td></td><td>A view's content became visible (<code>first</code>: never shown before — lazy loading)</td></tr>
+  <tr><td>Views</td><td><code>flexdock-viewhide</code></td><td><code>{ id }</code></td><td></td><td>A visible view's content was hidden (other tab, closed, stowed, zoomed away)</td></tr>
+  <tr><td>Views</td><td><code>flexdock-beforeclose</code></td><td><code>{ id }</code></td><td>✔</td><td>Before a view closes</td></tr>
+  <tr><td>Views</td><td><code>flexdock-close</code></td><td><code>{ id }</code></td><td></td><td>A view was closed (it stays registered; <code>reveal</code> brings it back)</td></tr>
+  <tr><td>Views</td><td><code>flexdock-viewremove</code></td><td><code>{ id }</code></td><td></td><td>A view was unregistered (<code>removeView</code>, <code>forget</code>, transfer out, undo of an add)</td></tr>
+  <tr><td>Views</td><td><code>flexdock-dirty</code></td><td><code>{ id, dirty }</code></td><td></td><td><code>setDirty</code> changed a view's unsaved state</td></tr>
+  <tr><td>State</td><td><code>flexdock-float</code></td><td><code>{ id, window }</code></td><td></td><td>A view moved into a floating window</td></tr>
+  <tr><td>State</td><td><code>flexdock-dock</code></td><td><code>{ id, from }</code></td><td></td><td>A view joined the main layout; <code>from</code> is <code>"floating" | "drawer" | "closed"</code></td></tr>
+  <tr><td>State</td><td><code>flexdock-stow</code></td><td><code>{ id, side }</code></td><td></td><td>A view was auto-hidden into an edge drawer</td></tr>
+  <tr><td>State</td><td><code>flexdock-unstow</code></td><td><code>{ id }</code></td><td></td><td>A view left its drawer</td></tr>
+  <tr><td>State</td><td><code>flexdock-pin</code></td><td><code>{ id }</code></td><td></td><td>A tab was pinned</td></tr>
+  <tr><td>State</td><td><code>flexdock-unpin</code></td><td><code>{ id }</code></td><td></td><td>A tab was unpinned</td></tr>
+  <tr><td>State</td><td><code>flexdock-popout</code></td><td><code>{ id, window }</code></td><td></td><td>A view's content moved to a separate browser window</td></tr>
+  <tr><td>State</td><td><code>flexdock-popin</code></td><td><code>{ id }</code></td><td></td><td>A popped-out view came back</td></tr>
+  <tr><td>State</td><td><code>flexdock-collapse</code></td><td><code>{ views, path, index, window? }</code></td><td></td><td>A split cell was collapsed</td></tr>
+  <tr><td>State</td><td><code>flexdock-expand</code></td><td><code>{ views, path, index, window? }</code></td><td></td><td>A collapsed split cell was restored</td></tr>
+  <tr><td>Drag</td><td><code>flexdock-dragstart</code></td><td><code>{ id, kind }</code></td><td>✔</td><td>A drag passed the move threshold; <code>kind</code>: <code>"tab" | "loose" | "window"</code>. Cancel to abort the drag</td></tr>
+  <tr><td>Drag</td><td><code>flexdock-dragover</code></td><td><code>{ id, spot, target? }</code></td><td></td><td>The drop spot changed (fires once per change, not per pointer move)</td></tr>
+  <tr><td>Drag</td><td><code>flexdock-beforemove</code></td><td><code>{ id, target?, zone }</code></td><td>✔</td><td>Before a dock/move is applied</td></tr>
+  <tr><td>Drag</td><td><code>flexdock-drop</code></td><td><code>{ id, spot, target?, moved }</code></td><td></td><td>The drag ended; <code>moved</code> is false if nothing changed or a move was vetoed</td></tr>
+  <tr><td>Drag</td><td><code>flexdock-dragcancel</code></td><td><code>{ id }</code></td><td></td><td>A drag was cancelled (Esc or pointer cancel); layout restored</td></tr>
+  <tr><td>Drag</td><td><code>flexdock-transfer</code></td><td><code>{ id, from, to, direction }</code></td><td></td><td>A view moved between two managers; fired on both</td></tr>
+  <tr><td>Resize</td><td><code>flexdock-resizing</code></td><td><code>ResizeDetail</code></td><td></td><td>Live, at most once per animation frame while a splitter or window grip is dragged</td></tr>
+  <tr><td>Resize</td><td><code>flexdock-resize</code></td><td><code>ResizeDetail</code></td><td></td><td>A splitter or floating-window resize finished (pointer up, or a keyboard step)</td></tr>
+  <tr><td>Commands</td><td><code>flexdock-command</code></td><td><code>{ id, command, source, custom }</code></td><td>✔</td><td>Before a tab-menu or pane-menu command runs; <code>source</code>: <code>"tab-menu" | "pane-menu"</code></td></tr></table>
+  <h3>Detail types</h3>
+  <pre><code>type DragSpot = DropZone | EdgeZone | "between" | "empty" | "tabs" | "outside" | "other-dock" | "none";
+type ResizeDetail =
+  | { kind: "split"; path: number[]; window?: string; sizes: number[] }  // sizes = split weights
+  | { kind: "window"; window: string; box: Box };</code></pre>
+  <p>All detail types are exported (<code>DragOverDetail</code>, <code>DropDetail</code>, <code>ResizeDetail</code>, <code>CommandDetail</code>, <code>BeforeAddDetail</code>, <code>FoldDetail</code>, <code>FlexdockStateEvents</code>).
+  <code>stateEvents(prev, next)</code> is also exported: it returns the state events implied by any two models, handy for server-side or test code.</p>
+  <h3>Order</h3>
+  <p><code>flexdock-change</code> fires first, then the specific state events for the same change. Assigning <code>dock.model</code> fires only <code>flexdock-change</code> (reason <code>"set"</code>).
+  <code>flexdock-close</code> follows its <code>flexdock-change</code>. <code>flexdock-viewshow</code> / <code>flexdock-viewhide</code> fire after the next render.</p>
+  <h2>Vetoing</h2>
+  ${ex("events-veto")}`,
+  examples: [{ id: "events", height: 380, code: `${basic}
+const quiet = ["flexdock-resizing"];
+const names = ['flexdock-change', 'flexdock-focus', 'flexdock-layoutissue', 'flexdock-beforeadd', 'flexdock-viewshow', 'flexdock-viewhide', 'flexdock-beforeclose', 'flexdock-close', 'flexdock-viewremove', 'flexdock-dirty', 'flexdock-float', 'flexdock-dock', 'flexdock-stow', 'flexdock-unstow', 'flexdock-pin', 'flexdock-unpin', 'flexdock-popout', 'flexdock-popin', 'flexdock-collapse', 'flexdock-expand', 'flexdock-dragstart', 'flexdock-dragover', 'flexdock-beforemove', 'flexdock-drop', 'flexdock-dragcancel', 'flexdock-transfer', 'flexdock-resizing', 'flexdock-resize', 'flexdock-command'];
+for (const type of names) {
+  if (quiet.includes(type)) continue;
+  dock.addEventListener(type, (e) => {
+    const d = { ...e.detail };
+    if (d.model) d.model = "…";
+    for (const k of ["from", "to"]) if (d[k] instanceof HTMLElement) d[k] = "<manager>";
+    log(type + (e.cancelable ? " (cancellable) " : " ") + JSON.stringify(d));
+  });
+}` }, { id: "events-veto", height: 320, code: `${basic}
+dock.addEventListener("flexdock-beforeadd", (e) => {
+  if (e.detail.id.startsWith("temp")) { e.preventDefault(); log("blocked add of " + e.detail.id); }
+});
+dock.addEventListener("flexdock-command", (e) => {
+  if (e.detail.command === "close-all") { e.preventDefault(); log("close-all is disabled here"); }
+});
+dock.addEventListener("flexdock-dragstart", (e) => {
+  if (e.detail.id === "log") { e.preventDefault(); log("Output cannot be dragged"); }
+});
+let n = 0;
+button("Add view", () => dock.addView("extra" + ++n, "Extra view " + n, { title: "Extra " + n }));
+button("Add temp view (blocked)", () => dock.addView("temp" + ++n, "never shown"));` }]
 });
 
 add({
@@ -689,7 +744,7 @@ const el = dock.removeView("chart");  // returns the element, taken out of the d
   <table><tr><th>Type</th><th>What happens</th></tr>
   <tr><td><code>Element</code></td><td>Appended to the manager (moved if it already lives elsewhere). It's kept alive as it moves between panes.</td></tr>
   <tr><td><code>string</code></td><td>Wrapped in a <code>&lt;div class="flexdock-text"&gt;</code> as text (never parsed as HTML). Default padding comes from <code>--fd-text-padding</code> (see below).</td></tr>
-  <tr><td><code>() =&gt; Element</code></td><td>Lazy: called once, the first time the view is shown, just before <code>flexdock-viewshow</code>. The view gets <code>lazy: true</code>.</td></tr></table>
+  <tr><td><code>() =&gt; Element</code></td><td>Lazy: called once, the first time the view is shown, just before <code>flexdock-viewshow</code> (with <code>first: true</code>). The view gets <code>lazy: true</code>.</td></tr></table>
   <h2>Where it goes: <code>options.at</code></h2>
   <table><tr><th>Value</th><th>Placement</th></tr>
   <tr><td><code>"auto"</code> (default)</td><td>The document area if there is one, otherwise the right edge.</td></tr>
@@ -746,12 +801,13 @@ button("Undo", () => dock.undo());` }]
 add({
   slug: "guide/lazy", title: "Lazy content", section: "Guides",
   body: `<h1>Lazy content</h1>
-  <p class="lead"><code>flexdock-viewshow</code> fires the first time a view becomes visible — create expensive content (charts, editors, iframes) only then.</p>
+  <p class="lead"><code>flexdock-viewshow</code> fires whenever a view becomes visible; <code>detail.first</code> is true the first time — create expensive content (charts, editors, iframes) only then. <code>flexdock-viewhide</code> pairs with it.</p>
   ${ex("lazy")}`,
   examples: [{ id: "lazy", code: `${SETUP}
 const ids = ["one", "two", "three", "four"];
 ids.forEach((id) => view(id, "<span class='muted'>not loaded</span>"));
 dock.addEventListener("flexdock-viewshow", (e) => {
+  if (!e.detail.first) return;
   const el = dock.querySelector('[data-view="' + e.detail.id + '"]');
   el.innerHTML = "<h3>Loaded " + e.detail.id + "</h3><p>at " + new Date().toLocaleTimeString() + "</p>";
   log("loaded " + e.detail.id);

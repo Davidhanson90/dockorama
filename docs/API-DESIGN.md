@@ -20,7 +20,9 @@ against a private avoid-list kept outside the repo).
    app content stays styleable and framework-owned.
 6. **One change event.** `flexdock-change` (detail: `{ model, reason }`) fires after every change,
    plus intent events that can be cancelled before they happen: `flexdock-beforeclose`,
-   `flexdock-beforemove`; and `flexdock-focus`, `flexdock-viewshow` (first reveal, for lazy loading).
+   `flexdock-beforemove`, `flexdock-beforeadd`, `flexdock-command`, `flexdock-dragstart`; and specific
+   after-the-fact events (`flexdock-float`, `-dock`, `-stow`, `-pin`, `-popout`, `-collapse`, `-close`,
+   `-viewshow`/`-viewhide`, `-drop`, `-resize`, …) derived from the model diff. Full list: the Events guide.
 7. **Theming through `--fd-*` custom properties** and `::part()` names describing *what* the element
    is in flexdock's own vocabulary: `bar`, `tab`, `gutter`, `compass`, `ghost`, `rail`, `drawer`,
    `window`, `palette`. String `addView` bodies use `.flexdock-text` and `--fd-text-padding`.

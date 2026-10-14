@@ -43,7 +43,7 @@ export class FlexdockLayoutComponent implements AfterViewInit, OnChanges, OnDest
 
   @Output() readonly layoutChange = new EventEmitter<{ model: FlexdockModel; reason: ChangeReason }>();
   @Output() readonly viewFocus = new EventEmitter<{ id: string; previous?: string }>();
-  @Output() readonly viewShow = new EventEmitter<{ id: string }>();
+  @Output() readonly viewShow = new EventEmitter<{ id: string; first: boolean }>();
   @Output() readonly beforeClose = new EventEmitter<CustomEvent<{ id: string }>>();
   @Output() readonly beforeMove = new EventEmitter<CustomEvent<{ id: string; target?: string; zone: DropZone | EdgeZone | "between" }>>();
   @Output() readonly dragCancel = new EventEmitter<{ id: string }>();

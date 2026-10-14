@@ -8,6 +8,10 @@ export const VERSION = "0.1.0";
 export { FlexdockManager, FlexdockMinimap };
 export type { ChangeReason } from "./manager.js";
 export {
+  stateEvents, type BeforeAddDetail, type CommandDetail, type CommandSource, type DockOrigin, type DragKind, type DragOverDetail, type DragSpot,
+  type DropDetail, type FlexdockStateEvents, type FoldDetail, type ResizeDetail, type StateEvent, type StateEventName
+} from "./events.js";
+export {
   FlexdockConfirm, FlexdockDocs, FlexdockDropGuide, FlexdockFlyout, FlexdockGutter, FlexdockMenu, FlexdockNotice, FlexdockPalette, FlexdockPart, FlexdockRail,
   FlexdockSplit, FlexdockStack, FlexdockTab, FlexdockTabMenu, FlexdockTabstrip, FlexdockToolbar, FlexdockView, FlexdockWindow, PARTS, defineParts,
   type DockContext, type GuideSpot, type MenuEntry, type NoticeAction, type PartRequest, type TabMenuItem

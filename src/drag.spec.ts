@@ -359,3 +359,63 @@ describe("pointer resizing, focus navigation and menus", () => {
     open.mockRestore();
   });
 });
+
+describe("drag and resize events", () => {
+  it("fires dragstart, dragover once per spot change, and drop", async () => {
+    const el = await mount(createModel(views, row([stack(["a"]), stack(["b", "c"]), stack(["d"])])));
+    const log: string[] = [];
+    el.addEventListener("flexdock-dragstart", (e) => log.push(`start ${e.detail.id} ${e.detail.kind}`));
+    el.addEventListener("flexdock-dragover", (e) => log.push(`over ${e.detail.spot}${e.detail.target ? " " + e.detail.target : ""}`));
+    el.addEventListener("flexdock-drop", (e) => log.push(`drop ${e.detail.spot} ${e.detail.moved}`));
+    pd(tab(el, "c"), 320, 10);
+    pm(330, 10);
+    pm(597, 200);
+    pm(597, 210);
+    pm(597, 300);
+    pu(597, 300);
+    await el.updateComplete;
+    expect(log[0]).toBe("start c tab");
+    expect(log.filter((l) => l === "over between")).toHaveLength(1);
+    expect(log.at(-1)).toBe("drop between true");
+  });
+
+  it("cancels a drag when dragstart is prevented", async () => {
+    const el = await mount();
+    const before = el.model.root;
+    el.addEventListener("flexdock-dragstart", (e) => e.preventDefault());
+    const drop = vi.fn();
+    el.addEventListener("flexdock-drop", drop);
+    await dragTab(el, "c", [597, 300]);
+    expect(el.model.root).toEqual(before);
+    expect(drop).not.toHaveBeenCalled();
+  });
+
+  it("fires resize (and rAF-throttled resizing) for window grips", async () => {
+    const el = await mount();
+    el.detach("a", { x: 100, y: 100, w: 200, h: 150 });
+    await el.updateComplete;
+    const ends: unknown[] = [];
+    const live = vi.fn();
+    el.addEventListener("flexdock-resize", (e) => ends.push(e.detail));
+    el.addEventListener("flexdock-resizing", live);
+    pd(sr(el).querySelector(".grip")!, 300, 250);
+    pm(320, 260);
+    pm(340, 270);
+    await new Promise((r) => requestAnimationFrame(() => r(null)));
+    pu(340, 270);
+    expect(live).toHaveBeenCalledTimes(1);
+    expect(ends).toEqual([{ kind: "window", window: el.model.windows[0]!.key, box: el.model.windows[0]!.box }]);
+  });
+
+  it("fires resize when a splitter drag ends", async () => {
+    const el = await mount();
+    const ends: Array<{ kind: string }> = [];
+    el.addEventListener("flexdock-resize", (e) => ends.push(e.detail));
+    const g = sr(el).querySelector(".gutter")!;
+    g.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, composed: true, clientX: 297, clientY: 100, button: 0, pointerId: 1 }));
+    pm(350, 100);
+    pu(350, 100);
+    expect(ends).toHaveLength(1);
+    expect(ends[0]).toMatchObject({ kind: "split", path: [] });
+  });
+});
