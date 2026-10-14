@@ -1038,7 +1038,10 @@ dock.model = createModel(views,
 // Pop out: the same app on its own page.
 window.open(new URL("trading.html", location.href), "flexdock-trading", "popup,width=1600,height=960");</code></pre></details>`,
   after: (page) => {
-    void import("./trading/desk.js").then(({ mountTradingDesk }) => mountTradingDesk(page.querySelector<HTMLElement>("#td-stage")!));
+    const stage = page.querySelector<HTMLElement>("#td-stage")!;
+    void import("./trading/desk.js").then(({ mountTradingDesk }) => {
+      if (stage.isConnected) mountTradingDesk(stage);
+    });
     page.querySelector("#td-popout")!.addEventListener("click", () => {
       const w = Math.min(1680, screen.availWidth - 40);
       const h = Math.min(1000, screen.availHeight - 60);
