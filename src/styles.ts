@@ -57,7 +57,7 @@ export const styles = css`
   *, *::before, *::after { box-sizing: border-box; }
   /* UI parts render in this shadow root; class rules below give each its layout. */
   flexdock-split, flexdock-gutter, flexdock-stack, flexdock-docs, flexdock-view, flexdock-window, flexdock-drop-guide,
-  flexdock-rail, flexdock-flyout, flexdock-menu, flexdock-palette, flexdock-tab, flexdock-tab-menu { display: block; }
+  flexdock-rail, flexdock-flyout, flexdock-menu, flexdock-palette, flexdock-tab, flexdock-tab-menu, flexdock-confirm { display: block; }
   flexdock-tabstrip, flexdock-toolbar { display: contents; }
   .frame { position: absolute; inset: 0; display: flex; flex-direction: column; }
   .middle { flex: 1 1 auto; display: flex; min-height: 0; position: relative; }
@@ -182,6 +182,23 @@ export const styles = css`
   .tab[data-pinned] { padding-inline: 8px; gap: 4px; }
   .tab .pin { display: inline-flex; color: var(--fd-ink-soft); }
   .tab .pin svg { width: 11px; height: 11px; }
+  .tab[data-pinned] { position: sticky; z-index: 2; background: var(--fd-surface-2); }
+  .tab[data-pinned][aria-selected="true"] { background: var(--fd-surface); }
+  .tab[data-preview] > .label { font-style: italic; }
+  .dirty { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--fd-ink-soft); flex: 0 0 auto; margin-inline-start: 6px; }
+  .tab[data-dirty][data-closable] .dirty { margin-inline-start: 6px; }
+  .tab[data-dirty] [part~="tab-close"] { display: none; }
+  .tab[data-dirty]:hover [part~="tab-close"], .tab[data-dirty]:focus-within [part~="tab-close"] { display: inline-grid; }
+  .tab[data-dirty]:hover .dirty, .tab[data-dirty]:focus-within .dirty { display: none; }
+  .confirm { position: absolute; inset: 0; z-index: 80; display: grid; place-items: center; background: rgb(0 0 0 / 0.25); }
+  .confirm-box {
+    max-width: min(420px, 90%); padding: 16px 18px 12px; border-radius: var(--fd-radius); background: var(--fd-surface);
+    color: var(--fd-ink); border: 1px solid var(--fd-line); box-shadow: var(--fd-shadow);
+  }
+  .confirm-box p { margin: 0 0 14px; }
+  .confirm-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .confirm-actions .btn { width: auto; height: 30px; padding: 0 14px; border: 1px solid var(--fd-line); }
+  .confirm-actions .btn[data-primary] { background: var(--fd-accent); color: var(--fd-accent-ink); border-color: var(--fd-accent); }
   .notice {
     position: absolute; z-index: 70; top: 8px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; align-items: center;
     max-width: min(640px, 94%); padding: 8px 10px 8px 14px; border-radius: var(--fd-radius); background: var(--fd-surface);

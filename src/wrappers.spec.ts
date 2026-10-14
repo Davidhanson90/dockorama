@@ -47,6 +47,12 @@ describe("bridge: drag groups, tab menu hook and transfer events", () => {
     bindEvents(el, () => ({ transfer }));
     el.dispatchEvent(new CustomEvent("flexdock-transfer", { detail: { id: "a", direction: "in" } }));
     expect(transfer).toHaveBeenCalledWith({ id: "a", direction: "in" });
+    const dirty = vi.fn();
+    bindEvents(el, () => ({ dirty }));
+    el.setDirty("x");
+    expect(dirty).toHaveBeenCalledWith({ id: "x", dirty: true });
+    applyProps(el, { layoutVersion: 3, migrations: {} });
+    expect(el.layoutVersion).toBe(3);
   });
 });
 

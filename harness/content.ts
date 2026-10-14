@@ -262,6 +262,8 @@ add({
   <tr><td><span class="kbd">Alt</span> + <span class="kbd">H</span></td><td>Stow to an edge drawer</td></tr>
   <tr><td><span class="kbd">Alt</span> + <span class="kbd">F</span></td><td>Float in a window</td></tr>
   <tr><td><span class="kbd">Alt</span> + <span class="kbd">Backspace</span></td><td>Close the focused view</td></tr>
+  <tr><td><span class="kbd">Alt</span> + <span class="kbd">M</span></td><td>Move the focused view with the keyboard (see <a href="#/guide/keyboard-docking">Keyboard docking</a>)</td></tr>
+  <tr><td><span class="kbd">Shift</span> + <span class="kbd">F10</span> / menu key on a tab</td><td>Tab context menu</td></tr>
   <tr><td><span class="kbd">Ctrl</span> + <span class="kbd">Alt</span> + <span class="kbd">Z</span> / <span class="kbd">Y</span></td><td>Undo / redo layout changes</td></tr>
   <tr><td><span class="kbd">Esc</span></td><td>Close drawer, menu or palette; leave zoom</td></tr>
   <tr><td>Arrows / <span class="kbd">Home</span> / <span class="kbd">End</span> on a gutter</td><td>Resize</td></tr></table>
@@ -301,6 +303,8 @@ add({
   <tr><td><code>flexdock-beforeclose</code></td><td><code>{ id }</code></td><td>Before closing; <code>preventDefault()</code> to keep it</td></tr>
   <tr><td><code>flexdock-beforemove</code></td><td><code>{ id, target?, zone }</code></td><td>Before a dock/move; cancellable (<code>zone</code> may be <code>"between"</code>)</td></tr>
   <tr><td><code>flexdock-dragcancel</code></td><td><code>{ id }</code></td><td>A drag was cancelled (Esc or pointer cancel); layout restored</td></tr>
+  <tr><td><code>flexdock-dirty</code></td><td><code>{ id, dirty }</code></td><td><code>setDirty</code> changed a view's unsaved state</td></tr>
+  <tr><td><code>flexdock-layoutissue</code></td><td><code>{ source, problems, fatal }</code></td><td>An assigned, restored or stored layout had problems; <code>fatal</code>: it was not used. See <a href="#/guide/versions">Layout versions</a></td></tr>
   <tr><td><code>flexdock-transfer</code></td><td><code>{ id, from, to, direction }</code></td><td>A view moved between two managers; fired on both (<code>direction</code> <code>"out"</code> / <code>"in"</code>). See <a href="#/guide/cross-dock">Dragging between docks</a></td></tr></table>
   ${ex("events")}`,
   examples: [{ id: "events", code: `${basic}
@@ -407,6 +411,109 @@ const left = make("left", ["Inbox", "Draft", "Sent"]);
 const right = make("right", ["Calendar", "Tasks"]);
 button("Move Draft to the right (code)", () => left.hasView("Draft") && left.transferView("Draft", right, "docs"));
 button("Undo both", () => { left.undo(); right.undo(); });` }]
+});
+
+add({
+  slug: "guide/pinned-preview", title: "Pinned & preview tabs", section: "Guides",
+  body: `<h1>Pinned &amp; preview tabs</h1>
+  <p class="lead">Pin the tabs you always want, and browse files in a single <em>preview</em> tab that the next preview replaces — the way code editors do it.</p>
+  <h2>Pinned</h2>
+  <p><code>pin(id)</code> / <code>pin(id, false)</code>, or <em>Pin tab</em> in the tab menu. Pinned tabs move to the front of their group in pin order, are drawn compact (just the icon when the view has one), have no close button, stay in view while the tab strip scrolls (<code>position: sticky</code>), and are skipped by <em>Close others / to the right / all</em>. Stored in the model as <code>stack.pinned</code>.</p>
+  <h2>Preview</h2>
+  <p><code>addView(id, content, { preview: true })</code> or <code>showPreview(id)</code> for a registered view. A group has at most one preview (<code>stack.preview</code>), shown in italics. Opening another preview in the same group closes the old one. It stops being a preview (is <em>promoted</em>) when you double-click its tab, type into it (any <code>input</code> event from its content), mark it dirty, or call <code>promote(id)</code>.</p>
+  ${ex("pinned-preview")}`,
+  examples: [{ id: "pinned-preview", height: 460, code: `${basic}
+view("readme", "<h3>README.md</h3>");
+dock.addView("readme", { title: "README.md", icon: "📘" }, { view: "main", zone: "into" });
+dock.pin("readme");
+const files = ["app.ts", "util.ts", "theme.css", "index.html", "package.json"];
+for (const f of files) {
+  button(f, () => {
+    if (dock.hasView(f)) dock.showPreview(f);
+    else dock.addView(f, "<" + f + "> — single-click opens a preview; double-click the tab or type to keep it.", { title: f, at: "docs", preview: true });
+  });
+}
+dock.addEventListener("flexdock-change", (e) => log(e.detail.reason + (e.detail.model.root ? "" : "")));` }]
+});
+
+add({
+  slug: "guide/dirty", title: "Unsaved changes", section: "Guides",
+  body: `<h1>Unsaved changes</h1>
+  <p class="lead">Tell flexdock which views have unsaved work: their tab shows a dot, and closing them asks first.</p>
+  <pre><code>editor.addEventListener("input", () =&gt; dock.setDirty("main"));
+save().then(() =&gt; dock.setDirty("main", false));
+dock.isDirty("main"); dock.dirtyViews; // ["main"]</code></pre>
+  <ul>
+    <li>The dot (<code>::part(tab-dirty)</code>, labelled “Unsaved changes”) replaces the close button until you hover or focus the tab. Single-view panels show it after their title.</li>
+    <li><code>dismiss(id)</code> now returns a <code>Promise&lt;boolean&gt;</code>. For a dirty view it waits for an answer; clean views close at once, exactly as before. <code>flexdock-beforeclose</code> still fires first.</li>
+    <li>By default the answer comes from a <code>&lt;flexdock-confirm&gt;</code> dialog (focus starts on Cancel; <span class="kbd">Esc</span> cancels). Set <code>confirmClose = (id) =&gt; boolean | Promise&lt;boolean&gt;</code> to ask your own way — a throw or rejection counts as “no”.</li>
+    <li><code>dismissMany</code> (and <em>Close others / all</em>) closes clean views in one step and then asks about each dirty one in turn.</li>
+    <li><code>flexdock-dirty</code> fires with <code>{ id, dirty }</code>. Dirty state is runtime only; it is not saved in the model.</li>
+  </ul>
+  ${ex("dirty")}`,
+  examples: [{ id: "dirty", height: 440, code: `${basic}
+dock.querySelector('[data-view="main"]').insertAdjacentHTML("beforeend", "<textarea rows=4 style='width:90%'>Edit me</textarea>");
+dock.querySelector('[data-view="notes"]').insertAdjacentHTML("beforeend", "<textarea rows=4 style='width:90%'>Or me</textarea>");
+for (const id of ["main", "notes"]) dock.querySelector('[data-view="' + id + '"] textarea').addEventListener("input", () => dock.setDirty(id));
+dock.addEventListener("flexdock-dirty", (e) => log(e.detail.id + (e.detail.dirty ? " has unsaved changes" : " saved")));
+button("Save all", () => { for (const id of dock.dirtyViews) dock.setDirty(id, false); });
+button("Close main.ts", async () => log("closed: " + (await dock.dismiss("main"))));
+let custom = false;
+button("Toggle custom confirm", () => {
+  custom = !custom;
+  dock.confirmClose = custom ? (id) => window.confirm("Discard changes to " + id + "?") : undefined;
+  log(custom ? "using window.confirm" : "using the built-in dialog");
+});` }]
+});
+
+add({
+  slug: "guide/keyboard-docking", title: "Keyboard docking", section: "Guides",
+  body: `<h1>Keyboard docking</h1>
+  <p class="lead">Move any view to any drop target without a pointer. Focus a view and press <span class="kbd">Alt</span>+<span class="kbd">M</span> (or call <code>beginMove(id?)</code>).</p>
+  <table><tr><th>Key</th><th>Does</th></tr>
+  <tr><td><span class="kbd">Tab</span> / <span class="kbd">Shift</span>+<span class="kbd">Tab</span></td><td>Next / previous target: every visible group (empty document areas too), then the outer edge</td></tr>
+  <tr><td>Arrow keys</td><td>Choose a side of the group (press the same arrow again for the centre), or an edge of the layout</td></tr>
+  <tr><td><span class="kbd">Enter</span> / <span class="kbd">Space</span></td><td>Drop there — one undoable change</td></tr>
+  <tr><td><span class="kbd">Esc</span></td><td>Cancel (<code>cancelMove()</code>)</td></tr></table>
+  <p>The same drop guide as a pointer drag shows the target and a preview of where the view will land. Every step is announced in the manager's polite live region (“Moving Output… Project, right”), with strings from <code>labels.moveMode</code>, <code>moveTarget</code>, <code>moveDone</code>, <code>moveCancelled</code> and <code>outerEdge</code>.</p>
+  ${ex("keyboard-docking")}`,
+  examples: [{ id: "keyboard-docking", code: `${basic}
+const live = document.createElement("div");
+live.className = "muted";
+host.before(live);
+new MutationObserver(() => { live.textContent = "Announced: " + dock.shadowRoot.querySelector('[role="status"]').textContent; })
+  .observe(dock.shadowRoot, { subtree: true, characterData: true, childList: true });
+button("Move Output with the keyboard", () => {
+  dock.activate("log");
+  dock.shadowRoot.querySelector('[data-stack="log"]').focus();
+  dock.beginMove("log");
+});` }]
+});
+
+add({
+  slug: "guide/versions", title: "Layout versions", section: "Guides",
+  body: `<h1>Layout versions &amp; migration</h1>
+  <p class="lead">Saved layouts outlive releases. Give your layout a version and a list of upgrade steps, and old layouts from storage or <code>restore()</code> are upgraded before they are used.</p>
+  <pre><code>dock.layoutVersion = 2;            // set before model / storageKey
+dock.migrations = {
+  0: (m) =&gt; ({ ...m, parked: [...m.parked, "search"] }),      // v0 → v1: new view
+  1: (m) =&gt; renameView(m, "log", "output")                     // v1 → v2
+};
+dock.addEventListener("flexdock-layoutissue", (e) =&gt; console.warn(e.detail));
+dock.storageKey = "my-app";
+dock.model = createModel(views, tree);  // no version: taken as version 2</code></pre>
+  <ul>
+    <li><code>model.version</code> is your app's number (missing = 0). It is separate from <code>v</code>, flexdock's own format number.</li>
+    <li><code>migrations[n]</code> turns version <code>n</code> into <code>n + 1</code>; steps run in order and the result is stamped with the new version. The pure helper is <code>upgrade(model, migrations, target)</code>.</li>
+    <li>A missing step, a step that doesn't return a model, or a layout newer than <code>layoutVersion</code> is <em>fatal</em>: a stored layout is ignored (the app's own layout is used), and <code>restore()</code> throws.</li>
+    <li>Every incoming layout is then checked with <code>validate(model)</code> (unknown or repeated view ids, bad weights, focus on a view that isn't placed). Those problems are fixed by normalising and reported as non-fatal.</li>
+    <li>Problems are reported with <code>flexdock-layoutissue</code> <code>{ source: "set" | "restore" | "storage", problems, fatal }</code>.</li>
+  </ul>
+  ${ex("versions")}`,
+  examples: [{ id: "versions", code: `${basic.replace("dock.model = createModel(", "dock.layoutVersion = 2;\ndock.migrations = {\n  0: (m) => ({ ...m, focus: \"files\" }),\n  1: (m) => ({ ...m, parked: [...m.parked] })\n};\ndock.addEventListener(\"flexdock-layoutissue\", (e) => log((e.detail.fatal ? \"rejected \" : \"fixed \") + e.detail.source + \": \" + e.detail.problems.join(\"; \")));\ndock.model = createModel(")}
+button("Restore a version-0 layout", () => { const old = dock.snapshot(); delete old.version; dock.restore(old); log("now version " + dock.model.version); });
+button("Restore one with problems", () => { const bad = dock.snapshot(); bad.focus = "gone"; bad.parked = [...bad.parked, "ghost"]; dock.restore(bad); });
+button("Restore one from the future", () => { try { dock.restore({ ...dock.snapshot(), version: 9 }); } catch (err) { log(String(err.message)); } });` }]
 });
 
 add({
@@ -944,14 +1051,18 @@ add({
   <tr><td><code>canUndo</code>, <code>canRedo</code></td><td><code>boolean</code></td><td>History state.</td></tr>
   <tr><td><code>dragGroup</code> (attr <code>drag-group</code>)</td><td><code>string</code></td><td>Managers with the same group accept each other's views. See <a href="#/guide/cross-dock">Dragging between docks</a>.</td></tr>
   <tr><td><code>tabMenu</code></td><td><code>(id, items: TabMenuItem[]) =&gt; TabMenuItem[]</code></td><td>Customise the tab context menu. See <a href="#/guide/tab-menu">Tab context menu</a>.</td></tr>
-  <tr><td><code>blockedWindows</code></td><td><code>string[]</code> (read-only)</td><td>Keys of saved outside windows the browser refused to open.</td></tr></table>
+  <tr><td><code>blockedWindows</code></td><td><code>string[]</code> (read-only)</td><td>Keys of saved outside windows the browser refused to open.</td></tr>
+  <tr><td><code>confirmClose</code></td><td><code>(id) =&gt; boolean | Promise&lt;boolean&gt;</code></td><td>Asked before a dirty view closes; unset = built-in dialog. See <a href="#/guide/dirty">Unsaved changes</a>.</td></tr>
+  <tr><td><code>dirtyViews</code></td><td><code>string[]</code> (read-only)</td><td>Views marked with <code>setDirty</code>.</td></tr>
+  <tr><td><code>layoutVersion</code> (attr <code>layout-version</code>)</td><td><code>number</code></td><td>Your current layout version. See <a href="#/guide/versions">Layout versions</a>.</td></tr>
+  <tr><td><code>migrations</code></td><td><code>LayoutMigrations</code></td><td><code>{ [n]: (model) =&gt; model }</code> upgrade steps n → n + 1.</td></tr></table>
   <h2>Methods</h2>
   <table><tr><th>Method</th><th>Description</th></tr>
   <tr><td><code>place(id, target, zone, index?)</code></td><td>Move beside / into the group holding <code>target</code>. Zones: <code>left</code>, <code>right</code>, <code>above</code>, <code>below</code>, <code>into</code>.</td></tr>
   <tr><td><code>dockToEdge(id, zone)</code></td><td><code>edge-left</code> | <code>edge-right</code> | <code>edge-above</code> | <code>edge-below</code>.</td></tr>
   <tr><td><code>detach(id, box?)</code></td><td>Float in a window.</td></tr>
   <tr><td><code>stow(id, side?)</code> / <code>unstow(id)</code></td><td>Auto-hide to / back from an edge drawer.</td></tr>
-  <tr><td><code>dismiss(id)</code></td><td>Close (cancellable); stays registered.</td></tr>
+  <tr><td><code>dismiss(id)</code></td><td>Close (cancellable); stays registered. Returns <code>Promise&lt;boolean&gt;</code> (asks first when dirty).</td></tr>
   <tr><td><code>reveal(id)</code></td><td>Show wherever it is, or bring it back.</td></tr>
   <tr><td><code>toggleZoom(id?)</code></td><td>Zoom / restore.</td></tr>
   <tr><td><code>activate(id)</code></td><td>Focus a view.</td></tr>
@@ -964,6 +1075,9 @@ add({
   <tr><td><code>popOut(id, { into?, box? })</code> / <code>popIn(id)</code></td><td>Separate browser window (new, or join outside window <code>into</code>; <code>box</code> = screen position/size). Saved in <code>model.outside</code>. See <a href="#/guide/popout">Pop-out windows</a>.</td></tr>
   <tr><td><code>reopenWindows()</code> / <code>keepWindowsDocked()</code></td><td>Retry blocked outside windows (from a click) / give up on them (undoable).</td></tr>
   <tr><td><code>transferView(id, target, at?)</code></td><td>Move a view and its element to another manager; one undoable change in each. Throws if the target has the id.</td></tr>
+  <tr><td><code>setDirty(id, dirty?)</code> / <code>isDirty(id)</code></td><td>Mark / read unsaved changes (dot on the tab, ask before closing).</td></tr>
+  <tr><td><code>showPreview(id)</code> / <code>promote(id)</code></td><td>Show as the group's preview tab / keep it. <code>addView(…, { preview: true })</code> too. See <a href="#/guide/pinned-preview">Pinned &amp; preview tabs</a>.</td></tr>
+  <tr><td><code>beginMove(id?)</code> / <code>cancelMove()</code></td><td>Keyboard docking (<span class="kbd">Alt</span>+<span class="kbd">M</span>). See <a href="#/guide/keyboard-docking">Keyboard docking</a>.</td></tr>
   <tr><td><code>dismissMany(ids)</code></td><td>Close several views in one undoable change; returns the ids closed.</td></tr>
   <tr><td><code>pin(id, on?)</code> / <code>hasPin(id)</code></td><td>Pin / unpin a tab; whether it is pinned.</td></tr>
   <tr><td><code>openTabMenu(id, at?)</code>, <code>tabMenuItems(id)</code>, <code>runTabCommand(key, id)</code></td><td>Tab context menu from code.</td></tr>
@@ -994,7 +1108,7 @@ add({
   <table><tr><th>Properties</th><td><code>views</code>, <code>current</code>, <code>docs</code>, <code>win</code>, <code>ctx</code></td></tr><tr><th>Requests</th><td>—</td></tr><tr><th>CSS parts</th><td><code>tab-scroll</code></td></tr><tr><th>State attributes</th><td><code>data-overflow</code>, <code>data-can-back</code>, <code>data-can-fwd</code></td></tr></table>
   <h3 id="flexdock-tab">&lt;flexdock-tab&gt; <small><code>FlexdockTab</code></small></h3>
   <p>One <code>role="tab"</code>. Click to select, drag to move or reorder, middle-click or the close button to close.</p>
-  <table><tr><th>Properties</th><td><code>view</code>, <code>info</code>, <code>selected</code>, <code>closable</code>, <code>closeLabel</code>, <code>win</code>, <code>pinned</code></td></tr><tr><th>Requests</th><td><code>reveal</code>, <code>grab</code>, <code>dismiss</code>, <code>tab-menu</code></td></tr><tr><th>CSS parts</th><td><code>tab</code>, <code>tab-current</code>, <code>tab-close</code>, <code>tab-pin</code></td></tr><tr><th>State attributes</th><td><code>data-view</code>, <code>aria-selected</code>, <code>data-pinned</code></td></tr></table>
+  <table><tr><th>Properties</th><td><code>view</code>, <code>info</code>, <code>selected</code>, <code>closable</code>, <code>closeLabel</code>, <code>win</code>, <code>pinned</code>, <code>preview</code>, <code>dirty</code>, <code>dirtyLabel</code></td></tr><tr><th>Requests</th><td><code>reveal</code>, <code>grab</code>, <code>dismiss</code>, <code>tab-menu</code>, <code>promote</code></td></tr><tr><th>CSS parts</th><td><code>tab</code>, <code>tab-current</code>, <code>tab-close</code>, <code>tab-pin</code>, <code>tab-dirty</code></td></tr><tr><th>State attributes</th><td><code>data-view</code>, <code>aria-selected</code>, <code>data-pinned</code>, <code>data-preview</code>, <code>data-dirty</code></td></tr></table>
   <h3 id="flexdock-toolbar">&lt;flexdock-toolbar&gt; <small><code>FlexdockToolbar</code></small></h3>
   <p>The action buttons in a group header: auto-hide, zoom, more actions and close. Buttons follow the view's <code>caps</code>.</p>
   <table><tr><th>Properties</th><td><code>view</code>, <code>docs</code>, <code>win</code>, <code>ctx</code></td></tr><tr><th>Requests</th><td><code>stow</code>, <code>zoom</code>, <code>menu</code>, <code>dismiss</code></td></tr><tr><th>CSS parts</th><td><code>action</code> plus <code>stow</code>, <code>zoom</code>, <code>more</code>, <code>close</code></td></tr><tr><th>State attributes</th><td>—</td></tr></table>
@@ -1022,6 +1136,9 @@ add({
   <h3 id="flexdock-notice">&lt;flexdock-notice&gt; <small><code>FlexdockNotice</code></small></h3>
   <p>A banner (<code>role="alertdialog"</code>) shown when the browser blocked re-opening saved outside windows, with <em>Re-open windows</em> / <em>Keep them here</em>.</p>
   <table><tr><th>Properties</th><td><code>message</code>, <code>actions</code> (<code>NoticeAction[]</code>)</td></tr><tr><th>Requests</th><td><code>outside-reopen</code>, <code>outside-dismiss</code></td></tr><tr><th>CSS parts</th><td><code>notice</code></td></tr><tr><th>State attributes</th><td><code>data-primary</code> on the main button</td></tr></table>
+  <h3 id="flexdock-confirm">&lt;flexdock-confirm&gt; <small><code>FlexdockConfirm</code></small></h3>
+  <p>The modal “unsaved changes” question (<code>role="alertdialog"</code>, <code>aria-modal</code>). Focus starts on Cancel, <span class="kbd">Tab</span> cycles its buttons, <span class="kbd">Esc</span> cancels. Method: <code>focusSafe()</code>.</p>
+  <table><tr><th>Properties</th><td><code>view</code>, <code>message</code>, <code>okLabel</code>, <code>cancelLabel</code></td></tr><tr><th>Requests</th><td><code>confirm-close</code> (<code>ok</code>)</td></tr><tr><th>CSS parts</th><td><code>confirm</code></td></tr><tr><th>State attributes</th><td>—</td></tr></table>
   <h3 id="flexdock-palette">&lt;flexdock-palette&gt; <small><code>FlexdockPalette</code></small></h3>
   <p>The “go to view” search dialog (<span class="kbd">Ctrl</span>+<span class="kbd">.</span>). Arrow keys move, <span class="kbd">Enter</span> chooses, <span class="kbd">Esc</span> closes.</p>
   <table><tr><th>Properties</th><td><code>items</code>, <code>query</code>, <code>index</code>, <code>label</code>, <code>placeholder</code>, <code>empty</code></td></tr><tr><th>Requests</th><td><code>palette-query</code>, <code>palette-index</code>, <code>palette-choose</code>, <code>palette-close</code></td></tr><tr><th>CSS parts</th><td><code>palette</code></td></tr><tr><th>State attributes</th><td>—</td></tr></table>
@@ -1031,7 +1148,7 @@ add({
   <p><code>createModel</code>, <code>row</code>, <code>column</code>, <code>stack</code>, <code>docs</code>, <code>normalize</code>, <code>isModel</code>, <code>locate</code>, <code>viewsIn</code>, <code>stacksOf</code>,
   <code>place</code>, <code>placeAtEdge</code>, <code>detach</code>, <code>stow</code>, <code>unstow</code>, <code>dismiss</code>, <code>reveal</code>, <code>forget</code>, <code>addView</code>,
   <code>select</code>, <code>reorder</code>, <code>setWeights</code>, <code>toggleZoom</code>, <code>catalogue</code>, <code>copy</code>, <code>emptyModel</code>,
-  <code>pin</code>, <code>closeSet</code>, <code>adopt</code>, <code>goOutside</code>, <code>comeInside</code>, <code>tuneOutside</code>, <code>outsideOf</code>.</p>
+  <code>pin</code>, <code>setPreview</code>, <code>promote</code>, <code>previewOf</code>, <code>upgrade</code>, <code>validate</code>, <code>closeSet</code>, <code>adopt</code>, <code>goOutside</code>, <code>comeInside</code>, <code>tuneOutside</code>, <code>outsideOf</code>.</p>
   <h2>Other exports</h2>
   <p><code>FlexdockMinimap</code> (<code>&lt;flexdock-minimap for&gt;</code>), the UI component classes above, <code>FlexdockPart</code> (their base class), <code>PARTS</code> (tag → class), <code>defineParts()</code>, <code>Workspaces</code>, <code>Timeline</code>, <code>DEFAULT_LABELS</code>, <code>geometry</code>, <code>VERSION</code>.</p>
   <h2>Events</h2><p>See <a href="#/guide/events">Events</a>.</p>`

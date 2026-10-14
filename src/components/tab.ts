@@ -15,7 +15,10 @@ export class FlexdockTab extends FlexdockPart {
     closable: { type: Boolean },
     closeLabel: { attribute: "close-label" },
     win: {},
-    pinned: { type: Boolean }
+    pinned: { type: Boolean },
+    preview: { type: Boolean },
+    dirty: { type: Boolean },
+    dirtyLabel: { attribute: "dirty-label" }
   };
   view = "";
   info?: ViewInfo;
@@ -25,12 +28,18 @@ export class FlexdockTab extends FlexdockPart {
   win?: string;
   /** Pinned tabs are drawn compact (glyph only when there is one) and never show a close button. */
   pinned = false;
+  /** Preview tab: italic, replaced by the next preview; double-click keeps it. */
+  preview = false;
+  /** Unsaved changes: shows a dot (the close button replaces it on hover). */
+  dirty = false;
+  dirtyLabel = "Unsaved changes";
 
   override connectedCallback(): void {
     super.connectedCallback();
     this.addEventListener("contextmenu", this.onContext);
     this.addEventListener("keydown", this.onKeyDown);
     this.addEventListener("click", this.onClick);
+    this.addEventListener("dblclick", this.onDouble);
     this.addEventListener("pointerdown", this.onDown);
     this.addEventListener("auxclick", this.onAux);
   }
@@ -39,6 +48,7 @@ export class FlexdockTab extends FlexdockPart {
     this.removeEventListener("contextmenu", this.onContext);
     this.removeEventListener("keydown", this.onKeyDown);
     this.removeEventListener("click", this.onClick);
+    this.removeEventListener("dblclick", this.onDouble);
     this.removeEventListener("pointerdown", this.onDown);
     this.removeEventListener("auxclick", this.onAux);
   }
@@ -53,6 +63,11 @@ export class FlexdockTab extends FlexdockPart {
     e.stopPropagation();
     const r = this.getBoundingClientRect();
     this.request("tab-menu", { id: this.view, x: r.left, y: r.bottom, keyboard: true });
+  };
+  private readonly onDouble = (e: MouseEvent): void => {
+    if (!this.preview) return;
+    e.stopPropagation();
+    this.request("promote", { id: this.view });
   };
   private readonly onClick = (): void => this.request("reveal", { id: this.view });
   private readonly onDown = (event: PointerEvent): void => this.request("grab", { id: this.view, win: this.win, event, source: this });
@@ -70,6 +85,8 @@ export class FlexdockTab extends FlexdockPart {
     this.mark("aria-selected", this.selected ? "true" : "false");
     this.mark("tabindex", this.selected ? "0" : "-1");
     this.mark("data-pinned", this.pinned);
+    this.mark("data-preview", this.preview);
+    this.mark("data-dirty", this.dirty);
     this.mark("aria-haspopup", "menu");
   }
 
@@ -78,6 +95,7 @@ export class FlexdockTab extends FlexdockPart {
     const compact = this.pinned && Boolean(this.info?.icon);
     if (this.pinned) this.title = title;
     return html`${this.info?.icon ? html`<span class="glyph">${this.info.icon}</span>` : nothing}${compact ? nothing : html`<span class="label">${title}</span>`}
+      ${this.dirty ? html`<span class="dirty" part="tab-dirty" role="img" aria-label=${this.dirtyLabel}></span>` : nothing}
       ${this.pinned ? html`<span class="pin" part="tab-pin" aria-hidden="true">${icons.pin}</span>` : nothing}
       ${this.closable && !this.pinned
         ? html`<button class="btn" part="tab-close" tabindex="-1" aria-label="${this.closeLabel} ${title}"

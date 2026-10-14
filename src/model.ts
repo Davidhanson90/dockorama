@@ -46,6 +46,8 @@ export interface StackNode {
   docs?: boolean;
   /** Pinned views: always first in `views`, drawn compact. */
   pinned?: string[];
+  /** The group's preview view (italic tab), replaced by the next preview opened here. */
+  preview?: string;
 }
 
 export type DockNode = SplitNode | StackNode;
@@ -77,6 +79,8 @@ export interface OutsideWindow {
 
 export interface FlexdockModel {
   v: 1;
+  /** Your app's layout version (see the manager's `layoutVersion` and `migrations`). Missing = 0. */
+  version?: number;
   views: Record<string, ViewInfo>;
   root: DockNode | null;
   windows: FloatWindow[];
@@ -120,4 +124,12 @@ export type ViewContent = Element | string | (() => Element);
 /** Options for `addView`. Every `ViewInfo` field plus where to put the view. */
 export interface ViewOptions extends Partial<ViewInfo> {
   at?: ViewSpot;
+  /** Open as the group's preview tab: it replaces the group's current preview, and is kept once promoted. */
+  preview?: boolean;
 }
+
+/** Upgrade steps for saved layouts: `migrations[n]` turns a version-`n` model into version `n + 1`. */
+export type LayoutMigrations = Record<number, (model: FlexdockModel) => FlexdockModel>;
+
+/** Where a layout being checked came from (detail of `flexdock-layoutissue`). */
+export type LayoutSource = "set" | "restore" | "storage";

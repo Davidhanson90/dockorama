@@ -12,6 +12,7 @@ export class FlexdockTabstrip extends FlexdockPart {
     views: { attribute: false },
     current: {},
     pinned: { attribute: false },
+    preview: {},
     docs: { type: Boolean },
     win: {},
     ctx: { attribute: false }
@@ -19,6 +20,7 @@ export class FlexdockTabstrip extends FlexdockPart {
   views: string[] = [];
   current = "";
   pinned: string[] = [];
+  preview?: string;
   docs = false;
   win?: string;
   ctx!: DockContext;
@@ -83,6 +85,16 @@ export class FlexdockTabstrip extends FlexdockPart {
       else if (b > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = b - strip.clientWidth;
     }
     this.markOverflow();
+    this.stickPins();
+  }
+
+  /** Pinned tabs stay in view while the strip scrolls: offset each by the widths of the pinned tabs before it. */
+  private stickPins(): void {
+    let at = 0;
+    for (const t of Array.from(this.strip?.querySelectorAll<HTMLElement>(".tab[data-pinned]") ?? [])) {
+      t.style.insetInlineStart = `${at}px`;
+      at += t.offsetWidth;
+    }
   }
 
   override render(): TemplateResult {
@@ -92,7 +104,8 @@ export class FlexdockTabstrip extends FlexdockPart {
     return html`${scroller(-1)}<div class="tabs" role="tablist" aria-label=${m.views[this.current]?.title ?? ""}
         @wheel=${(e: WheelEvent) => this.wheel(e)} @scroll=${() => this.markOverflow()}>${this.views.map((v) => {
           const info = m.views[v];
-          return html`<flexdock-tab .view=${v} .info=${info} .selected=${v === this.current} .win=${this.win} .pinned=${this.pinned.includes(v)}
+          return html`<flexdock-tab .view=${v} .info=${info} .selected=${v === this.current} .win=${this.win} .pinned=${this.pinned.includes(v)} .preview=${v === this.preview}
+            .dirty=${Boolean(this.ctx.dirty?.has(v))} .dirtyLabel=${this.ctx.labels.unsaved}
             .closable=${this.docs && info?.caps?.dismiss !== false} .closeLabel=${this.ctx.labels.dismiss}></flexdock-tab>`;
         })}</div>${scroller(1)}`;
   }

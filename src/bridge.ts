@@ -1,6 +1,6 @@
 import type { ChangeReason, FlexdockManager } from "./manager.js";
 import type { TabMenuItem } from "./components/index.js";
-import type { DropZone, EdgeZone, FlexdockModel } from "./model.js";
+import type { DropZone, EdgeZone, FlexdockModel, LayoutMigrations, LayoutSource } from "./model.js";
 import type { FlexdockLabels } from "./labels.js";
 
 /** Settable element properties shared by every framework wrapper. */
@@ -15,6 +15,11 @@ export interface FlexdockProps {
   dragGroup?: string;
   /** Customise the tab context menu. */
   tabMenu?: (viewId: string, items: TabMenuItem[]) => TabMenuItem[];
+  /** Asked before a view with unsaved changes closes. */
+  confirmClose?: (viewId: string) => boolean | Promise<boolean>;
+  /** Current layout version; older saved layouts are upgraded with `migrations`. */
+  layoutVersion?: number;
+  migrations?: LayoutMigrations;
 }
 
 /** Event callbacks shared by every framework wrapper (names are wrapper-neutral). */
@@ -29,10 +34,14 @@ export interface FlexdockHandlers {
   dragcancel?: (detail: { id: string }) => void;
   /** A view moved to (`direction: "out"`) or from (`"in"`) another manager. */
   transfer?: (detail: { id: string; from: FlexdockManager; to: FlexdockManager; direction: "in" | "out" }) => void;
+  /** A view's unsaved-changes flag changed. */
+  dirty?: (detail: { id: string; dirty: boolean }) => void;
+  /** A layout from code, `restore()` or storage had problems (`fatal`: it was not used). */
+  layoutissue?: (detail: { source: LayoutSource; problems: string[]; fatal: boolean }) => void;
 }
 
-export const PROP_KEYS = ["model", "theme", "snap", "storageKey", "keepEmpty", "labels", "dragGroup", "tabMenu"] as const;
-export const EVENT_KEYS = ["change", "focus", "viewshow", "beforeclose", "beforemove", "dragcancel", "transfer"] as const;
+export const PROP_KEYS = ["model", "theme", "snap", "storageKey", "keepEmpty", "labels", "dragGroup", "tabMenu", "confirmClose", "layoutVersion", "migrations"] as const;
+export const EVENT_KEYS = ["change", "focus", "viewshow", "beforeclose", "beforemove", "dragcancel", "transfer", "dirty", "layoutissue"] as const;
 const RAW = new Set<string>(["beforeclose", "beforemove"]);
 
 /** Copy defined props onto the element (skips unchanged values so models are not set twice). */

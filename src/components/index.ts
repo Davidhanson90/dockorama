@@ -1,3 +1,4 @@
+import { FlexdockConfirm } from "./confirm.js";
 import { FlexdockDocs } from "./docs.js";
 import { FlexdockDropGuide } from "./drop-guide.js";
 import { FlexdockFlyout } from "./flyout.js";
@@ -16,7 +17,7 @@ import { FlexdockView } from "./view.js";
 import { FlexdockWindow } from "./window.js";
 
 export {
-  FlexdockDocs, FlexdockDropGuide, FlexdockFlyout, FlexdockGutter, FlexdockMenu, FlexdockNotice, FlexdockPalette, FlexdockRail,
+  FlexdockConfirm, FlexdockDocs, FlexdockDropGuide, FlexdockFlyout, FlexdockGutter, FlexdockMenu, FlexdockNotice, FlexdockPalette, FlexdockRail,
   FlexdockSplit, FlexdockStack, FlexdockTab, FlexdockTabMenu, FlexdockTabstrip, FlexdockToolbar, FlexdockView, FlexdockWindow
 };
 export { FlexdockPart, type PartRequest } from "./part.js";
@@ -43,7 +44,8 @@ export const PARTS = {
   "flexdock-menu": FlexdockMenu,
   "flexdock-palette": FlexdockPalette,
   "flexdock-tab-menu": FlexdockTabMenu,
-  "flexdock-notice": FlexdockNotice
+  "flexdock-notice": FlexdockNotice,
+  "flexdock-confirm": FlexdockConfirm
 } as const;
 
 /** Register every UI part (safe to call more than once). */
@@ -71,5 +73,6 @@ declare global {
     "flexdock-palette": FlexdockPalette;
     "flexdock-tab-menu": FlexdockTabMenu;
     "flexdock-notice": FlexdockNotice;
+    "flexdock-confirm": FlexdockConfirm;
   }
 }

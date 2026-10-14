@@ -1,4 +1,4 @@
-import type { ViewSpot, OutsideWindow,
+import type { ViewSpot, OutsideWindow, LayoutMigrations,
   Box, DockNode, DropZone, EdgeZone, FlexdockModel, Side, SplitNode, StackNode, ViewInfo, Whereabouts
 } from "./model.js";
 
@@ -122,6 +122,7 @@ export function normalize(input: FlexdockModel): FlexdockModel {
       let views = node.views.filter((v) => known(v) && !seen.has(v) && (seen.add(v), true));
       if (!views.length && !node.docs) return null;
       const out: StackNode = { ...node, views, current: views.includes(node.current) ? node.current : (views[0] ?? "") };
+      if (node.preview && !views.includes(node.preview)) delete out.preview;
       if (node.pinned) {
         const pinned = views.filter((v) => node.pinned!.includes(v));
         views = [...pinned, ...views.filter((v) => !pinned.includes(v))];
@@ -556,4 +557,93 @@ export function closeSet(model: FlexdockModel, id: string, which: "others" | "ri
   const pinned = where.stack.pinned ?? [];
   const pick = which === "all" ? views : which === "others" ? views.filter((v) => v !== id) : views.slice(views.indexOf(id) + 1);
   return pick.filter((v) => !pinned.includes(v));
+}
+
+function mapStacks(model: FlexdockModel, fn: (s: StackNode) => DockNode): FlexdockModel {
+  const m = copy(model);
+  m.root = mapTree(m.root, fn);
+  m.windows = m.windows.map((w) => ({ ...w, tree: mapTree(w.tree, fn)! }));
+  return m;
+}
+
+/** Make a view its group's preview tab; returns the model and the preview it replaced (now closed), if any. */
+export function setPreview(model: FlexdockModel, id: string): { model: FlexdockModel; replaced?: string } {
+  const where = locate(model, id);
+  if (where.place !== "tree") return { model };
+  const old = where.stack.preview;
+  let m = mapStacks(model, (s) => (s.views.includes(id) ? { ...s, preview: id } : s));
+  if (old && old !== id) m = dismiss(m, old);
+  return { model: normalize(m), replaced: old && old !== id ? old : undefined };
+}
+
+/** Keep a preview tab (it is no longer replaced). */
+export function promote(model: FlexdockModel, id: string): FlexdockModel {
+  const where = locate(model, id);
+  if (where.place !== "tree" || where.stack.preview !== id) return model;
+  return mapStacks(model, (s) => {
+    if (s.preview !== id) return s;
+    const { preview: _p, ...rest } = s;
+    void _p;
+    return rest;
+  });
+}
+
+/** The preview view of the group holding `id` (or of the first document area), if any. */
+export function previewOf(model: FlexdockModel, id?: string): string | undefined {
+  if (id) {
+    const where = locate(model, id);
+    return where.place === "tree" ? where.stack.preview : undefined;
+  }
+  return stacksOf(model.root).find((s) => s.stack.docs)?.stack.preview;
+}
+
+/**
+ * Upgrade a saved model to `target` with `migrations` (`migrations[n]` upgrades n → n + 1). Throws when a step is
+ * missing, a step does not return a model, or the model is newer than `target`.
+ */
+export function upgrade(model: FlexdockModel, migrations: LayoutMigrations, target: number): FlexdockModel {
+  let m = copy(model);
+  let at = m.version ?? 0;
+  if (at > target) throw new Error(`flexdock: saved layout version ${at} is newer than ${target}`);
+  while (at < target) {
+    const step = migrations[at];
+    if (!step) throw new Error(`flexdock: no migration from layout version ${at}`);
+    const next = step(copy(m));
+    if (!isModel(next)) throw new Error(`flexdock: migration from version ${at} did not return a layout model`);
+    at += 1;
+    m = { ...next, version: at };
+  }
+  return m;
+}
+
+/** Problems normalising would silently fix: unknown or repeated ids, bad weights, dangling focus. Empty = clean. */
+export function validate(value: unknown): string[] {
+  if (!isModel(value)) return ["not a layout model (needs v: 1, views and windows)"];
+  const m = value;
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const known = (id: string, where: string) => {
+    if (!(id in m.views)) out.push(`unknown view "${id}" in ${where}`);
+    else if (seen.has(id)) out.push(`view "${id}" is placed more than once`);
+    seen.add(id);
+  };
+  const walk = (n: DockNode | null | undefined, where: string): void => {
+    if (!n) return;
+    if (n.kind === "stack") {
+      for (const v of n.views ?? []) known(v, where);
+      return;
+    }
+    if (n.kind !== "split" || !Array.isArray(n.children)) {
+      out.push(`bad node in ${where}`);
+      return;
+    }
+    if (!Array.isArray(n.weights) || n.weights.length !== n.children.length || n.weights.some((w) => !(w > 0))) out.push(`bad weights in ${where}`);
+    n.children.forEach((c) => walk(c, where));
+  };
+  walk(m.root, "root");
+  for (const w of m.windows ?? []) walk(w.tree, `window "${w.key}"`);
+  for (const side of SIDES) for (const v of m.drawers?.[side] ?? []) known(v, `drawer ${side}`);
+  for (const v of m.parked ?? []) known(v, "parked");
+  if (m.focus && !seen.has(m.focus)) out.push(`focus "${m.focus}" is not placed`);
+  return out;
 }

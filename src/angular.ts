@@ -4,7 +4,7 @@ import {
 } from "@angular/core";
 import "./index.js";
 import type { ChangeReason, FlexdockManager } from "./manager.js";
-import type { DropZone, EdgeZone, FlexdockModel, ViewContent, ViewOptions } from "./model.js";
+import type { DropZone, EdgeZone, FlexdockModel, LayoutMigrations, LayoutSource, ViewContent, ViewOptions } from "./model.js";
 import type { FlexdockLabels } from "./labels.js";
 import type { TabMenuItem } from "./components/index.js";
 import { applyProps, bindEvents } from "./bridge.js";
@@ -36,6 +36,9 @@ export class FlexdockLayoutComponent implements AfterViewInit, OnChanges, OnDest
   @Input() labels?: Partial<FlexdockLabels>;
   @Input() dragGroup?: string;
   @Input() tabMenu?: (viewId: string, items: TabMenuItem[]) => TabMenuItem[];
+  @Input() confirmClose?: (viewId: string) => boolean | Promise<boolean>;
+  @Input() layoutVersion?: number;
+  @Input() migrations?: LayoutMigrations;
 
   @Output() readonly layoutChange = new EventEmitter<{ model: FlexdockModel; reason: ChangeReason }>();
   @Output() readonly viewFocus = new EventEmitter<{ id: string; previous?: string }>();
@@ -43,6 +46,8 @@ export class FlexdockLayoutComponent implements AfterViewInit, OnChanges, OnDest
   @Output() readonly beforeClose = new EventEmitter<CustomEvent<{ id: string }>>();
   @Output() readonly beforeMove = new EventEmitter<CustomEvent<{ id: string; target?: string; zone: DropZone | EdgeZone | "between" }>>();
   @Output() readonly dragCancel = new EventEmitter<{ id: string }>();
+  @Output() readonly dirtyChange = new EventEmitter<{ id: string; dirty: boolean }>();
+  @Output() readonly layoutIssue = new EventEmitter<{ source: LayoutSource; problems: string[]; fatal: boolean }>();
   @Output() readonly transfer = new EventEmitter<{ id: string; from: FlexdockManager; to: FlexdockManager; direction: "in" | "out" }>();
 
   @ViewChild("host", { static: true }) private host?: ElementRef<FlexdockManager>;
@@ -89,7 +94,9 @@ export class FlexdockLayoutComponent implements AfterViewInit, OnChanges, OnDest
       beforeclose: (e) => this.beforeClose.emit(e),
       beforemove: (e) => this.beforeMove.emit(e),
       dragcancel: (d) => this.dragCancel.emit(d),
-      transfer: (d) => this.transfer.emit(d)
+      transfer: (d) => this.transfer.emit(d),
+      dirty: (d) => this.dirtyChange.emit(d),
+      layoutissue: (d) => this.layoutIssue.emit(d)
     }));
   }
 
@@ -99,6 +106,7 @@ export class FlexdockLayoutComponent implements AfterViewInit, OnChanges, OnDest
 
   private sync(): void {
     const el = this.element;
-    if (el) applyProps(el, { model: this.model, theme: this.theme, snap: this.snap, storageKey: this.storageKey, keepEmpty: this.keepEmpty, labels: this.labels, dragGroup: this.dragGroup, tabMenu: this.tabMenu });
+    if (el) applyProps(el, { model: this.model, theme: this.theme, snap: this.snap, storageKey: this.storageKey, keepEmpty: this.keepEmpty, labels: this.labels, dragGroup: this.dragGroup, tabMenu: this.tabMenu,
+      confirmClose: this.confirmClose, layoutVersion: this.layoutVersion, migrations: this.migrations });
   }
 }

@@ -28,7 +28,8 @@ against a private avoid-list kept outside the repo).
 ## Model (v1)
 ```ts
 interface FlexdockModel {
-  v: 1;
+  v: 1;                               // flexdock's format
+  version?: number;                   // your app's layout version (migrations)
   views: Record<string, ViewInfo>;   // { title, icon?, caps?: Caps, lazy?, hint? }
   root: DockNode | null;
   windows: FloatWindow[];             // { key, box: {x,y,w,h}, tree }
@@ -39,7 +40,7 @@ interface FlexdockModel {
 }
 type DockNode = SplitNode | StackNode;
 interface SplitNode { kind: "split"; axis: "row" | "column"; children: DockNode[]; weights: number[]; }
-interface StackNode { kind: "stack"; views: string[]; current: string; docs?: boolean; pinned?: string[]; }
+interface StackNode { kind: "stack"; views: string[]; current: string; docs?: boolean; pinned?: string[]; preview?: string; }
 interface Caps { dismiss?, hide?, float?, move?, zoom?, popout?: boolean; docsOnly?: boolean }
 ```
 
@@ -74,10 +75,26 @@ The pure counterpart is `enlist(model, id, info, spot)`.
 with custom `{ key, label, run }` items. Helpers: `dismissMany`, `pin(id, on?)`, `hasPin`, `openTabMenu`,
 `tabMenuItems`, `runTabCommand`. Pure: `pin`, `closeSet`, `adopt`, `goOutside`, `comeInside`, `tuneOutside`, `outsideOf`.
 
+## Tab states
+- Pinned (`stack.pinned`): first, compact, sticky while scrolling, kept by close-others/all.
+- Preview (`stack.preview`): one per group, italic, replaced by the next preview there; `addView(…, { preview: true })`,
+  `showPreview(id)`, `promote(id)` (also double-click, `input` from its content, `setDirty`). Reason `"promote"`.
+- Unsaved: runtime only. `setDirty(id, dirty?)`, `isDirty`, `dirtyViews`, `flexdock-dirty`; `dismiss()` returns
+  `Promise<boolean>` and asks `confirmClose(id)` or shows `<flexdock-confirm>` for dirty views.
+
+## Keyboard docking
+`Alt+M` / `beginMove(id?)`: Tab / Shift+Tab choose a group or the outer edge, arrows a side, Enter / Space drop,
+Esc / `cancelMove()` cancel. Shares the pointer drop guide; announced through the live region.
+
+## Layout versions
+`layoutVersion` (attr `layout-version`) + `migrations: { [n]: (m) => m }` (n → n + 1) upgrade models from storage and
+`restore()`; assigned models without `version` are stamped current. `validate(model)` lists problems; both report
+through `flexdock-layoutissue` `{ source: "set" | "restore" | "storage", problems, fatal }`. Pure: `upgrade`, `validate`.
+
 ## Keyboard (flexdock's own scheme)
 `Ctrl+.` palette · `Alt+ArrowKeys` focus neighbouring view · `Alt+Shift+ArrowKeys` move focused view
 to that side of its group · `Alt+PageUp/PageDown` cycle tabs · `Alt+Z` zoom · `Alt+H` stow ·
-`Alt+F` float · `Alt+Backspace` dismiss · `Ctrl+Alt+Z/Y` undo/redo · `Shift+F10` / menu key: tab menu. Splitters: arrow keys, Home/End.
+`Alt+F` float · `Alt+Backspace` dismiss · `Ctrl+Alt+Z/Y` undo/redo · `Shift+F10` / menu key: tab menu · `Alt+M` keyboard docking. Splitters: arrow keys, Home/End.
 
 ## Extras
 Undo/redo, presets & workspaces, localStorage persistence, pop-out to a browser window, command

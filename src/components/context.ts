@@ -11,6 +11,8 @@ export interface DockContext {
   gap?: { path: string; after: number; win: string };
   /** True while a pointer drag is in progress. */
   dragging: boolean;
+  /** Views with unsaved changes. */
+  dirty?: ReadonlySet<string>;
 }
 
 /** Slot name for a view's light-DOM content. */

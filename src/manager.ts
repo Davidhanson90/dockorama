@@ -8,14 +8,14 @@ import {
 import { FlexdockPart, defineParts, type DockContext, type GuideSpot, type MenuEntry, type PartRequest, type TabMenuItem } from "./components/index.js";
 import { slotOf } from "./components/context.js";
 import { renderNode } from "./components/tree.js";
-import type { Box, Caps, DropZone, EdgeZone, FlexdockModel, OutsideWindow, Side, ViewContent, ViewInfo, ViewOptions } from "./model.js";
+import type { Box, Caps, DropZone, EdgeZone, FlexdockModel, LayoutMigrations, LayoutSource, OutsideWindow, Side, ViewContent, ViewInfo, ViewOptions } from "./model.js";
 import * as ops from "./ops.js";
 
 /** Why the model changed (detail of `flexdock-change`). */
 export type ChangeReason =
   | "set" | "place" | "edge" | "detach" | "window" | "stow" | "unstow" | "dismiss" | "reveal" | "select"
   | "reorder" | "resize" | "zoom" | "add" | "forget" | "undo" | "redo" | "focus" | "restore" | "cancel"
-  | "transfer" | "popout" | "popin" | "pin";
+  | "transfer" | "popout" | "popin" | "pin" | "promote";
 
 /** Every connected manager, for drags between managers that share a `drag-group`. */
 const managers = new Set<FlexdockManager>();
@@ -100,6 +100,11 @@ export class FlexdockManager extends LitElement {
     labels: { attribute: false },
     dragGroup: { attribute: "drag-group", reflect: true },
     tabMenu: { attribute: false },
+    confirmClose: { attribute: false },
+    layoutVersion: { type: Number, attribute: "layout-version" },
+    migrations: { attribute: false },
+    _confirm: { state: true },
+    _keyMove: { state: true },
     _peek: { state: true },
     _drag: { state: true },
     _menu: { state: true },
@@ -130,6 +135,18 @@ export class FlexdockManager extends LitElement {
    * Add your own `{ key, label, run }` entries, remove or relabel built-ins.
    */
   tabMenu?: (viewId: string, items: TabMenuItem[]) => TabMenuItem[];
+  /**
+   * Asked before a view with unsaved changes (see `setDirty`) closes. Return or resolve `true` to close.
+   * Unset: flexdock shows its own `<flexdock-confirm>` dialog.
+   */
+  confirmClose?: (viewId: string) => boolean | Promise<boolean>;
+  /**
+   * Your app's current layout version. Models from storage or `restore()` with a lower `version` are upgraded with
+   * `migrations` first; models you assign without a `version` are taken as current. Set it (and `migrations`) before `model`.
+   */
+  layoutVersion?: number;
+  /** Upgrade steps: `migrations[n]` turns a version-`n` layout into version `n + 1`. */
+  migrations?: LayoutMigrations;
 
   private _model: FlexdockModel = ops.emptyModel();
   private readonly timeline = new Timeline<FlexdockModel>();
@@ -148,6 +165,10 @@ export class FlexdockManager extends LitElement {
   private _tabMenu?: { id: string; x: number; y: number; items: TabMenuItem[] };
   /** Outside windows the browser would not re-open. */
   private _blocked: string[] = [];
+  private readonly dirtySet = new Set<string>();
+  private _confirm?: { id: string; done: (ok: boolean) => void };
+  /** Keyboard docking in progress: the view, the chosen target (index into `moveTargets()`) and side. */
+  private _keyMove?: { id: string; index: number; zone: DropZone | EdgeZone };
   private readonly shown = new Set<string>();
   private readonly factories = new Map<string, () => Element>();
   private observer?: MutationObserver;
@@ -158,7 +179,8 @@ export class FlexdockManager extends LitElement {
     return this._model;
   }
   set model(value: FlexdockModel) {
-    const next = ops.normalize(value);
+    const stamped = this.layoutVersion !== undefined && value && value.version === undefined ? { ...value, version: this.layoutVersion } : value;
+    const next = this.prepare(stamped, "set") ?? ops.normalize(value);
     const fromStore = this.loadStored(next);
     this.restoredFromStorage = Boolean(fromStore);
     this.timeline.clear();
@@ -180,6 +202,7 @@ export class FlexdockManager extends LitElement {
     this.observer = new MutationObserver(() => this.assignSlots());
     this.observer.observe(this, { childList: true, attributes: true, attributeFilter: ["data-view"] });
     this.addEventListener("keydown", this.onKey);
+    this.addEventListener("input", this.onInput);
     this.renderRoot.addEventListener("flexdock-request", this.onRequest);
     document.addEventListener("pointerdown", this.onOutside, true);
     window.addEventListener("pagehide", this.onUnload);
@@ -191,6 +214,7 @@ export class FlexdockManager extends LitElement {
     super.disconnectedCallback();
     this.observer?.disconnect();
     this.removeEventListener("keydown", this.onKey);
+    this.removeEventListener("input", this.onInput);
     this.renderRoot.removeEventListener("flexdock-request", this.onRequest);
     document.removeEventListener("pointerdown", this.onOutside, true);
     window.removeEventListener("pagehide", this.onUnload);
@@ -247,11 +271,73 @@ export class FlexdockManager extends LitElement {
     this.commit(ops.unstow(this._model, id), "unstow");
   }
   /** Close a view (cancellable through `flexdock-beforeclose`). It stays registered. */
-  dismiss(id: string): void {
-    if (this.caps(id).dismiss === false) return;
-    if (!this.emitBefore("flexdock-beforeclose", { id })) return;
+  dismiss(id: string): Promise<boolean> {
+    if (this.caps(id).dismiss === false) return Promise.resolve(false);
+    const place = ops.locate(this._model, id).place;
+    if (place === "parked" || place === "nowhere") return Promise.resolve(false);
+    if (!this.emitBefore("flexdock-beforeclose", { id })) return Promise.resolve(false);
+    if (!this.dirtySet.has(id)) {
+      this.close(id);
+      return Promise.resolve(true);
+    }
+    return this.askClose(id).then((ok) => {
+      if (ok) this.close(id);
+      return ok;
+    });
+  }
+
+  private close(id: string): void {
     if (this._peek === id) this._peek = undefined;
+    if (this.dirtySet.has(id)) this.setDirty(id, false);
     this.commit(ops.dismiss(this._model, id), "dismiss");
+  }
+
+  /** Ask `confirmClose`, or show the built-in dialog, before a dirty view closes. */
+  private askClose(id: string): Promise<boolean> {
+    if (this.confirmClose) {
+      try {
+        return Promise.resolve(this.confirmClose(id)).then(Boolean, () => false);
+      } catch {
+        return Promise.resolve(false);
+      }
+    }
+    this._confirm?.done(false);
+    return new Promise<boolean>((done) => {
+      this._confirm = { id, done };
+      void this.updateComplete.then(() => this.renderRoot.querySelector<HTMLElement & { focusSafe(): void }>("flexdock-confirm")?.focusSafe());
+    });
+  }
+
+  /** Mark a view as having unsaved changes (or not). A dirty preview tab is promoted. Fires `flexdock-dirty`. */
+  setDirty(id: string, dirty = true): void {
+    if (this.dirtySet.has(id) === dirty) return;
+    if (dirty) this.dirtySet.add(id);
+    else this.dirtySet.delete(id);
+    if (dirty) this.promote(id);
+    this.dispatchEvent(new CustomEvent("flexdock-dirty", { detail: { id, dirty }, bubbles: true, composed: true }));
+    this.requestUpdate();
+  }
+  /** Whether a view has unsaved changes. */
+  isDirty(id: string): boolean {
+    return this.dirtySet.has(id);
+  }
+  /** Ids of every view with unsaved changes. */
+  get dirtyViews(): string[] {
+    return [...this.dirtySet];
+  }
+
+  /** Show a registered view as its group's preview tab (replacing the current preview there). */
+  showPreview(id: string): void {
+    if (!this.hasView(id)) return;
+    const where = ops.locate(this._model, id);
+    if (where.place === "tree" && !where.stack.preview) return this.reveal(id);
+    const shown = where.place === "tree" ? ops.select(this._model, id) : ops.reveal(this._model, id);
+    this.commit(ops.setPreview(shown, id).model, where.place === "tree" ? "select" : "reveal");
+  }
+  /** Keep a preview tab: it stops being replaced. Also happens on double-click, typing in it, or `setDirty`. */
+  promote(id: string): void {
+    const next = ops.promote(this._model, id);
+    if (next !== this._model) this.commit(next, "promote");
   }
   /**
    * Close several views as one undoable change. Each one still asks `flexdock-beforeclose` and respects
@@ -259,13 +345,20 @@ export class FlexdockManager extends LitElement {
    */
   dismissMany(ids: string[]): string[] {
     const done: string[] = [];
+    const later: string[] = [];
     let m = this._model;
     for (const id of ids) {
+      if (this.dirtySet.has(id)) {
+        later.push(id);
+        continue;
+      }
       if (this.caps(id).dismiss === false || !this.emitBefore("flexdock-beforeclose", { id })) continue;
       m = ops.dismiss(m, id);
       done.push(id);
     }
     if (done.length) this.commit(m, "dismiss");
+    // Views with unsaved changes ask one at a time.
+    void later.reduce((p, id) => p.then(() => this.dismiss(id)), Promise.resolve(true));
     return done;
   }
   /** Pin (default) or unpin a tab: pinned tabs stay first in their group, compact, and survive "close others/all". */
@@ -316,11 +409,12 @@ export class FlexdockManager extends LitElement {
       this.commit(ops.addView(this._model, id, content, extra as { view: string; zone: DropZone } | undefined), "add");
       return;
     }
-    const { at = "auto", ...rest } = (extra ?? {}) as ViewOptions;
+    const { at = "auto", preview, ...rest } = (extra ?? {}) as ViewOptions;
     const info: ViewInfo = { ...rest, title: rest.title ?? id };
     if (typeof content === "function") info.lazy = true;
     const spot = typeof at === "object" && "float" in at ? { float: this.fitBox({ ...this.defaultBox(), ...(at.float === true ? {} : at.float) }) } : at;
-    const next = ops.enlist(this._model, id, info, spot);
+    let next = ops.enlist(this._model, id, info, spot);
+    if (preview) next = ops.setPreview(next, id).model;
     if (typeof content === "function") {
       this.factories.set(id, content);
     } else {
@@ -378,8 +472,9 @@ export class FlexdockManager extends LitElement {
   }
   /** Restore a snapshot as an undoable change. */
   restore(model: FlexdockModel): void {
-    if (!ops.isModel(model)) throw new TypeError("flexdock: not a layout model");
-    this.commit(ops.normalize(model), "restore");
+    const next = this.prepare(model, "restore");
+    if (!next) throw new TypeError("flexdock: not a usable layout model (see flexdock-layoutissue)");
+    this.commit(next, "restore");
   }
   /** Open the "go to view" palette. */
   openPalette(): void {
@@ -773,18 +868,49 @@ export class FlexdockManager extends LitElement {
     }
   }
 
+  /** Stored text already found unusable (reported once). */
+  private unusable?: string;
+
   private loadStored(fallback: FlexdockModel): FlexdockModel | undefined {
     if (!this.storageKey) return undefined;
     try {
       const raw = localStorage.getItem(this.storageKey);
-      if (!raw) return undefined;
+      if (!raw || raw === this.unusable) return undefined;
       const parsed: unknown = JSON.parse(raw);
-      if (!ops.isModel(parsed)) return undefined;
+      const ok = ops.isModel(parsed) ? this.prepare({ ...parsed, views: fallback.views }, "storage") : this.prepare(parsed, "storage");
       // Views come from the app (titles may have changed); placement comes from storage.
-      return ops.normalize({ ...parsed, views: fallback.views });
+      if (!ok) this.unusable = raw;
+      return ok;
     } catch {
       return undefined;
     }
+  }
+
+  /**
+   * Check and upgrade an incoming layout: migrations to `layoutVersion`, then validation. Problems are reported with
+   * `flexdock-layoutissue`; returns the normalised model, or undefined when it cannot be used.
+   */
+  private prepare(input: unknown, source: LayoutSource): FlexdockModel | undefined {
+    if (!ops.isModel(input)) {
+      this.issue(source, ops.validate(input), true);
+      return undefined;
+    }
+    let m: FlexdockModel = input;
+    if (this.layoutVersion !== undefined) {
+      try {
+        m = ops.upgrade(m, this.migrations ?? {}, this.layoutVersion);
+      } catch (err) {
+        this.issue(source, [String((err as Error).message ?? err)], true);
+        return undefined;
+      }
+    }
+    const problems = ops.validate(m);
+    if (problems.length) this.issue(source, problems, false);
+    return ops.normalize(m);
+  }
+
+  private issue(source: LayoutSource, problems: string[], fatal: boolean): void {
+    this.dispatchEvent(new CustomEvent("flexdock-layoutissue", { detail: { source, problems, fatal }, bubbles: true, composed: true }));
   }
 
   private fitBox(b: Box): Box {
@@ -853,7 +979,8 @@ export class FlexdockManager extends LitElement {
       labels: this.t,
       popped: new Set((this._model.outside ?? []).flatMap((o) => o.views)),
       gap: g ? { path: g.path.join("."), after: g.after, win: g.win ?? "" } : undefined,
-      dragging: Boolean(this._drag)
+      dragging: Boolean(this._drag),
+      dirty: new Set(this.dirtySet)
     };
   }
 
@@ -883,6 +1010,7 @@ export class FlexdockManager extends LitElement {
       ${this.renderTabMenu()}
       ${this.renderPalette()}
       ${this.renderNotice()}
+      ${this.renderConfirm()}
       <div class="sr" role="status" aria-live="polite">${this._say}</div>
     </div>`;
   }
@@ -893,6 +1021,14 @@ export class FlexdockManager extends LitElement {
     const where = ops.locate(this._model, id);
     if (where.place !== "drawer") return nothing;
     return html`<flexdock-flyout .view=${id} .side=${where.side} .ctx=${ctx}></flexdock-flyout>`;
+  }
+
+  private renderConfirm(): TemplateResult | typeof nothing {
+    const c = this._confirm;
+    if (!c) return nothing;
+    const t = this.t;
+    const title = this._model.views[c.id]?.title ?? c.id;
+    return html`<flexdock-confirm .view=${c.id} .message=${t.confirmClose.replace("{title}", title)} .okLabel=${t.closeAnyway} .cancelLabel=${t.cancel}></flexdock-confirm>`;
   }
 
   private renderNotice(): TemplateResult | typeof nothing {
@@ -957,7 +1093,7 @@ export class FlexdockManager extends LitElement {
   runTabCommand(key: TabCommand, id: string): void {
     const where = ops.locate(this._model, id);
     switch (key) {
-      case "close": return this.dismiss(id);
+      case "close": void this.dismiss(id); return;
       case "close-others": void this.dismissMany(ops.closeSet(this._model, id, "others")); return;
       case "close-right": void this.dismissMany(ops.closeSet(this._model, id, "right")); return;
       case "close-all": void this.dismissMany(ops.closeSet(this._model, id, "all")); return;
@@ -983,7 +1119,7 @@ export class FlexdockManager extends LitElement {
   }
 
   private renderGuide(): TemplateResult | typeof nothing {
-    const d = this._drag?.peer || this._drag?.beyond ? undefined : (this._drag ?? this._guest);
+    const d = this._drag?.peer || this._drag?.beyond ? undefined : (this._drag ?? this._guest ?? this.keyMoveGuide());
     if (!d || d.mode === "pending" || d.mode === "tab") return nothing;
     const host = this.getBoundingClientRect();
     const main = this.mainRect();
@@ -1071,7 +1207,7 @@ export class FlexdockManager extends LitElement {
       case "activate": return this.onStackPointer(r["event"] as PointerEvent, id, r["source"] as HTMLElement);
       case "grab": return this.startDrag(r["event"] as PointerEvent, id, r["win"] as string | undefined, r["source"] as HTMLElement);
       case "reveal": return this.reveal(id);
-      case "dismiss": return this.dismiss(id);
+      case "dismiss": void this.dismiss(id); return;
       case "zoom": return this.toggleZoom(id);
       case "stow": return this.stow(id);
       case "unstow": return this.unstow(id);
@@ -1099,6 +1235,13 @@ export class FlexdockManager extends LitElement {
         if (!item || item === "separator" || item.disabled) return;
         if (item.run) item.run(id);
         else this.runTabCommand(item.key as TabCommand, id);
+        return;
+      }
+      case "promote": return this.promote(id);
+      case "confirm-close": {
+        const c = this._confirm;
+        this._confirm = undefined;
+        c?.done(Boolean(r["ok"]));
         return;
       }
       case "outside-reopen": return this.reopenWindows();
@@ -1428,7 +1571,107 @@ export class FlexdockManager extends LitElement {
 
   // ------------------------------------------------------------- keyboard
 
+  // ------------------------------------------------------------- keyboard docking
+
+  /** Drop targets for keyboard docking: every visible group except the moving view's own lone group, then the outer edge. */
+  private moveTargets(id: string): Array<{ view: string; rect: Rect; label: string; path?: number[]; win?: string; empty?: boolean } | { edge: true; rect: Rect; label: string }> {
+    const where = ops.locate(this._model, id);
+    const lone = where.place === "tree" && where.stack.views.length === 1 ? where.stack.views[0] : undefined;
+    const out: ReturnType<FlexdockManager["moveTargets"]> = [];
+    for (const el of Array.from(this.renderRoot.querySelectorAll<HTMLElement>("[data-stack]"))) {
+      if (el.closest(".drawer")) continue;
+      const empty = el.hasAttribute("data-empty");
+      const view = empty ? "" : (el.querySelector<HTMLElement>(".tab")?.dataset["view"] ?? el.dataset["stack"]!);
+      if (view && view === lone) continue;
+      const r = el.getBoundingClientRect();
+      const label = empty ? this.t.emptyDocs : (el.getAttribute("aria-label") ?? view);
+      out.push({ view, rect: { left: r.left, top: r.top, width: r.width, height: r.height }, label, empty,
+        path: (el.dataset["path"] ?? "").split(".").filter(Boolean).map(Number), win: el.dataset["win"] || undefined });
+    }
+    const main = this.mainRect();
+    if (main && !this.caps(id).docsOnly) out.push({ edge: true, rect: main, label: this.t.outerEdge });
+    return out;
+  }
+
+  /**
+   * Start moving a view with the keyboard (default: the focused one; shortcut `Alt+M`). Tab / Shift+Tab choose a
+   * group (or the outer edge), arrow keys a side, Enter drops, Escape cancels. Progress is announced in a live region.
+   * Returns false when the view cannot move.
+   */
+  beginMove(id = this._model.focus): boolean {
+    if (!id || this.caps(id).move === false || ops.locate(this._model, id).place !== "tree") return false;
+    const targets = this.moveTargets(id);
+    if (!targets.length) return false;
+    const first = "edge" in targets[0]! ? "edge-left" : "into";
+    this._keyMove = { id, index: 0, zone: first };
+    this._say = `${this.t.moveMode.replace("{title}", this._model.views[id]?.title ?? id)} ${this.describeMove()}`;
+    return true;
+  }
+
+  /** Stop keyboard docking without moving. */
+  cancelMove(): void {
+    if (!this._keyMove) return;
+    this._keyMove = undefined;
+    this._say = this.t.moveCancelled;
+  }
+
+  private describeMove(): string {
+    const k = this._keyMove;
+    if (!k) return "";
+    const target = this.moveTargets(k.id)[k.index];
+    return target ? this.t.moveTarget.replace("{target}", target.label).replace("{zone}", k.zone) : "";
+  }
+
+  /** The keyboard move as a drag state, for the drop guide. */
+  private keyMoveGuide(): DragState | undefined {
+    const k = this._keyMove;
+    if (!k) return undefined;
+    const t = this.moveTargets(k.id)[k.index];
+    if (!t) return undefined;
+    const d: DragState = { id: k.id, mode: "window", startX: 0, startY: 0, x: 0, y: 0, origin: this._model, pointerId: -1 };
+    if ("edge" in t) {
+      d.edge = k.zone as EdgeZone;
+      d.preview = previewFor(t.rect, d.edge);
+    } else {
+      d.target = { view: t.view, rect: t.rect, zone: k.zone as DropZone };
+      if (t.empty) d.fill = { path: t.path ?? [], win: t.win, rect: t.rect };
+      d.preview = t.empty ? t.rect : previewFor(t.rect, k.zone as DropZone);
+    }
+    return d;
+  }
+
+  private onMoveKey(e: KeyboardEvent): boolean {
+    const k = this._keyMove;
+    if (!k) return false;
+    const targets = this.moveTargets(k.id);
+    const t = targets[k.index];
+    const sides: Record<string, DropZone> = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "above", ArrowDown: "below" };
+    const edges: Record<string, EdgeZone> = { ArrowLeft: "edge-left", ArrowRight: "edge-right", ArrowUp: "edge-above", ArrowDown: "edge-below" };
+    if (e.key === "Escape") this.cancelMove();
+    else if (e.key === "Tab") {
+      const index = (k.index + (e.shiftKey ? targets.length - 1 : 1)) % targets.length;
+      const next = targets[index]!;
+      this._keyMove = { ...k, index, zone: "edge" in next ? "edge-left" : "into" };
+      this._say = this.describeMove();
+    } else if (sides[e.key] && t) {
+      const zone = "edge" in t ? edges[e.key]! : t.empty ? "into" : k.zone === sides[e.key] ? "into" : sides[e.key]!;
+      this._keyMove = { ...k, zone };
+      this._say = this.describeMove();
+    } else if (e.key === "Enter" || e.key === " ") {
+      this._keyMove = undefined;
+      const title = this._model.views[k.id]?.title ?? k.id;
+      if (t && "edge" in t) this.dockToEdge(k.id, k.zone as EdgeZone);
+      else if (t?.empty) this.dropIntoDocs(k.id, t.path ?? [], t.win);
+      else if (t) this.place(k.id, t.view, k.zone as DropZone);
+      this._say = this.t.moveDone.replace("{title}", title);
+    } else return true;
+    e.preventDefault();
+    e.stopPropagation();
+    return true;
+  }
+
   private onKey = (e: KeyboardEvent): void => {
+    if (this._keyMove && this.onMoveKey(e)) return;
     const focus = this._model.focus;
     const key = e.key;
     if ((e.ctrlKey || e.metaKey) && key === ".") return this.handled(e, () => this.openPalette());
@@ -1445,9 +1688,17 @@ export class FlexdockManager extends LitElement {
     if (key === "PageDown" || key === "PageUp") return this.handled(e, () => this.cycleTab(focus, key === "PageDown" ? 1 : -1));
     const k = key.toLowerCase();
     if (k === "z") return this.handled(e, () => this.toggleZoom(focus));
+    if (k === "m") return this.handled(e, () => void this.beginMove(focus));
     if (k === "h") return this.handled(e, () => this.stow(focus));
     if (k === "f") return this.handled(e, () => this.detach(focus));
     if (key === "Backspace") return this.handled(e, () => this.dismiss(focus));
+  };
+
+  /** Typing in a preview view keeps it. */
+  private onInput = (e: Event): void => {
+    const el = (e.target as Element | null)?.closest?.("[data-view]");
+    const id = el?.parentElement === this ? el.getAttribute("data-view") : null;
+    if (id) this.promote(id);
   };
 
   private handled(e: KeyboardEvent, fn: () => void): void {
@@ -1518,6 +1769,8 @@ declare global {
     "flexdock-beforeclose": CustomEvent<{ id: string }>;
     "flexdock-beforemove": CustomEvent<{ id: string; target?: string; zone: DropZone | EdgeZone | "between" }>;
     "flexdock-dragcancel": CustomEvent<{ id: string }>;
+    "flexdock-dirty": CustomEvent<{ id: string; dirty: boolean }>;
+    "flexdock-layoutissue": CustomEvent<{ source: LayoutSource; problems: string[]; fatal: boolean }>;
     "flexdock-transfer": CustomEvent<{ id: string; from: FlexdockManager; to: FlexdockManager; direction: "in" | "out" }>;
   }
 }

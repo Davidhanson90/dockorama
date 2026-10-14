@@ -61,8 +61,8 @@ export class FlexdockStack extends FlexdockPart {
     };
     return html`<div class="bar" part="bar" @pointerdown=${onBar} @dblclick=${() => cur && this.request("zoom", { id: cur })}>
         ${tabbed
-          ? html`<flexdock-tabstrip .views=${s.views} .current=${cur} .pinned=${s.pinned ?? []} .docs=${Boolean(s.docs)} .win=${win} .ctx=${ctx}></flexdock-tabstrip>`
-          : html`<span class="title" id="t-${cur}">${info?.icon ? html`<span class="glyph">${info.icon}</span>` : nothing}${info?.title ?? cur}</span>`}
+          ? html`<flexdock-tabstrip .views=${s.views} .current=${cur} .pinned=${s.pinned ?? []} .preview=${s.preview} .docs=${Boolean(s.docs)} .win=${win} .ctx=${ctx}></flexdock-tabstrip>`
+          : html`<span class="title" id="t-${cur}">${info?.icon ? html`<span class="glyph">${info.icon}</span>` : nothing}${info?.title ?? cur}${ctx.dirty?.has(cur) ? html`<span class="dirty" part="tab-dirty" role="img" aria-label=${ctx.labels.unsaved}></span>` : nothing}</span>`}
         ${cur ? html`<flexdock-toolbar .view=${cur} .docs=${Boolean(s.docs)} .win=${win} .ctx=${ctx}></flexdock-toolbar>` : nothing}
       </div>
       <flexdock-view .view=${cur} .kind=${tabbed ? "tabpanel" : "region"} .labelledBy=${cur ? `${tabbed ? "tab" : "t"}-${cur}` : ""}

@@ -29,6 +29,15 @@ export interface FlexdockLabels {
   reopenBlocked: string;
   reopen: string;
   keepDocked: string;
+  unsaved: string;
+  confirmClose: string;
+  closeAnyway: string;
+  cancel: string;
+  moveMode: string;
+  moveTarget: string;
+  moveDone: string;
+  moveCancelled: string;
+  outerEdge: string;
 }
 
 export const DEFAULT_LABELS: FlexdockLabels = {
@@ -60,5 +69,14 @@ export const DEFAULT_LABELS: FlexdockLabels = {
   splitDown: "Move to new group below",
   reopenBlocked: "Some views were open in their own browser windows. Your browser blocked re-opening them.",
   reopen: "Re-open windows",
-  keepDocked: "Keep them here"
+  keepDocked: "Keep them here",
+  unsaved: "Unsaved changes",
+  confirmClose: "{title} has unsaved changes. Close it anyway?",
+  closeAnyway: "Close",
+  cancel: "Cancel",
+  moveMode: "Moving {title}. Tab chooses a group, arrow keys a side, Enter drops, Escape cancels.",
+  moveTarget: "{target}, {zone}",
+  moveDone: "Moved {title}",
+  moveCancelled: "Move cancelled",
+  outerEdge: "Outer edge"
 };

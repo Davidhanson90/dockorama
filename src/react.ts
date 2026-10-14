@@ -19,12 +19,14 @@ export interface FlexdockLayoutProps extends FlexdockProps {
   onBeforeMove?: FlexdockHandlers["beforemove"];
   onDragCancel?: FlexdockHandlers["dragcancel"];
   onTransfer?: FlexdockHandlers["transfer"];
+  onDirtyChange?: FlexdockHandlers["dirty"];
+  onLayoutIssue?: FlexdockHandlers["layoutissue"];
 }
 
 function handlersOf(p: FlexdockLayoutProps): FlexdockHandlers {
   return {
     change: p.onLayoutChange, focus: p.onViewFocus, viewshow: p.onViewShow,
-    beforeclose: p.onBeforeClose, beforemove: p.onBeforeMove, dragcancel: p.onDragCancel, transfer: p.onTransfer
+    beforeclose: p.onBeforeClose, beforemove: p.onBeforeMove, dragcancel: p.onDragCancel, transfer: p.onTransfer, dirty: p.onDirtyChange, layoutissue: p.onLayoutIssue
   };
 }
 
