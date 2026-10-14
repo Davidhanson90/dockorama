@@ -15,15 +15,15 @@ async function put<T extends HTMLElement & { updateComplete: Promise<boolean> }>
 }
 export function requests(): PartRequest[] {
   const out: PartRequest[] = [];
-  document.addEventListener("flexdock-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
+  document.addEventListener("pazuru-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
   return out;
 }
 afterEach(() => { document.body.innerHTML = ""; });
 
 type P = HTMLElement & { updateComplete: Promise<boolean> };
-describe("<flexdock-docs>", () => {
+describe("<pazuru-docs>", () => {
   it("is a document group with closable tabs", async () => {
-    const el = await put<P>("flexdock-docs", { group: docs(["a", "b"]), path: [1], ctx: ctx() });
+    const el = await put<P>("pazuru-docs", { group: docs(["a", "b"]), path: [1], ctx: ctx() });
     expect(el.getAttribute("part")).toBe("group docs");
     expect(el.hasAttribute("data-docs")).toBe(true);
     expect(el.querySelectorAll('[part="tab-close"]').length).toBe(2);
@@ -31,11 +31,11 @@ describe("<flexdock-docs>", () => {
     expect(el.querySelector('[part~="close"]')).toBeNull();
   });
   it("shows the drop zone when empty, and still tabs for one document", async () => {
-    const empty = await put<P>("flexdock-docs", { group: docs([]), path: [], ctx: ctx() });
+    const empty = await put<P>("pazuru-docs", { group: docs([]), path: [], ctx: ctx() });
     expect(empty.hasAttribute("data-empty")).toBe(true);
     expect(empty.querySelector(".empty")!.textContent).toBe(DEFAULT_LABELS.emptyDocs);
-    const one = await put<P>("flexdock-docs", { group: docs(["c"]), path: [], ctx: ctx() });
-    expect(one.querySelectorAll("flexdock-tab").length).toBe(1);
+    const one = await put<P>("pazuru-docs", { group: docs(["c"]), path: [], ctx: ctx() });
+    expect(one.querySelectorAll("pazuru-tab").length).toBe(1);
     expect(one.querySelector('[part="tab-close"]')).toBeNull();
   });
 });

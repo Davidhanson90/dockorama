@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { FlexdockManager, createModel, docs, locate, previewOf, promote, row, setPreview, stack, upgrade, validate } from "./index.js";
-import type { FlexdockModel } from "./model.js";
+import { PazuruManager, createModel, docs, locate, previewOf, promote, row, setPreview, stack, upgrade, validate } from "./index.js";
+import type { PazuruModel } from "./model.js";
 
 type R = { left: number; top: number; width: number; height: number };
 const rects = new Map<Element, R>();
@@ -20,10 +20,10 @@ afterEach(() => {
 });
 
 const views = { a: { title: "A" }, b: { title: "B" }, c: { title: "C" }, d: { title: "D" } };
-const layout = (): FlexdockModel => createModel(views, row([stack(["a"]), stack(["b"]), docs(["c", "d"])]));
-const sr = (el: FlexdockManager) => el.shadowRoot!;
-async function mount(model = layout(), setup?: (el: FlexdockManager) => void) {
-  const el = document.createElement("flexdock-manager");
+const layout = (): PazuruModel => createModel(views, row([stack(["a"]), stack(["b"]), docs(["c", "d"])]));
+const sr = (el: PazuruManager) => el.shadowRoot!;
+async function mount(model = layout(), setup?: (el: PazuruManager) => void) {
+  const el = document.createElement("pazuru-manager");
   for (const id of Object.keys(model.views)) {
     const d = document.createElement("div");
     d.dataset["view"] = id;
@@ -37,13 +37,13 @@ async function mount(model = layout(), setup?: (el: FlexdockManager) => void) {
   lay(el);
   return el;
 }
-function lay(el: FlexdockManager) {
+function lay(el: PazuruManager) {
   rects.set(el, { left: 0, top: 0, width: 900, height: 600 });
   rects.set(sr(el).querySelector(".main")!, { left: 0, top: 0, width: 900, height: 600 });
   Array.from(sr(el).querySelectorAll<HTMLElement>("[data-stack]")).forEach((s, i) => rects.set(s, { left: i * 300, top: 0, width: 294, height: 600 }));
 }
-const tab = (el: FlexdockManager, id: string) => sr(el).querySelector<HTMLElement>(`.tab[data-view="${id}"]`)!;
-const key = (el: FlexdockManager, k: string, extra: KeyboardEventInit = {}) =>
+const tab = (el: PazuruManager, id: string) => sr(el).querySelector<HTMLElement>(`.tab[data-view="${id}"]`)!;
+const key = (el: PazuruManager, k: string, extra: KeyboardEventInit = {}) =>
   el.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true, ...extra }));
 
 describe("preview tabs (ops)", () => {
@@ -67,28 +67,28 @@ describe("preview tabs (ops)", () => {
 describe("layout versions (ops)", () => {
   it("upgrades step by step and validates", () => {
     const v0 = layout();
-    const steps = { 0: (m: FlexdockModel) => ({ ...m, focus: "a" }), 1: (m: FlexdockModel) => m };
+    const steps = { 0: (m: PazuruModel) => ({ ...m, focus: "a" }), 1: (m: PazuruModel) => m };
     const v2 = upgrade(v0, steps, 2);
     expect(v2.version).toBe(2);
     expect(v2.focus).toBe("a");
     expect(upgrade(v2, steps, 2)).toEqual(v2);
     expect(() => upgrade(v2, steps, 1)).toThrow(/newer/);
     expect(() => upgrade(v0, {}, 1)).toThrow(/no migration from layout version 0/);
-    expect(() => upgrade(v0, { 0: () => ({}) as FlexdockModel }, 1)).toThrow(/did not return/);
+    expect(() => upgrade(v0, { 0: () => ({}) as PazuruModel }, 1)).toThrow(/did not return/);
     expect(validate(v0)).toEqual([]);
     expect(validate({})).toEqual([expect.stringMatching(/not a layout model/)]);
     const bad = {
       ...v0, focus: "zz", parked: ["a"], drawers: { start: ["q"], end: [], top: [], bottom: [] },
       root: { kind: "split", axis: "row", children: [stack(["a"]), { kind: "weird" }], weights: [1] },
       windows: [{ key: "w", box: { x: 0, y: 0, w: 1, h: 1 }, tree: stack(["b"]) }]
-    } as unknown as FlexdockModel;
+    } as unknown as PazuruModel;
     expect(validate(bad)).toEqual([
       "bad weights in root", "bad node in root", 'unknown view "q" in drawer start', 'view "a" is placed more than once', 'focus "zz" is not placed'
     ]);
   });
 });
 
-describe("<flexdock-manager> preview tabs", () => {
+describe("<pazuru-manager> preview tabs", () => {
   it("opens previews from addView and showPreview, replaces them and promotes on double-click, typing or dirty", async () => {
     const el = await mount();
     el.addView("p1", "one", { at: "docs", preview: true });
@@ -125,11 +125,11 @@ describe("<flexdock-manager> preview tabs", () => {
   });
 });
 
-describe("<flexdock-manager> unsaved changes", () => {
+describe("<pazuru-manager> unsaved changes", () => {
   it("shows a dot, asks before closing with its own dialog, and can be cancelled", async () => {
     const el = await mount();
     const events: string[] = [];
-    el.addEventListener("flexdock-dirty", (e) => events.push(`${e.detail.id}:${e.detail.dirty}`));
+    el.addEventListener("pazuru-dirty", (e) => events.push(`${e.detail.id}:${e.detail.dirty}`));
     el.setDirty("c");
     el.setDirty("c");
     el.setDirty("a");
@@ -142,7 +142,7 @@ describe("<flexdock-manager> unsaved changes", () => {
     // Cancel keeps it.
     let closing = el.dismiss("c");
     await el.updateComplete;
-    const dlg = sr(el).querySelector("flexdock-confirm")!;
+    const dlg = sr(el).querySelector("pazuru-confirm")!;
     expect(dlg.getAttribute("aria-label")).toBe("C has unsaved changes. Close it anyway?");
     expect(sr(el).activeElement?.hasAttribute("data-cancel")).toBe(true);
     dlg.querySelector<HTMLButtonElement>("[data-cancel]")!.click();
@@ -153,7 +153,7 @@ describe("<flexdock-manager> unsaved changes", () => {
     closing = el.dismiss("c");
     expect(await first).toBe(false);
     await el.updateComplete;
-    sr(el).querySelector<HTMLButtonElement>("flexdock-confirm [data-primary]")!.click();
+    sr(el).querySelector<HTMLButtonElement>("pazuru-confirm [data-primary]")!.click();
     expect(await closing).toBe(true);
     expect(el.model.parked).toContain("c");
     expect(el.isDirty("c")).toBe(false);
@@ -180,7 +180,7 @@ describe("<flexdock-manager> unsaved changes", () => {
   });
 });
 
-describe("<flexdock-manager> keyboard docking", () => {
+describe("<pazuru-manager> keyboard docking", () => {
   it("cycles targets with Tab, picks sides with arrows, drops with Enter and announces", async () => {
     const el = await mount();
     el.activate("a");
@@ -188,7 +188,7 @@ describe("<flexdock-manager> keyboard docking", () => {
     await el.updateComplete;
     const live = () => (el as unknown as { _say: string })._say;
     expect(live()).toMatch(/^Moving A\. .* B, into$/);
-    expect(sr(el).querySelector("flexdock-drop-guide")).not.toBeNull();
+    expect(sr(el).querySelector("pazuru-drop-guide")).not.toBeNull();
     key(el, "ArrowRight");
     expect(live()).toBe("B, right");
     key(el, "ArrowRight");
@@ -209,7 +209,7 @@ describe("<flexdock-manager> keyboard docking", () => {
     expect(sr(el).querySelector(".sr")!.textContent).toBe("Moved A");
     expect(el.model.root).toMatchObject({ children: [{ views: ["b"] }, { kind: "split", axis: "column" }] });
     await el.updateComplete;
-    expect(sr(el).querySelector("flexdock-drop-guide")).toBeNull();
+    expect(sr(el).querySelector("pazuru-drop-guide")).toBeNull();
     // Escape cancels; outer-edge drop.
     lay(el);
     expect(el.beginMove("b")).toBe(true);
@@ -242,17 +242,17 @@ describe("<flexdock-manager> keyboard docking", () => {
   });
 });
 
-describe("<flexdock-manager> layout versions", () => {
-  const steps = { 0: (m: FlexdockModel) => ({ ...m, parked: [...m.parked, "d"], root: m.root }), 1: (m: FlexdockModel) => m };
+describe("<pazuru-manager> layout versions", () => {
+  const steps = { 0: (m: PazuruModel) => ({ ...m, parked: [...m.parked, "d"], root: m.root }), 1: (m: PazuruModel) => m };
   it("stamps assigned models, upgrades stored ones and reports problems", async () => {
     const issues: Array<{ source: string; fatal: boolean; problems: string[] }> = [];
     const old = { ...layout(), root: row([stack(["a"]), stack(["b"]), docs(["c"])]) };
-    localStorage.setItem("fd-v", JSON.stringify(old));
+    localStorage.setItem("pz-v", JSON.stringify(old));
     const el = await mount(layout(), (e) => {
       e.layoutVersion = 2;
       e.migrations = steps;
-      e.storageKey = "fd-v";
-      e.addEventListener("flexdock-layoutissue", (ev) => issues.push(ev.detail));
+      e.storageKey = "pz-v";
+      e.addEventListener("pazuru-layoutissue", (ev) => issues.push(ev.detail));
     });
     expect(el.restored).toBe(true);
     expect(el.model.version).toBe(2);
@@ -262,7 +262,7 @@ describe("<flexdock-manager> layout versions", () => {
     el.restore({ ...layout(), version: 1 });
     expect(el.model.version).toBe(2);
     expect(() => el.restore({ ...layout(), version: 5 })).toThrow(/not a usable/);
-    expect(() => el.restore({} as FlexdockModel)).toThrow();
+    expect(() => el.restore({} as PazuruModel)).toThrow();
     el.restore({ ...layout(), version: 2, focus: "zz" });
     expect(issues.map((i) => [i.source, i.fatal])).toEqual([["restore", true], ["restore", true], ["restore", false]]);
     expect(issues[2]!.problems).toEqual(['focus "zz" is not placed']);
@@ -270,15 +270,15 @@ describe("<flexdock-manager> layout versions", () => {
 
   it("falls back to the app layout when stored data cannot be upgraded", async () => {
     const issues: string[] = [];
-    localStorage.setItem("fd-v2", JSON.stringify({ ...layout(), version: 0 }));
+    localStorage.setItem("pz-v2", JSON.stringify({ ...layout(), version: 0 }));
     const el = await mount(layout(), (e) => {
       e.layoutVersion = 1;
-      e.storageKey = "fd-v2";
-      e.addEventListener("flexdock-layoutissue", (ev) => issues.push(`${ev.detail.source}:${ev.detail.problems[0]}`));
+      e.storageKey = "pz-v2";
+      e.addEventListener("pazuru-layoutissue", (ev) => issues.push(`${ev.detail.source}:${ev.detail.problems[0]}`));
     });
     expect(el.restored).toBe(false);
-    expect(issues).toEqual(["storage:flexdock: no migration from layout version 0"]);
-    localStorage.setItem("fd-v2", JSON.stringify({ nope: 1 }));
+    expect(issues).toEqual(["storage:pazuru: no migration from layout version 0"]);
+    localStorage.setItem("pz-v2", JSON.stringify({ nope: 1 }));
     el.model = layout();
     expect(issues[1]).toMatch(/^storage:not a layout model/);
     // Without layoutVersion nothing is migrated.

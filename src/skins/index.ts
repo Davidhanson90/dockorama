@@ -1,5 +1,5 @@
-// `flexdock/skins`: the skin API and every built-in skin (importing this does not change the page's skin;
-// import `flexdock/skins/<name>` for that, or call `useSkin`).
+// `pazuru/skins`: the skin API and every built-in skin (importing this does not change the page's skin;
+// import `pazuru/skins/<name>` for that, or call `useSkin`).
 export {
   activeSkin, clearSkinOverrides, cssFor, defineSkin, extendSkin, overrideSkin, skinNamed, skinNames, templateFor, useSkin,
   type Skin, type SkinContexts, type SkinCss, type SkinKey, type SkinKit, type SkinOutput, type SkinPatch, type SkinScope, type SkinTemplate, type SkinTemplates

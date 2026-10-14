@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 // The public docs site must never name a third-party product (pattern kept encoded; see scripts/check-naming.mjs).
-const BASE = process.env.FLEXDOCK_SITE ?? "";
+const BASE = process.env.PAZURU_SITE ?? "";
 const pattern = new RegExp(Buffer.from("aW5mcmFnaXN0aWNzfGlnbml0ZVtcc18tXT91aXxcYmlnbml0ZVxifFxiaWdbY3hdLXxcYklnW2N4XVtBLVpd", "base64").toString("utf8"), "i");
 
 test("no third-party product names on the public site", async ({ page }) => {

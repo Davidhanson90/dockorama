@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
 
-const BASE = process.env.FLEXDOCK_SITE ?? "";
+const BASE = process.env.PAZURU_SITE ?? "";
 
 test("addView places elements, text and lazy factories from code", async ({ page }) => {
   await page.goto(`${BASE}/#/guide/add-views`);
-  const dock = page.locator("flexdock-manager").first();
+  const dock = page.locator("pazuru-manager").first();
   await expect(dock).toBeVisible();
   const demo = page.locator(".demo").first();
   const state = () => dock.evaluate((el) => {
@@ -27,7 +27,7 @@ test("addView places elements, text and lazy factories from code", async ({ page
   await demo.getByRole("button", { name: "Text" }).click();
   const textView = dock.locator('[slot][data-view="t4"]');
   await expect(textView).toHaveText("Just some text, added as a view.");
-  await expect(textView).toHaveClass(/flexdock-text/);
+  await expect(textView).toHaveClass(/pazuru-text/);
   await expect(textView).toHaveCSS("padding-top", "12px");
   await page.screenshot({ path: "e2e-results/4x-addview.png" });
 

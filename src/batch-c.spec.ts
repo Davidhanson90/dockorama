@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { FlexdockManager, cellOf, clampPair, column, createModel, fixSize, fold, limitSize, resizeCells, row, stack } from "./index.js";
-import { FlexdockMenu, VIRTUAL_AFTER, type MenuEntry } from "./components/menu.js";
-import type { FlexdockModel, SplitNode } from "./model.js";
+import { PazuruManager, cellOf, clampPair, column, createModel, fixSize, fold, limitSize, resizeCells, row, stack } from "./index.js";
+import { PazuruMenu, VIRTUAL_AFTER, type MenuEntry } from "./components/menu.js";
+import type { PazuruModel, SplitNode } from "./model.js";
 
 type R = { left: number; top: number; width: number; height: number };
 const rects = new Map<Element, R>();
@@ -21,10 +21,10 @@ afterEach(() => {
 });
 
 const views = { a: { title: "A" }, b: { title: "B" }, c: { title: "C" }, d: { title: "D", keepAlive: true } };
-const three = (): FlexdockModel => createModel(views, row([stack(["a"]), stack(["b"]), stack(["c", "d"])]));
-const sr = (el: FlexdockManager) => el.shadowRoot!;
-async function mount(model = three(), setup?: (el: FlexdockManager) => void) {
-  const el = document.createElement("flexdock-manager");
+const three = (): PazuruModel => createModel(views, row([stack(["a"]), stack(["b"]), stack(["c", "d"])]));
+const sr = (el: PazuruManager) => el.shadowRoot!;
+async function mount(model = three(), setup?: (el: PazuruManager) => void) {
+  const el = document.createElement("pazuru-manager");
   for (const id of Object.keys(model.views)) {
     const d = document.createElement("div");
     d.dataset["view"] = id;
@@ -38,15 +38,15 @@ async function mount(model = three(), setup?: (el: FlexdockManager) => void) {
   cells(el);
   return el;
 }
-function cells(el: FlexdockManager) {
+function cells(el: PazuruManager) {
   Array.from(sr(el).querySelectorAll(".split > .cell")).forEach((c, i) => rects.set(c, { left: i * 300, top: 0, width: 294, height: 600 }));
 }
-const gutter = (el: FlexdockManager, i = 0) => sr(el).querySelectorAll<HTMLElement>(".gutter")[i]!;
+const gutter = (el: PazuruManager, i = 0) => sr(el).querySelectorAll<HTMLElement>(".gutter")[i]!;
 const pd = (t: Element, x: number) => t.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, composed: true, clientX: x, clientY: 0, button: 0 }));
 const pm = (x: number) => window.dispatchEvent(new PointerEvent("pointermove", { clientX: x, clientY: 0 }));
 const pu = (x: number) => window.dispatchEvent(new PointerEvent("pointerup", { clientX: x, clientY: 0 }));
 const key = (t: Element, k: string) => t.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, composed: true, cancelable: true }));
-const split = (el: FlexdockManager) => el.model.root as Extract<FlexdockModel["root"], { kind: "split" }>;
+const split = (el: PazuruManager) => el.model.root as Extract<PazuruModel["root"], { kind: "split" }>;
 
 describe("split extras (ops)", () => {
   it("finds cells, fixes sizes, limits, folds and resizes", () => {
@@ -214,7 +214,7 @@ describe("virtual tab list", () => {
     { label: "Close", action: "close", id: "v0" }
   ];
   async function menu(n: number) {
-    const m = document.createElement("flexdock-menu") as FlexdockMenu;
+    const m = document.createElement("pazuru-menu") as PazuruMenu;
     m.entries = many(n);
     document.body.append(m);
     await m.updateComplete;
@@ -255,7 +255,7 @@ describe("virtual tab list", () => {
     await new Promise((r) => setTimeout(r));
     expect(document.activeElement?.getAttribute("data-index")).toBe("0");
     const seen: string[] = [];
-    m.addEventListener("flexdock-request", (e) => seen.push((e as CustomEvent).detail.action ?? (e as CustomEvent).detail.type));
+    m.addEventListener("pazuru-request", (e) => seen.push((e as CustomEvent).detail.action ?? (e as CustomEvent).detail.type));
     (document.activeElement as HTMLElement).click();
     expect(seen.length).toBe(1);
     key(document.activeElement!, "Escape");

@@ -4,11 +4,11 @@ import { defineParts, type PartRequest } from "../index.js";
 defineParts();
 afterEach(() => { document.body.innerHTML = ""; });
 
-describe("<flexdock-notice>", () => {
+describe("<pazuru-notice>", () => {
   it("shows a message and sends each action", async () => {
     const got: PartRequest[] = [];
-    document.addEventListener("flexdock-request", (e) => got.push((e as CustomEvent<PartRequest>).detail));
-    const el = document.createElement("flexdock-notice");
+    document.addEventListener("pazuru-request", (e) => got.push((e as CustomEvent<PartRequest>).detail));
+    const el = document.createElement("pazuru-notice");
     Object.assign(el, { message: "Blocked", actions: [{ label: "Retry", action: "go", primary: true }, { label: "No", action: "stop" }] });
     document.body.append(el);
     await el.updateComplete;

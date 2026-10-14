@@ -1,8 +1,8 @@
 import { html, type PropertyValues, type TemplateResult } from "lit";
-import { FlexdockPart } from "./part.js";
+import { PazuruPart } from "./part.js";
 
-/** `<flexdock-palette>`: the "go to view" search dialog. Sends `palette-query`, `palette-index`, `palette-choose` and `palette-close`. */
-export class FlexdockPalette extends FlexdockPart {
+/** `<pazuru-palette>`: the "go to view" search dialog. Sends `palette-query`, `palette-index`, `palette-choose` and `palette-close`. */
+export class PazuruPalette extends PazuruPart {
   static override properties = {
     items: { attribute: false },
     query: {},
@@ -46,11 +46,11 @@ export class FlexdockPalette extends FlexdockPart {
 
   override render(): TemplateResult {
     const index = Math.min(this.index, Math.max(0, this.items.length - 1));
-    return html`<input role="combobox" aria-expanded="true" aria-controls="fd-pal" aria-label=${this.label}
+    return html`<input role="combobox" aria-expanded="true" aria-controls="pz-pal" aria-label=${this.label}
         placeholder=${this.placeholder} .value=${this.query}
         @input=${(e: Event) => this.request("palette-query", { query: (e.target as HTMLInputElement).value })}
         @keydown=${(e: KeyboardEvent) => this.key(e)}>
-      <ul id="fd-pal" role="listbox">
+      <ul id="pz-pal" role="listbox">
         ${this.items.length
           ? this.items.map((it, n) => this.paint("palette-item", { label: it.label, detail: it.detail, selected: n === index, choose: () => this.request("palette-choose", { index: n }) }))
           : this.paint("palette-empty", { label: this.empty })}

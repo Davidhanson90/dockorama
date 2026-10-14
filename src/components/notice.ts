@@ -1,7 +1,7 @@
 import { html, type PropertyValues, type TemplateResult } from "lit";
-import { FlexdockPart } from "./part.js";
+import { PazuruPart } from "./part.js";
 
-/** A button of `<flexdock-notice>`: its label and the request action it sends. */
+/** A button of `<pazuru-notice>`: its label and the request action it sends. */
 export interface NoticeAction {
   label: string;
   action: string;
@@ -9,10 +9,10 @@ export interface NoticeAction {
 }
 
 /**
- * `<flexdock-notice>`: a small banner (`role="alertdialog"`) at the top of the layout, used when the
- * browser stopped flexdock re-opening views in their own windows. Each button sends its action as a request.
+ * `<pazuru-notice>`: a small banner (`role="alertdialog"`) at the top of the layout, used when the
+ * browser stopped pazuru re-opening views in their own windows. Each button sends its action as a request.
  */
-export class FlexdockNotice extends FlexdockPart {
+export class PazuruNotice extends PazuruPart {
   static override properties = {
     message: {},
     actions: { attribute: false }

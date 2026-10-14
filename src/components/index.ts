@@ -1,26 +1,26 @@
-import { FlexdockConfirm } from "./confirm.js";
-import { FlexdockDocs } from "./docs.js";
-import { FlexdockDropGuide } from "./drop-guide.js";
-import { FlexdockFlyout } from "./flyout.js";
-import { FlexdockGutter } from "./gutter.js";
-import { FlexdockMenu } from "./menu.js";
-import { FlexdockNotice } from "./notice.js";
-import { FlexdockPalette } from "./palette.js";
-import { FlexdockRail } from "./rail.js";
-import { FlexdockSplit } from "./split.js";
-import { FlexdockStack } from "./stack.js";
-import { FlexdockTab } from "./tab.js";
-import { FlexdockTabMenu } from "./tab-menu.js";
-import { FlexdockTabstrip } from "./tabstrip.js";
-import { FlexdockToolbar } from "./toolbar.js";
-import { FlexdockView } from "./view.js";
-import { FlexdockWindow } from "./window.js";
+import { PazuruConfirm } from "./confirm.js";
+import { PazuruDocs } from "./docs.js";
+import { PazuruDropGuide } from "./drop-guide.js";
+import { PazuruFlyout } from "./flyout.js";
+import { PazuruGutter } from "./gutter.js";
+import { PazuruMenu } from "./menu.js";
+import { PazuruNotice } from "./notice.js";
+import { PazuruPalette } from "./palette.js";
+import { PazuruRail } from "./rail.js";
+import { PazuruSplit } from "./split.js";
+import { PazuruStack } from "./stack.js";
+import { PazuruTab } from "./tab.js";
+import { PazuruTabMenu } from "./tab-menu.js";
+import { PazuruTabstrip } from "./tabstrip.js";
+import { PazuruToolbar } from "./toolbar.js";
+import { PazuruView } from "./view.js";
+import { PazuruWindow } from "./window.js";
 
 export {
-  FlexdockConfirm, FlexdockDocs, FlexdockDropGuide, FlexdockFlyout, FlexdockGutter, FlexdockMenu, FlexdockNotice, FlexdockPalette, FlexdockRail,
-  FlexdockSplit, FlexdockStack, FlexdockTab, FlexdockTabMenu, FlexdockTabstrip, FlexdockToolbar, FlexdockView, FlexdockWindow
+  PazuruConfirm, PazuruDocs, PazuruDropGuide, PazuruFlyout, PazuruGutter, PazuruMenu, PazuruNotice, PazuruPalette, PazuruRail,
+  PazuruSplit, PazuruStack, PazuruTab, PazuruTabMenu, PazuruTabstrip, PazuruToolbar, PazuruView, PazuruWindow
 };
-export { FlexdockPart, type PartRequest } from "./part.js";
+export { PazuruPart, type PartRequest } from "./part.js";
 export type { DockContext } from "./context.js";
 export type { GuideSpot } from "./drop-guide.js";
 export type { MenuEntry } from "./menu.js";
@@ -29,23 +29,23 @@ export type { NoticeAction } from "./notice.js";
 
 /** Tag name → class of every UI part a manager renders. */
 export const PARTS = {
-  "flexdock-split": FlexdockSplit,
-  "flexdock-gutter": FlexdockGutter,
-  "flexdock-stack": FlexdockStack,
-  "flexdock-docs": FlexdockDocs,
-  "flexdock-tabstrip": FlexdockTabstrip,
-  "flexdock-tab": FlexdockTab,
-  "flexdock-toolbar": FlexdockToolbar,
-  "flexdock-view": FlexdockView,
-  "flexdock-window": FlexdockWindow,
-  "flexdock-drop-guide": FlexdockDropGuide,
-  "flexdock-rail": FlexdockRail,
-  "flexdock-flyout": FlexdockFlyout,
-  "flexdock-menu": FlexdockMenu,
-  "flexdock-palette": FlexdockPalette,
-  "flexdock-tab-menu": FlexdockTabMenu,
-  "flexdock-notice": FlexdockNotice,
-  "flexdock-confirm": FlexdockConfirm
+  "pazuru-split": PazuruSplit,
+  "pazuru-gutter": PazuruGutter,
+  "pazuru-stack": PazuruStack,
+  "pazuru-docs": PazuruDocs,
+  "pazuru-tabstrip": PazuruTabstrip,
+  "pazuru-tab": PazuruTab,
+  "pazuru-toolbar": PazuruToolbar,
+  "pazuru-view": PazuruView,
+  "pazuru-window": PazuruWindow,
+  "pazuru-drop-guide": PazuruDropGuide,
+  "pazuru-rail": PazuruRail,
+  "pazuru-flyout": PazuruFlyout,
+  "pazuru-menu": PazuruMenu,
+  "pazuru-palette": PazuruPalette,
+  "pazuru-tab-menu": PazuruTabMenu,
+  "pazuru-notice": PazuruNotice,
+  "pazuru-confirm": PazuruConfirm
 } as const;
 
 /** Register every UI part (safe to call more than once). */
@@ -57,22 +57,22 @@ export function defineParts(): void {
 
 declare global {
   interface HTMLElementTagNameMap {
-    "flexdock-split": FlexdockSplit;
-    "flexdock-gutter": FlexdockGutter;
-    "flexdock-stack": FlexdockStack;
-    "flexdock-docs": FlexdockDocs;
-    "flexdock-tabstrip": FlexdockTabstrip;
-    "flexdock-tab": FlexdockTab;
-    "flexdock-toolbar": FlexdockToolbar;
-    "flexdock-view": FlexdockView;
-    "flexdock-window": FlexdockWindow;
-    "flexdock-drop-guide": FlexdockDropGuide;
-    "flexdock-rail": FlexdockRail;
-    "flexdock-flyout": FlexdockFlyout;
-    "flexdock-menu": FlexdockMenu;
-    "flexdock-palette": FlexdockPalette;
-    "flexdock-tab-menu": FlexdockTabMenu;
-    "flexdock-notice": FlexdockNotice;
-    "flexdock-confirm": FlexdockConfirm;
+    "pazuru-split": PazuruSplit;
+    "pazuru-gutter": PazuruGutter;
+    "pazuru-stack": PazuruStack;
+    "pazuru-docs": PazuruDocs;
+    "pazuru-tabstrip": PazuruTabstrip;
+    "pazuru-tab": PazuruTab;
+    "pazuru-toolbar": PazuruToolbar;
+    "pazuru-view": PazuruView;
+    "pazuru-window": PazuruWindow;
+    "pazuru-drop-guide": PazuruDropGuide;
+    "pazuru-rail": PazuruRail;
+    "pazuru-flyout": PazuruFlyout;
+    "pazuru-menu": PazuruMenu;
+    "pazuru-palette": PazuruPalette;
+    "pazuru-tab-menu": PazuruTabMenu;
+    "pazuru-notice": PazuruNotice;
+    "pazuru-confirm": PazuruConfirm;
   }
 }

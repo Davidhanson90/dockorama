@@ -1,8 +1,8 @@
 import { html, type PropertyValues, type TemplateResult } from "lit";
 import type { SkinOutput } from "../skins/core.js";
-import { FlexdockPart } from "./part.js";
+import { PazuruPart } from "./part.js";
 
-/** An entry of `<flexdock-menu>`: a command, a radio item (`checked` set) or a separator. */
+/** An entry of `<pazuru-menu>`: a command, a radio item (`checked` set) or a separator. */
 export type MenuEntry = { label: string; action: string; id: string; checked?: boolean } | "separator";
 
 /** Lists longer than this are virtualised: only the rows in view are rendered. */
@@ -12,11 +12,11 @@ export const ROW = 30;
 const SHOW = 12;
 
 /**
- * `<flexdock-menu>`: a positioned `role="menu"` popup (view actions and the tab list of a group).
+ * `<pazuru-menu>`: a positioned `role="menu"` popup (view actions and the tab list of a group).
  * Arrow keys move, Esc closes; choosing sends the entry's action as a request. A tab list longer than
  * `VIRTUAL_AFTER` renders only the rows in view (fixed `ROW` height), so groups with hundreds of tabs stay fast.
  */
-export class FlexdockMenu extends FlexdockPart {
+export class PazuruMenu extends PazuruPart {
   static override properties = {
     entries: { attribute: false },
     x: { type: Number },

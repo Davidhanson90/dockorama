@@ -4,11 +4,11 @@ import { defineParts, type PartRequest } from "../index.js";
 defineParts();
 afterEach(() => { document.body.innerHTML = ""; });
 
-describe("<flexdock-confirm>", () => {
+describe("<pazuru-confirm>", () => {
   it("asks, focuses Cancel, traps Tab and answers", async () => {
     const got: PartRequest[] = [];
-    document.addEventListener("flexdock-request", (e) => got.push((e as CustomEvent<PartRequest>).detail));
-    const el = document.createElement("flexdock-confirm");
+    document.addEventListener("pazuru-request", (e) => got.push((e as CustomEvent<PartRequest>).detail));
+    const el = document.createElement("pazuru-confirm");
     Object.assign(el, { view: "a", message: "Unsaved. Close?", okLabel: "Close", cancelLabel: "Keep" });
     document.body.append(el);
     await el.updateComplete;

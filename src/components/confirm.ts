@@ -1,12 +1,12 @@
 import { html, type PropertyValues, type TemplateResult } from "lit";
-import { FlexdockPart } from "./part.js";
+import { PazuruPart } from "./part.js";
 
 /**
- * `<flexdock-confirm>`: the "unsaved changes" question shown before a dirty view closes
+ * `<pazuru-confirm>`: the "unsaved changes" question shown before a dirty view closes
  * (`role="alertdialog"`, modal over the layout). Tab cycles its two buttons, Esc cancels.
  * Sends `confirm-close` with `ok: true | false`.
  */
-export class FlexdockConfirm extends FlexdockPart {
+export class PazuruConfirm extends PazuruPart {
   static override properties = {
     view: {},
     message: {},

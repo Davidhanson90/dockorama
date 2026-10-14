@@ -5,7 +5,7 @@ import { chromium } from "@playwright/test";
 import { writeFileSync } from "node:fs";
 import os from "node:os";
 
-const base = process.env.FLEXDOCK_URL ?? "http://localhost:4173";
+const base = process.env.PAZURU_URL ?? "http://localhost:4173";
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1400, height: 1000 } });
 await page.goto(`${base}/#/guide/performance`);

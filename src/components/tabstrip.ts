@@ -1,12 +1,12 @@
 import { html, type PropertyValues, type TemplateResult } from "lit";
 import type { DockContext } from "./context.js";
-import { FlexdockPart } from "./part.js";
+import { PazuruPart } from "./part.js";
 
 /**
- * `<flexdock-tabstrip>`: a scrollable tab list (`role="tablist"`) of `<flexdock-tab>`s with overflow
+ * `<pazuru-tabstrip>`: a scrollable tab list (`role="tablist"`) of `<pazuru-tab>`s with overflow
  * scroll buttons and wheel scrolling. Flags `data-overflow`, `data-can-back` and `data-can-fwd`.
  */
-export class FlexdockTabstrip extends FlexdockPart {
+export class PazuruTabstrip extends PazuruPart {
   static override properties = {
     views: { attribute: false },
     current: {},
@@ -101,9 +101,9 @@ export class FlexdockTabstrip extends FlexdockPart {
     const scroller = (dir: -1 | 1) => this.paint("tab-scroll-button", { dir, scroll: () => this.scrollTabs(dir) });
     const tabs = this.views.map((v) => {
           const info = m.views[v];
-          return html`<flexdock-tab .view=${v} .info=${info} .selected=${v === this.current} .win=${this.win} .pinned=${this.pinned.includes(v)} .preview=${v === this.preview}
+          return html`<pazuru-tab .view=${v} .info=${info} .selected=${v === this.current} .win=${this.win} .pinned=${this.pinned.includes(v)} .preview=${v === this.preview}
             .dirty=${Boolean(this.ctx.dirty?.has(v))} .dirtyLabel=${this.ctx.labels.unsaved}
-            .closable=${this.docs && info?.caps?.dismiss !== false} .closeLabel=${this.ctx.labels.dismiss}></flexdock-tab>`;
+            .closable=${this.docs && info?.caps?.dismiss !== false} .closeLabel=${this.ctx.labels.dismiss}></pazuru-tab>`;
         });
     return html`${this.paint("tabstrip", {
       tabs, label: m.views[this.current]?.title ?? "", back: scroller(-1), forward: scroller(1),

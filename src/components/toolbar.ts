@@ -1,10 +1,10 @@
 import { html, nothing, type TemplateResult } from "lit";
 import type { SkinOutput } from "../skins/core.js";
 import type { DockContext } from "./context.js";
-import { FlexdockPart } from "./part.js";
+import { PazuruPart } from "./part.js";
 
-/** `<flexdock-toolbar>`: the action buttons in a group's header (auto-hide, zoom, more, close). */
-export class FlexdockToolbar extends FlexdockPart {
+/** `<pazuru-toolbar>`: the action buttons in a group's header (auto-hide, zoom, more, close). */
+export class PazuruToolbar extends PazuruPart {
   static override properties = {
     view: {},
     docs: { type: Boolean },

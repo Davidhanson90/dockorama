@@ -7,10 +7,10 @@ export default defineConfig({
   base: "./",
   resolve: {
     alias: [
-      { find: /^flexdock\/skins$/, replacement: fileURLToPath(new URL("../dist/skins/index.js", import.meta.url)) },
-      { find: /^flexdock\/skins\/([a-z-]+)$/, replacement: fileURLToPath(new URL("../dist/skins/$1/index.js", import.meta.url)) },
-      { find: /^flexdock$/, replacement: fileURLToPath(new URL("../dist/index.js", import.meta.url)) },
-      { find: /^flexdock\/(react|vue|angular|svelte)$/, replacement: fileURLToPath(new URL("../dist/$1.js", import.meta.url)) }
+      { find: /^pazuru\/skins$/, replacement: fileURLToPath(new URL("../dist/skins/index.js", import.meta.url)) },
+      { find: /^pazuru\/skins\/([a-z-]+)$/, replacement: fileURLToPath(new URL("../dist/skins/$1/index.js", import.meta.url)) },
+      { find: /^pazuru$/, replacement: fileURLToPath(new URL("../dist/index.js", import.meta.url)) },
+      { find: /^pazuru\/(react|vue|angular|svelte)$/, replacement: fileURLToPath(new URL("../dist/$1.js", import.meta.url)) }
     ]
   },
   build: {
