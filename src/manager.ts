@@ -10,6 +10,7 @@ import { slotOf } from "./components/context.js";
 import { renderNode } from "./components/tree.js";
 import type { Box, Caps, DropZone, EdgeZone, DockoramaModel, LayoutMigrations, LayoutSource, OutsideWindow, Side, SizeLimits, SplitNode, ViewContent, ViewInfo, ViewOptions } from "./model.js";
 import * as ops from "./ops.js";
+import { LayoutStore } from "./storage.js";
 import { activeSkin, cssFor, skinNamed, watchSkins, type Skin, type SkinPatch, type SkinScope } from "./skins/core.js";
 import { stateEvents, type BeforeAddDetail, type CommandDetail, type CommandSource, type DragKind, type DragOverDetail, type DropDetail, type DockoramaStateEvents, type ResizeDetail } from "./events.js";
 
@@ -207,6 +208,8 @@ export class DockoramaManager extends LitElement {
   private readonly stash = new Map<string, Element>();
 
   private _model: DockoramaModel = ops.emptyModel();
+  private readonly store = new LayoutStore(this, (source, problems, fatal) =>
+    this.emit("dockorama-layoutissue", { source, problems, fatal }));
   private readonly timeline = new Timeline<DockoramaModel>();
   private _peek?: string;
   private _drag?: DragState;
@@ -240,8 +243,8 @@ export class DockoramaManager extends LitElement {
   }
   set model(value: DockoramaModel) {
     const stamped = this.layoutVersion !== undefined && value && value.version === undefined ? { ...value, version: this.layoutVersion } : value;
-    const next = this.prepare(stamped, "set") ?? ops.normalize(value);
-    const fromStore = this.loadStored(next);
+    const next = this.store.prepare(stamped, "set") ?? ops.normalize(value);
+    const fromStore = this.store.load(next);
     this.restoredFromStorage = Boolean(fromStore);
     this.timeline.clear();
     this.commit(fromStore ?? next, "set", false);
@@ -573,7 +576,7 @@ export class DockoramaManager extends LitElement {
   }
   /** Restore a snapshot as an undoable change. */
   restore(model: DockoramaModel): void {
-    const next = this.prepare(model, "restore");
+    const next = this.store.prepare(model, "restore");
     if (!next) throw new TypeError("dockorama: not a usable layout model (see dockorama-layoutissue)");
     this.commit(next, "restore");
   }
@@ -681,7 +684,7 @@ export class DockoramaManager extends LitElement {
   private noteBox(key: string, win: Window): void {
     if (win.closed || !this._model.outside?.some((o) => o.key === key)) return;
     this._model = ops.tuneOutside(this._model, key, { box: { x: win.screenX, y: win.screenY, w: win.outerWidth, h: win.outerHeight } });
-    this.persist();
+    this.store.save(this._model);
   }
 
   private readonly onUnload = (): void => {
@@ -954,7 +957,7 @@ export class DockoramaManager extends LitElement {
     this.keepFocus = this.keepFocus || this.hasFocus();
     if (record && next !== prev && !SILENT.includes(reason)) this.timeline.push(prev);
     this._model = next;
-    if (reason !== "set") this.persist();
+    if (reason !== "set") this.store.save(this._model);
     this.reconcileOutside(OPEN_ON.includes(reason));
     if (prev.focus !== next.focus && next.focus) {
       this.dispatchEvent(new CustomEvent("dockorama-focus", { detail: { id: next.focus, previous: prev.focus }, bubbles: true, composed: true }));
@@ -965,68 +968,6 @@ export class DockoramaManager extends LitElement {
     if (reason !== "set") for (const ev of stateEvents(prev, next)) this.emit(ev.type, ev.detail);
     if (!SILENT.includes(reason) && reason !== "set") this._say = `${reason}`;
     this.requestUpdate();
-  }
-
-  /** Save the model under `storageKey` (when set). */
-  private persist(): void {
-    if (!this.storageKey) return;
-    try {
-      localStorage.setItem(this.storageKey, JSON.stringify(this._model));
-    } catch {
-      /* storage full or disabled */
-    }
-  }
-
-  /** Stored text already found unusable (reported once). */
-  private unusable?: string;
-
-  private loadStored(fallback: DockoramaModel): DockoramaModel | undefined {
-    if (!this.storageKey) return undefined;
-    try {
-      const raw = localStorage.getItem(this.storageKey);
-      if (!raw || raw === this.unusable) return undefined;
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(raw);
-      } catch (err) {
-        this.unusable = raw;
-        this.issue("storage", [`stored layout is not valid JSON: ${(err as Error).message}`], true);
-        return undefined;
-      }
-      const ok = ops.isModel(parsed) ? this.prepare({ ...parsed, views: fallback.views }, "storage") : this.prepare(parsed, "storage");
-      // Views come from the app (titles may have changed); placement comes from storage.
-      if (!ok) this.unusable = raw;
-      return ok;
-    } catch {
-      return undefined;
-    }
-  }
-
-  /**
-   * Check and upgrade an incoming layout: migrations to `layoutVersion`, then validation. Problems are reported with
-   * `dockorama-layoutissue`; returns the normalised model, or undefined when it cannot be used.
-   */
-  private prepare(input: unknown, source: LayoutSource): DockoramaModel | undefined {
-    if (!ops.isModel(input)) {
-      this.issue(source, ops.validate(input), true);
-      return undefined;
-    }
-    let m: DockoramaModel = input;
-    if (this.layoutVersion !== undefined) {
-      try {
-        m = ops.upgrade(m, this.migrations ?? {}, this.layoutVersion);
-      } catch (err) {
-        this.issue(source, [String((err as Error).message ?? err)], true);
-        return undefined;
-      }
-    }
-    const problems = ops.validate(m);
-    if (problems.length) this.issue(source, problems, false);
-    return ops.normalize(m);
-  }
-
-  private issue(source: LayoutSource, problems: string[], fatal: boolean): void {
-    this.dispatchEvent(new CustomEvent("dockorama-layoutissue", { detail: { source, problems, fatal }, bubbles: true, composed: true }));
   }
 
   private fitBox(b: Box): Box {
@@ -1053,7 +994,7 @@ export class DockoramaManager extends LitElement {
     super.updated(changed);
     if (changed.has("skin") || changed.has("skinPatch") || !this.skinStyle && !this.skinSheet) this.applySkin();
     if (changed.has("storageKey") && this.storageKey && !this.restoredFromStorage) {
-      const stored = this.loadStored(this._model);
+      const stored = this.store.load(this._model);
       if (stored) {
         this.restoredFromStorage = true;
         this.commit(stored, "restore", false);
