@@ -8,9 +8,11 @@ import {
 import { DockoramaPart, defineParts, type DockContext, type GuideSpot, type MenuEntry, type PartRequest, type TabMenuItem } from "./components/index.js";
 import { slotOf } from "./components/context.js";
 import { renderNode } from "./components/tree.js";
-import type { Box, Caps, DropZone, EdgeZone, DockoramaModel, LayoutMigrations, LayoutSource, OutsideWindow, Side, SizeLimits, SplitNode, ViewContent, ViewInfo, ViewOptions } from "./model.js";
+import type { Box, Caps, DropZone, EdgeZone, DockoramaModel, LayoutMigrations, LayoutSource, Side, SizeLimits, SplitNode, ViewContent, ViewInfo, ViewOptions } from "./model.js";
 import * as ops from "./ops.js";
 import { LayoutStore } from "./storage.js";
+import { OutsideWindows } from "./outside.js";
+import type { DockHost, DragState } from "./host.js";
 import { activeSkin, cssFor, skinNamed, watchSkins, type Skin, type SkinPatch, type SkinScope } from "./skins/core.js";
 import { stateEvents, type BeforeAddDetail, type CommandDetail, type CommandSource, type DragKind, type DragOverDetail, type DropDetail, type DockoramaStateEvents, type ResizeDetail } from "./events.js";
 
@@ -29,20 +31,6 @@ export type TabCommand =
 const SILENT: ChangeReason[] = ["select", "focus", "cancel"];
 /** Changes after which saved outside windows are (re-)opened. */
 const OPEN_ON: ChangeReason[] = ["set", "restore", "undo", "redo"];
-/** Styles of the page dockorama builds inside an outside window. */
-const OUTSIDE_CSS = `
-body.dko { margin: 0; display: flex; flex-direction: column; height: 100vh; font: 13px system-ui, sans-serif; background: #fff; color: #1d2433; }
-body.dko[data-theme="dark"] { background: #171b24; color: #e6e9f0; }
-.dko-tabs { display: flex; gap: 2px; padding: 4px 6px 0; background: rgba(127,127,127,.12); border-bottom: 1px solid rgba(127,127,127,.25); flex: 0 0 auto; }
-.dko-tab { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 6px 6px 0 0; cursor: grab; user-select: none; touch-action: none; }
-.dko-tab[aria-selected="true"] { background: inherit; box-shadow: inset 0 2px 0 #4f7cff; }
-body.dko .dko-tab[aria-selected="true"] { background: #fff; }
-body.dko[data-theme="dark"] .dko-tab[aria-selected="true"] { background: #171b24; }
-.dko-back { border: 0; background: none; color: inherit; cursor: pointer; padding: 0 2px; opacity: .6; }
-.dko-back:hover { opacity: 1; }
-.dko-body { flex: 1 1 auto; min-height: 0; overflow: auto; }
-.dko-body > [data-view] { height: 100%; box-sizing: border-box; }
-.dko-body > [data-outside-hidden] { display: none !important; }`;
 /** Quote a value for an attribute selector. */
 const attr = (v: string) => JSON.stringify(v);
 const isContent = (v: unknown): v is ViewContent =>
@@ -55,38 +43,6 @@ const textNode = (text: string): HTMLElement => {
   el.textContent = text;
   return el;
 };
-
-interface DragState {
-  id: string;
-  mode: "pending" | "tab" | "loose" | "window";
-  startX: number;
-  startY: number;
-  x: number;
-  y: number;
-  windowKey?: string;
-  windowStart?: Box;
-  strip?: HTMLElement;
-  target?: { view: string; rect: Rect; zone?: DropZone };
-  /** Drop onto a gutter between two siblings. */
-  gap?: { path: number[]; after: number; win?: string; rect: Rect };
-  /** Drop into an empty document area. */
-  fill?: { path: number[]; win?: string; rect: Rect };
-  edge?: EdgeZone;
-  /** Last spot reported through `dockorama-dragover`. */
-  over?: string;
-  /** Model when the drag started (restored by Escape). */
-  origin: DockoramaModel;
-  preview?: Rect;
-  pointerId: number;
-  /** Capabilities of the dragged view (set when another manager is the drop target). */
-  caps?: Caps;
-  /** Another manager in the same drag group under the pointer. */
-  peer?: DockoramaManager;
-  /** The pointer left the browser window (dropping pops the view out). */
-  beyond?: boolean;
-  sx?: number;
-  sy?: number;
-}
 
 /**
  * `<dockorama-manager>`: a docking layout of views (panels and documents) the user can rearrange.
@@ -217,10 +173,7 @@ export class DockoramaManager extends LitElement {
   private _palette?: { query: string; index: number };
   private _say = "";
   /** Open outside (browser) windows by key. */
-  private readonly outsideWins = new Map<string, Window>();
-  /** Windows dockorama is closing itself (their pagehide is not a user close). */
-  private readonly closing = new WeakSet<Window>();
-  private unloading = false;
+  private readonly outside = new OutsideWindows(this as unknown as DockHost);
   /** Drag from another manager hovering over this one. */
   private _guest?: DragState;
   private _tabMenu?: { id: string; x: number; y: number; items: TabMenuItem[] };
@@ -268,7 +221,7 @@ export class DockoramaManager extends LitElement {
     this.addEventListener("input", this.onInput);
     this.renderRoot.addEventListener("dockorama-request", this.onRequest);
     document.addEventListener("pointerdown", this.onOutside, true);
-    window.addEventListener("pagehide", this.onUnload);
+    window.addEventListener("pagehide", this.outside.onUnload);
     managers.add(this);
     this.unwatchSkins = watchSkins(() => this.applySkin());
     // Direction comes from CSS (usually a `dir` attribute on this element or an ancestor): re-render when it changes.
@@ -281,7 +234,7 @@ export class DockoramaManager extends LitElement {
       }
     });
     this.dirObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["dir", "lang"], subtree: true });
-    this.reconcileOutside(true);
+    this.outside.reconcile(true);
   }
 
   private dirObserver?: MutationObserver;
@@ -295,7 +248,7 @@ export class DockoramaManager extends LitElement {
     this.removeEventListener("input", this.onInput);
     this.renderRoot.removeEventListener("dockorama-request", this.onRequest);
     document.removeEventListener("pointerdown", this.onOutside, true);
-    window.removeEventListener("pagehide", this.onUnload);
+    window.removeEventListener("pagehide", this.outside.onUnload);
     managers.delete(this);
     this.unwatchSkins?.();
   }
@@ -537,11 +490,7 @@ export class DockoramaManager extends LitElement {
   }
   /** The content element of a view (null if unknown, or lazy and not yet shown). */
   getViewElement(id: string): Element | null {
-    for (const win of this.outsideWins.values()) {
-      const el = win.closed ? null : win.document.querySelector(`.dko-body > [data-view=${attr(id)}]`);
-      if (el) return el;
-    }
-    return this.querySelector(`:scope > [data-view=${attr(id)}]`) ?? this.stash.get(id) ?? null;
+    return this.outside.elementOf(id) ?? this.querySelector(`:scope > [data-view=${attr(id)}]`) ?? this.stash.get(id) ?? null;
   }
 
   /** True when view `id` has content that is currently detached because of `retain="active"`. */
@@ -591,21 +540,7 @@ export class DockoramaManager extends LitElement {
    * `box` is the window's screen position / size. Returns false when not allowed or the browser blocked it.
    */
   popOut(id: string, options: { into?: string; box?: Partial<Box> } = {}): boolean {
-    if (this.caps(id).popout === false || ops.locate(this._model, id).place !== "tree") return false;
-    const cur = ops.outsideOf(this._model, id);
-    if (cur && (!options.into || cur.key === options.into)) return false;
-    if (!this.getViewElement(id) && !this.factories.has(id)) return false;
-    const live = options.into ? this.outsideWins.get(options.into) : undefined;
-    let key = options.into;
-    let box: Box | undefined;
-    if (!live || live.closed) {
-      key = `o-${id}-${Date.now().toString(36)}`;
-      box = { x: options.box?.x ?? NaN, y: options.box?.y ?? NaN, w: options.box?.w ?? 640, h: options.box?.h ?? 480 };
-      if (!this.openOutside(key, box)) return false;
-      if (Number.isNaN(box.x)) box = undefined;
-    }
-    this.commit(ops.goOutside(this._model, id, key!, box), "popout");
-    return true;
+    return this.outside.popOut(id, options);
   }
   /** Move popped-out content back into the layout. */
   popIn(id: string): void {
@@ -618,216 +553,11 @@ export class DockoramaManager extends LitElement {
   }
   /** Try again to open saved outside windows (call from a click: browsers only allow pop-ups on user input). */
   reopenWindows(): void {
-    this.reconcileOutside(true);
+    this.outside.reconcile(true);
   }
   /** Give up on blocked outside windows: their views show in the layout again (undoable). */
   keepWindowsDocked(): void {
-    const keys = new Set(this._blocked);
-    const m = ops.copy(this._model);
-    m.outside = (m.outside ?? []).filter((o) => !keys.has(o.key));
-    this.commit(ops.normalize(m), "popin");
-  }
-
-  // ------------------------------------------------------------- outside windows
-
-  private openOutside(key: string, box?: Box): Window | null {
-    const pos = box && !Number.isNaN(box.x) ? `,left=${Math.round(box.x)},top=${Math.round(box.y)}` : "";
-    const size = box ? `,width=${Math.round(box.w)},height=${Math.round(box.h)}` : ",width=640,height=480";
-    let win: Window | null = null;
-    try {
-      win = window.open("", `dockorama-${key}`, `popup${size}${pos}`) ?? null;
-    } catch {
-      win = null;
-    }
-    if (!win) return null;
-    this.prepareOutside(win, key);
-    this.outsideWins.set(key, win);
-    return win;
-  }
-
-  /** Build the outside window's page: a tab bar and a body that holds the content elements. */
-  private prepareOutside(win: Window, key: string): void {
-    const doc = win.document;
-    doc.head.replaceChildren();
-    doc.body.replaceChildren();
-    for (const node of Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))) doc.head.append(node.cloneNode(true));
-    const style = doc.createElement("style");
-    style.textContent = OUTSIDE_CSS;
-    doc.head.append(style);
-    doc.body.className = "dko";
-    doc.body.dataset["theme"] = this.theme;
-    const tabs = doc.createElement("div");
-    tabs.className = "dko-tabs";
-    tabs.setAttribute("role", "tablist");
-    const body = doc.createElement("div");
-    body.className = "dko-body";
-    doc.body.append(tabs, body);
-    win.addEventListener("pagehide", () => {
-      if (this.closing.has(win) || this.unloading) return;
-      // The user closed the window: bring its views back.
-      this.outsideWins.delete(key);
-      const o = this._model.outside?.find((x) => x.key === key);
-      if (!o) return;
-      let m = this._model;
-      for (const v of o.views) m = ops.comeInside(m, v);
-      this.adoptHome(win);
-      this.commit(m, "popin");
-    });
-    let t: ReturnType<typeof setTimeout> | undefined;
-    win.addEventListener("resize", () => {
-      clearTimeout(t);
-      t = setTimeout(() => this.noteBox(key, win), 250);
-    });
-  }
-
-  /** Record an outside window's screen box without an undo step or change event. */
-  private noteBox(key: string, win: Window): void {
-    if (win.closed || !this._model.outside?.some((o) => o.key === key)) return;
-    this._model = ops.tuneOutside(this._model, key, { box: { x: win.screenX, y: win.screenY, w: win.outerWidth, h: win.outerHeight } });
-    this.store.save(this._model);
-  }
-
-  private readonly onUnload = (): void => {
-    for (const [key, win] of this.outsideWins) this.noteBox(key, win);
-    this.unloading = true;
-    for (const win of this.outsideWins.values()) if (!win.closed) win.close();
-    this.outsideWins.clear();
-  };
-
-  /** Move every content element in an outside window back into the manager. */
-  private adoptHome(win: Window): void {
-    if (win.closed && !win.document) return;
-    for (const el of Array.from(win.document.querySelectorAll<HTMLElement>(".dko-body > [data-view]"))) {
-      el.removeAttribute("data-outside-hidden");
-      this.append(el);
-    }
-  }
-
-  /** Make open outside windows match `model.outside`; optionally try to open missing ones. */
-  private reconcileOutside(allowOpen: boolean): void {
-    const want = this._model.outside ?? [];
-    if (!want.length && !this.outsideWins.size && !this._blocked.length) return;
-    for (const [key, win] of Array.from(this.outsideWins)) {
-      if (want.some((o) => o.key === key) && !win.closed) continue;
-      this.outsideWins.delete(key);
-      if (!win.closed) {
-        this.adoptHome(win);
-        this.closing.add(win);
-        win.close();
-      }
-    }
-    const blocked: string[] = [];
-    for (const o of want) {
-      let win = this.outsideWins.get(o.key);
-      if (!win && allowOpen && this.isConnected) win = this.openOutside(o.key, o.box) ?? undefined;
-      if (!win) {
-        blocked.push(o.key);
-        continue;
-      }
-      this.paintOutside(o, win);
-    }
-    this._blocked = blocked;
-  }
-
-  /** Put the right content into an outside window and redraw its tab bar. */
-  private paintOutside(o: OutsideWindow, win: Window): void {
-    const doc = win.document;
-    const body = doc.querySelector<HTMLElement>(".dko-body");
-    const tabs = doc.querySelector<HTMLElement>(".dko-tabs");
-    if (!body || !tabs) return;
-    for (const el of Array.from(body.querySelectorAll<HTMLElement>(":scope > [data-view]"))) {
-      if (!o.views.includes(el.dataset["view"] ?? "")) {
-        el.removeAttribute("data-outside-hidden");
-        this.append(el);
-      }
-    }
-    for (const id of o.views) {
-      let el = this.getViewElement(id) as HTMLElement | null;
-      const make = this.factories.get(id);
-      if (!el && make) {
-        this.factories.delete(id);
-        el = make() as HTMLElement;
-        el.setAttribute("data-view", id);
-      }
-      if (!el) continue;
-      this.stash.delete(id);
-      if (el.parentNode !== body) body.append(el);
-      el.toggleAttribute("data-outside-hidden", id !== o.current);
-    }
-    doc.title = o.views.map((v) => this._model.views[v]?.title ?? v).join(" · ");
-    tabs.replaceChildren(...o.views.map((id) => {
-      const tab = doc.createElement("div");
-      tab.className = "dko-tab";
-      tab.setAttribute("role", "tab");
-      tab.dataset["view"] = id;
-      tab.tabIndex = 0;
-      tab.setAttribute("aria-selected", String(id === o.current));
-      const label = doc.createElement("span");
-      label.textContent = this._model.views[id]?.title ?? id;
-      const back = doc.createElement("button");
-      back.className = "dko-back";
-      back.type = "button";
-      back.title = this.t.popin;
-      back.setAttribute("aria-label", `${this.t.popin} ${label.textContent}`);
-      back.textContent = "\u2199";
-      back.addEventListener("pointerdown", (e) => e.stopPropagation());
-      back.addEventListener("click", () => this.popIn(id));
-      tab.append(label, back);
-      tab.addEventListener("click", () => this.commit(ops.tuneOutside(this._model, o.key, { current: id }), "select"));
-      tab.addEventListener("pointerdown", (e) => this.startOutsideDrag(e, o.key, id, win));
-      return tab;
-    }));
-  }
-
-  /** Opener-window client coordinates of a screen point (approximate: browsers do not expose the frame size). */
-  private toClient(sx: number, sy: number): { x: number; y: number } {
-    const bx = Math.max(0, (window.outerWidth - window.innerWidth) / 2);
-    const by = Math.max(0, window.outerHeight - window.innerHeight - bx);
-    return { x: sx - window.screenX - bx, y: sy - window.screenY - by };
-  }
-
-  /** The open outside window whose screen rectangle contains a screen point. */
-  private outsideAt(sx: number, sy: number, except?: string): string | undefined {
-    for (const [key, w] of this.outsideWins) {
-      if (key === except || w.closed) continue;
-      if (sx >= w.screenX && sx <= w.screenX + w.outerWidth && sy >= w.screenY && sy <= w.screenY + w.outerHeight) return key;
-    }
-    return undefined;
-  }
-
-  /** Drag a tab out of an outside window: into another one, or back onto the layout (with drop guides). */
-  private startOutsideDrag(e: PointerEvent, key: string, id: string, win: Window): void {
-    if (e.button !== 0) return;
-    const sx0 = e.screenX;
-    const sy0 = e.screenY;
-    let moved = false;
-    const inside = (ev: PointerEvent) => ev.clientX >= 0 && ev.clientY >= 0 && ev.clientX <= win.innerWidth && ev.clientY <= win.innerHeight;
-    const move = (ev: PointerEvent) => {
-      if (!moved && Math.hypot(ev.screenX - sx0, ev.screenY - sy0) < 6) return;
-      moved = true;
-      if (inside(ev)) {
-        this.clearGuest();
-        return;
-      }
-      const p = this.toClient(ev.screenX, ev.screenY);
-      this.hoverAt(id, p.x, p.y);
-    };
-    const up = (ev: PointerEvent) => {
-      win.removeEventListener("pointermove", move);
-      win.removeEventListener("pointerup", up);
-      const g = this._guest;
-      this.clearGuest();
-      if (!moved || inside(ev)) return;
-      const into = this.outsideAt(ev.screenX, ev.screenY, key);
-      if (into) {
-        this.popOut(id, { into });
-        return;
-      }
-      const placed = g ? this.applyDrop(ops.comeInside(this._model, id), id, g) : undefined;
-      this.commit(placed ?? ops.comeInside(this._model, id), placed ? "place" : "popin");
-    };
-    win.addEventListener("pointermove", move);
-    win.addEventListener("pointerup", up);
+    this.outside.keepDocked();
   }
 
   /** Show drop guides for a view at a client point of this manager (used by drags that started elsewhere). */
@@ -958,7 +688,7 @@ export class DockoramaManager extends LitElement {
     if (record && next !== prev && !SILENT.includes(reason)) this.timeline.push(prev);
     this._model = next;
     if (reason !== "set") this.store.save(this._model);
-    this.reconcileOutside(OPEN_ON.includes(reason));
+    this.outside.reconcile(OPEN_ON.includes(reason));
     if (prev.focus !== next.focus && next.focus) {
       this.dispatchEvent(new CustomEvent("dockorama-focus", { detail: { id: next.focus, previous: prev.focus }, bubbles: true, composed: true }));
     }
@@ -1605,7 +1335,7 @@ export class DockoramaManager extends LitElement {
       return;
     }
     if (d.mode === "loose" && d.sx !== undefined && d.sy !== undefined) {
-      const into = this.outsideAt(d.sx, d.sy);
+      const into = this.outside.at(d.sx, d.sy);
       if (into) return this.popOut(d.id, { into });
       if (d.beyond) {
         if (this.caps(d.id).popout !== false) return this.popOut(d.id, { box: { x: d.sx - 60, y: d.sy - 20 } });
