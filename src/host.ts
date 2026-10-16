@@ -4,6 +4,10 @@ import type { Box, Caps, DropZone, EdgeZone, DockoramaModel } from "./model.js";
 import type { Rect } from "./geometry.js";
 import type { TabMenuItem } from "./components/index.js";
 import type { ViewRegistry } from "./views.js";
+import type { SkinScope } from "./skins/core.js";
+import type { PartRouter } from "./requests.js";
+import type { MenuController } from "./menus.js";
+import type { ResizeController } from "./resize.js";
 import type { DragEngine } from "./drag.js";
 import type { KeyboardController } from "./keyboard.js";
 import type { Timeline } from "./history.js";
@@ -45,7 +49,7 @@ export interface DragState {
  * What the controllers split out of `DockoramaManager` need from it. The manager keeps these members private
  * (so its published typings are unchanged) and hands itself over as a `DockHost`.
  */
-export interface DockHost extends HTMLElement, Pick<DockoramaManager, "toggleZoom" | "hasPin" | "pin" | "dismissMany" | "updateComplete" | "beginMove" | "stow" | "openPalette" | "undo" | "redo" | "dismiss" | "setDirty" | "promote" | "reveal" | "activate"> {
+export interface DockHost extends HTMLElement, Pick<DockoramaManager, "toggleZoom" | "hasPin" | "unstow" | "reopenWindows" | "keepWindowsDocked" | "pin" | "dismissMany" | "updateComplete" | "beginMove" | "stow" | "openPalette" | "undo" | "redo" | "dismiss" | "setDirty" | "promote" | "reveal" | "activate"> {
   _keyMove?: { id: string; index: number; zone: DropZone | EdgeZone };
   _say: string;
   theme: string;
@@ -58,12 +62,16 @@ export interface DockHost extends HTMLElement, Pick<DockoramaManager, "toggleZoo
   caps(id: string): Caps;
   commit(next: DockoramaModel, reason: ChangeReason, record?: boolean): void;
   drag: DragEngine;
+  skinScope(): SkinScope;
   views: ViewRegistry;
   retain: "all" | "active";
   defaultBox(): Box;
   keys: KeyboardController;
   confirmClose?: (viewId: string) => boolean | Promise<boolean>;
-  openPeek(id: string, byHover?: boolean): void;
+  router: PartRouter;
+  menus: MenuController;
+  resize: ResizeController;
+  hasFocus(): boolean;
   snap: number;
   _drag?: DragState;
   _menu?: { id: string; x: number; y: number };

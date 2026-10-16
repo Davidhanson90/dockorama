@@ -10,6 +10,8 @@ import type { Box, DropZone, EdgeZone, DockoramaModel, LayoutMigrations, LayoutS
 import * as ops from "./ops.js";
 import { LayoutStore } from "./storage.js";
 import { DragEngine, managers } from "./drag.js";
+import { PartRouter } from "./requests.js";
+import { SkinSheet } from "./skinsheet.js";
 import { ViewRegistry } from "./views.js";
 import { ClosingController } from "./closing.js";
 import { MenuController } from "./menus.js";
@@ -18,7 +20,7 @@ import { KeyboardController } from "./keyboard.js";
 import { ResizeController } from "./resize.js";
 import { OutsideWindows } from "./outside.js";
 import type { DockHost, DragState } from "./host.js";
-import { activeSkin, cssFor, skinNamed, watchSkins, type Skin, type SkinPatch, type SkinScope } from "./skins/core.js";
+import { skinNamed, type Skin, type SkinPatch, type SkinScope } from "./skins/core.js";
 import { stateEvents, type BeforeAddDetail, type CommandDetail, type DragKind, type DragOverDetail, type DropDetail, type DockoramaStateEvents, type ResizeDetail } from "./events.js";
 
 /** Why the model changed (detail of `dockorama-change`). */
@@ -76,39 +78,10 @@ export class DockoramaManager extends LitElement {
   skin?: Skin | string;
   /** Template and/or CSS overrides for this dock only, layered over its skin and any page-wide overrides. */
   skinPatch?: SkinPatch;
-  private unwatchSkins?: () => void;
-  private skinStyle?: HTMLStyleElement;
-  private skinSheet?: CSSStyleSheet;
-
   /** @internal What this dock's UI parts render with. */
   skinScope(): SkinScope {
     const skin = typeof this.skin === "string" ? skinNamed(this.skin) : this.skin;
     return { ...(skin ? { skin } : {}), ...(this.skinPatch ? { patch: this.skinPatch } : {}) };
-  }
-
-  /** Apply skin CSS after the built-in styles and re-render every part. */
-  private applySkin(): void {
-    const root = this.shadowRoot;
-    if (!root) return;
-    const cssText = cssFor(this.skinScope());
-    const canAdopt = "adoptedStyleSheets" in root && typeof CSSStyleSheet !== "undefined" && "replaceSync" in CSSStyleSheet.prototype;
-    if (canAdopt) {
-      if (!this.skinSheet) {
-        this.skinSheet = new CSSStyleSheet();
-        root.adoptedStyleSheets = [...root.adoptedStyleSheets, this.skinSheet];
-      }
-      this.skinSheet.replaceSync(cssText);
-    } else {
-      if (!this.skinStyle) {
-        this.skinStyle = document.createElement("style");
-        this.skinStyle.dataset["skin"] = "";
-        root.append(this.skinStyle);
-      }
-      this.skinStyle.textContent = cssText;
-    }
-    this.dataset["skinName"] = (this.skinScope().skin ?? activeSkin()).name;
-    for (const el of Array.from(root.querySelectorAll("*"))) if (el instanceof DockoramaPart) el.requestUpdate();
-    this.requestUpdate();
   }
 
   /** `light` (default), `dark` or `auto` (follows the OS). */
@@ -169,6 +142,8 @@ export class DockoramaManager extends LitElement {
   private readonly menus = new MenuController(this.host);
   private readonly closing = new ClosingController(this.host);
   private readonly views = new ViewRegistry(this.host);
+  private readonly skinning = new SkinSheet(this.host);
+  private readonly router = new PartRouter(this.host);
   /** Drag from another manager hovering over this one. */
   private _guest?: DragState;
   private _tabMenu?: { id: string; x: number; y: number; items: TabMenuItem[] };
@@ -209,11 +184,11 @@ export class DockoramaManager extends LitElement {
     this.observer.observe(this, { childList: true, attributes: true, attributeFilter: ["data-view"] });
     this.addEventListener("keydown", this.keys.onKey);
     this.addEventListener("input", this.onInput);
-    this.renderRoot.addEventListener("dockorama-request", this.onRequest);
-    document.addEventListener("pointerdown", this.onOutside, true);
+    this.renderRoot.addEventListener("dockorama-request", this.router.onRequest);
+    document.addEventListener("pointerdown", this.router.onOutside, true);
     window.addEventListener("pagehide", this.outside.onUnload);
     managers.add(this.host);
-    this.unwatchSkins = watchSkins(() => this.applySkin());
+    this.skinning.watch();
     // Direction comes from CSS (usually a `dir` attribute on this element or an ancestor): re-render when it changes.
     this.lastDir = getComputedStyle(this).direction;
     this.dirObserver = new MutationObserver(() => {
@@ -236,11 +211,11 @@ export class DockoramaManager extends LitElement {
     this.dirObserver?.disconnect();
     this.removeEventListener("keydown", this.keys.onKey);
     this.removeEventListener("input", this.onInput);
-    this.renderRoot.removeEventListener("dockorama-request", this.onRequest);
-    document.removeEventListener("pointerdown", this.onOutside, true);
+    this.renderRoot.removeEventListener("dockorama-request", this.router.onRequest);
+    document.removeEventListener("pointerdown", this.router.onOutside, true);
     window.removeEventListener("pagehide", this.outside.onUnload);
     managers.delete(this.host);
-    this.unwatchSkins?.();
+    this.skinning.unwatch();
   }
 
   private assignSlots(): void {
@@ -344,7 +319,7 @@ export class DockoramaManager extends LitElement {
   reveal(id: string): void {
     const where = ops.locate(this._model, id);
     if (where.place === "drawer") {
-      this.openPeek(id);
+      this.router.openPeek(id);
       this.commit(this._model, "focus", false);
       return;
     }
@@ -565,7 +540,7 @@ export class DockoramaManager extends LitElement {
   protected override updated(changed: PropertyValues): void {
     this.toggleAttribute("data-moving", Boolean(this._keyMove));
     super.updated(changed);
-    if (changed.has("skin") || changed.has("skinPatch") || !this.skinStyle && !this.skinSheet) this.applySkin();
+    if (changed.has("skin") || changed.has("skinPatch") || !this.skinning.applied) this.skinning.apply();
     if (changed.has("storageKey") && this.storageKey && !this.restoredFromStorage) {
       const stored = this.store.load(this._model);
       if (stored) {
@@ -637,110 +612,6 @@ export class DockoramaManager extends LitElement {
     </div>`;
   }
 
-  // ------------------------------------------------------------- part requests
-
-  private onRequest = (e: Event): void => {
-    const r = (e as CustomEvent<PartRequest>).detail;
-    e.stopPropagation();
-    const id = r.id ?? "";
-    if (r.fromMenu) {
-      this._menu = undefined;
-      if (!this.menus.askCommand(id, r.action, "pane-menu", false)) return;
-    }
-    switch (r.action) {
-      case "activate": return this.onStackPointer(r["event"] as PointerEvent, id, r["source"] as HTMLElement);
-      case "grab": return this.drag.start(r["event"] as PointerEvent, id, r["win"] as string | undefined, r["source"] as HTMLElement);
-      case "reveal": return this.reveal(id);
-      case "dismiss": void this.dismiss(id); return;
-      case "zoom": return this.toggleZoom(id);
-      case "stow": return this.stow(id);
-      case "unstow": return this.unstow(id);
-      case "float": return this.detach(id);
-      case "dock": return this.dockToEdge(id, "edge-right");
-      case "popout": void this.popOut(id); return;
-      case "popin": return this.popIn(id);
-      case "menu": return this.menus.openMenu(id);
-      case "menu-close": this._menu = undefined; return;
-      case "peek": return r["toggle"] ? this.togglePeek(id) : this.openPeek(id, true);
-      case "peek-close": this._peek = undefined; return;
-      case "raise": return this.raise(r["key"] as string);
-      case "grip": return this.resize.grip(r["event"] as PointerEvent, r["key"] as string);
-      case "gutter-grab":
-        return this.resize.gutter(r["event"] as PointerEvent, r["path"] as number[], r["after"] as number, r["axis"] as "row" | "column",
-          r["win"] as string | undefined, r["source"] as HTMLElement);
-      case "gutter-fold": return this.resize.fold(r["path"] as number[], r["after"] as number, r["win"] as string | undefined, r["source"] as HTMLElement | undefined);
-      case "gutter-key":
-        return this.resize.key(r["event"] as KeyboardEvent, r["path"] as number[], r["after"] as number, r["axis"] as "row" | "column",
-          r["weights"] as number[], r["win"] as string | undefined, r["source"] as HTMLElement | undefined);
-      case "tab-menu": return this.menus.openTabMenu(id, r["keyboard"] ? undefined : { x: Number(r["x"]), y: Number(r["y"]) });
-      case "tab-menu-close": return this.menus.closeTabMenu(true);
-      case "tab-menu-choose": {
-        const item = this._tabMenu?.items[Number(r["index"])];
-        this.menus.closeTabMenu(true);
-        if (!item || item === "separator" || item.disabled) return;
-        if (!this.menus.askCommand(id, item.key, "tab-menu", Boolean(item.run))) return;
-        if (item.run) item.run(id);
-        else this.menus.runTabCommand(item.key as TabCommand, id);
-        return;
-      }
-      case "promote": return this.promote(id);
-      case "confirm-close": {
-        const c = this._confirm;
-        this._confirm = undefined;
-        c?.done(Boolean(r["ok"]));
-        return;
-      }
-      case "outside-reopen": return this.reopenWindows();
-      case "outside-dismiss": return this.keepWindowsDocked();
-      case "palette-query": this._palette = { query: String(r["query"] ?? ""), index: 0 }; return;
-      case "palette-index": if (this._palette) this._palette = { ...this._palette, index: Number(r["index"]) }; return;
-      case "palette-close": this._palette = undefined; return;
-      case "palette-choose": {
-        const it = this.menus.paletteItems(this._palette?.query)[Number(r["index"])];
-        this._palette = undefined;
-        it?.run();
-        return;
-      }
-    }
-  };
-
-  private peekAt = 0;
-  private peekByHover = false;
-  private openPeek(id: string, byHover = false): void {
-    this._peek = id;
-    this.peekAt = Date.now();
-    this.peekByHover = byHover;
-  }
-  /** A click on a rail item toggles its flyout. Only a click right after a hover opened it keeps it open (the pointer was already on the item). */
-  private togglePeek(id: string): void {
-    if (this._peek === id && !(this.peekByHover && Date.now() - this.peekAt < 400)) this._peek = undefined;
-    else this.openPeek(id);
-  }
-
-  private onStackPointer(e: PointerEvent, id: string, section: HTMLElement): void {
-    if (id) this.activate(id);
-    const first = e.composedPath()[0] as HTMLElement | undefined;
-    const focusable = first?.closest?.("button, a, input, select, textarea, [tabindex], [contenteditable]");
-    if (focusable && focusable !== this && (this.contains(focusable) || this.renderRoot.contains(focusable))) return;
-    // Run after the browser's own mousedown focus handling.
-    setTimeout(() => {
-      if (!this.hasFocus()) section.focus({ preventScroll: true });
-    });
-  }
-
-  // ------------------------------------------------------------- pointer interactions
-
-  private onOutside = (e: PointerEvent): void => {
-    const path = e.composedPath();
-    if (this._menu && !path.some((n) => (n as HTMLElement).classList?.contains("menu"))) this._menu = undefined;
-    if (this._tabMenu && !path.some((n) => (n as HTMLElement).classList?.contains("tab-menu"))) this._tabMenu = undefined;
-    if (this._palette && !path.some((n) => (n as HTMLElement).classList?.contains("palette"))) this._palette = undefined;
-    if (this._peek && !path.some((n) => {
-      const el = n as HTMLElement;
-      return el.classList?.contains("drawer") || el.classList?.contains("rail") || el.getAttribute?.("data-view") === this._peek;
-    })) this._peek = undefined;
-  };
-
   /** Abort the current drag and restore the layout from before it started. */
   cancelDrag(): void {
     this.drag.cancel();
@@ -748,11 +619,6 @@ export class DockoramaManager extends LitElement {
 
   private mainRect(): Rect | undefined {
     return this.renderRoot.querySelector(".main")?.getBoundingClientRect();
-  }
-
-  private raise(key: string): void {
-    const next = ops.raiseWindow(this._model, key);
-    if (next !== this._model) this.commit(next, "focus", false);
   }
 
   /** Collapse (`on`, default) or restore the split cell holding view `id`. */
