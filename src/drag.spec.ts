@@ -250,14 +250,15 @@ describe("tab overflow", () => {
     const strip = sr(el).querySelector<HTMLElement>(".tabs")!;
     overflow(strip, 600, 200);
     const e = tab(el, "e");
-    Object.defineProperty(e, "offsetLeft", { configurable: true, value: 500 });
-    Object.defineProperty(e, "offsetWidth", { configurable: true, value: 90 });
+    rects.set(strip, { left: 0, top: 0, width: 200, height: 30 });
+    // The tab sits at x=500 inside a 600px-wide scrolled strip; its viewport position follows the scroll.
+    const at = (x: number) => () => ({ left: x - strip.scrollLeft, right: x + 90 - strip.scrollLeft, top: 0, bottom: 30, width: 90, height: 30 }) as DOMRect;
+    e.getBoundingClientRect = at(500);
     el.reveal("e");
     await el.updateComplete;
     expect(strip.scrollLeft).toBe(390);
     const a = tab(el, "a");
-    Object.defineProperty(a, "offsetLeft", { configurable: true, value: 0 });
-    Object.defineProperty(a, "offsetWidth", { configurable: true, value: 90 });
+    a.getBoundingClientRect = at(0);
     el.reveal("a");
     await el.updateComplete;
     expect(strip.scrollLeft).toBe(0);

@@ -128,6 +128,20 @@ test.describe("skins", () => {
     await page.evaluate(() => { window.lab.skins.clearSkinOverrides(); });
   });
 
+  test("phosphor: the selected tab of a narrow group is scrolled fully into view, clear of the arrow buttons", async ({ dock, page }) => {
+    await page.evaluate(() => { window.lab.skins.useSkin("phosphor"); });
+    await expect(dock.el).toHaveAttribute("data-skin-name", "phosphor");
+    const strip = dock.stack("files").locator(".tabs");
+    for (const id of ["files", "search"]) {
+      await dock.call("reveal", id);
+      await expect.poll(async () => {
+        const s = (await strip.boundingBox())!;
+        const t = (await dock.tabMain(id).boundingBox())!;
+        return t.x >= s.x - 0.5 && t.x + t.width <= s.x + s.width + 0.5;
+      }, { message: `${id} tab inside the strip` }).toBe(true);
+    }
+  });
+
   test("a template that throws does not take the whole dock down", async ({ dock, page, errors }) => {
     await page.evaluate(() => {
       window.lab.skins.overrideSkin({ templates: { "tab-label": () => { throw new Error("boom from template"); } } });

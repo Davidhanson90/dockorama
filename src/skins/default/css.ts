@@ -92,7 +92,7 @@ export const styles = css`
   .tabs { display: flex; flex: 1 1 auto; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; scroll-behavior: smooth; align-self: stretch; padding-top: 4px; gap: 2px; }
   .stack[data-tabs] > .bar { padding-inline-start: 4px; }
   .tab {
-    display: inline-flex; align-items: center; gap: 4px; padding: 0 6px 0 10px; max-width: 200px; flex: 0 0 auto;
+    display: inline-flex; align-items: center; gap: 4px; padding: 0 6px 0 10px; max-width: min(200px, 100%); flex: 0 0 auto;
     border-radius: 6px 6px 0 0; color: var(--dk-ink-soft); cursor: pointer; touch-action: none; white-space: nowrap; outline: none;
     border: 1px solid transparent; border-bottom: none;
   }
@@ -108,7 +108,7 @@ export const styles = css`
   .tab:hover { color: var(--dk-ink); background: color-mix(in srgb, var(--dk-surface) 60%, transparent); }
   .tab[data-selected] { color: var(--dk-ink); background: var(--dk-surface); border-color: var(--dk-line); margin-bottom: -1px; }
   .stack[data-active] .tab[data-selected] { box-shadow: inset 0 2px 0 var(--dk-accent); }
-  .tab-main { display: inline-flex; align-items: center; gap: inherit; min-width: 0; align-self: stretch; outline: none; }
+  .tab-main { display: inline-flex; align-items: center; gap: inherit; flex: 1 1 auto; min-width: 0; align-self: stretch; outline: none; }
   .tab-main:focus-visible, .btn:focus-visible, .rail-item:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: -2px; }
   .tab .btn { width: 20px; height: 20px; opacity: 0.55; }
   .tab:hover .btn, .tab[data-selected] .btn { opacity: 1; }
