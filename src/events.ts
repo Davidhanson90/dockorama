@@ -1,6 +1,7 @@
 // Public event names and detail types, plus the pure model diff that derives state events.
-import type { Box, DockNode, DropZone, EdgeZone, DockoramaModel, Side, ViewSpot } from "./model.js";
+import type { Box, DockNode, DropZone, EdgeZone, DockoramaModel, LayoutSource, Side, ViewSpot } from "./model.js";
 import { stacksOf, viewsIn } from "./ops.js";
+import type { ChangeReason, DockoramaManager } from "./manager.js";
 
 /** Where a view lived before it was docked into the main layout. */
 export type DockOrigin = "floating" | "drawer" | "closed";
@@ -153,4 +154,41 @@ export interface BeforeAddDetail {
   id: string;
   title: string;
   at?: ViewSpot;
+}
+
+declare global {
+  interface HTMLElementTagNameMap {
+    "dockorama-manager": DockoramaManager;
+  }
+  interface HTMLElementEventMap {
+    "dockorama-change": CustomEvent<{ model: DockoramaModel; reason: ChangeReason }>;
+    "dockorama-focus": CustomEvent<{ id: string; previous?: string }>;
+    "dockorama-viewshow": CustomEvent<{ id: string; first: boolean }>;
+    "dockorama-beforeclose": CustomEvent<{ id: string }>;
+    "dockorama-beforemove": CustomEvent<{ id: string; target?: string; zone: DropZone | EdgeZone | "between" }>;
+    "dockorama-dragcancel": CustomEvent<{ id: string }>;
+    "dockorama-dirty": CustomEvent<{ id: string; dirty: boolean }>;
+    "dockorama-layoutissue": CustomEvent<{ source: LayoutSource; problems: string[]; fatal: boolean }>;
+    "dockorama-transfer": CustomEvent<{ id: string; from: DockoramaManager; to: DockoramaManager; direction: "in" | "out" }>;
+    "dockorama-viewhide": CustomEvent<{ id: string }>;
+    "dockorama-close": CustomEvent<{ id: string }>;
+    "dockorama-beforeadd": CustomEvent<BeforeAddDetail>;
+    "dockorama-command": CustomEvent<CommandDetail>;
+    "dockorama-dragstart": CustomEvent<{ id: string; kind: DragKind }>;
+    "dockorama-dragover": CustomEvent<DragOverDetail>;
+    "dockorama-drop": CustomEvent<DropDetail>;
+    "dockorama-resize": CustomEvent<ResizeDetail>;
+    "dockorama-resizing": CustomEvent<ResizeDetail>;
+    "dockorama-float": CustomEvent<DockoramaStateEvents["dockorama-float"]>;
+    "dockorama-dock": CustomEvent<DockoramaStateEvents["dockorama-dock"]>;
+    "dockorama-stow": CustomEvent<DockoramaStateEvents["dockorama-stow"]>;
+    "dockorama-unstow": CustomEvent<DockoramaStateEvents["dockorama-unstow"]>;
+    "dockorama-pin": CustomEvent<DockoramaStateEvents["dockorama-pin"]>;
+    "dockorama-unpin": CustomEvent<DockoramaStateEvents["dockorama-unpin"]>;
+    "dockorama-popout": CustomEvent<DockoramaStateEvents["dockorama-popout"]>;
+    "dockorama-popin": CustomEvent<DockoramaStateEvents["dockorama-popin"]>;
+    "dockorama-collapse": CustomEvent<DockoramaStateEvents["dockorama-collapse"]>;
+    "dockorama-expand": CustomEvent<DockoramaStateEvents["dockorama-expand"]>;
+    "dockorama-viewremove": CustomEvent<DockoramaStateEvents["dockorama-viewremove"]>;
+  }
 }

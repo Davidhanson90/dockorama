@@ -4,7 +4,7 @@ import { Timeline } from "./history.js";
 import { styles } from "./styles.js";
 import { clampBox, snapBox, type Rect } from "./geometry.js";
 import { DockoramaPart, defineParts, type TabMenuItem } from "./components/index.js";
-import type { Box, DropZone, EdgeZone, DockoramaModel, LayoutMigrations, LayoutSource, Side, SizeLimits, ViewContent, ViewInfo, ViewOptions } from "./model.js";
+import type { Box, DropZone, EdgeZone, DockoramaModel, LayoutMigrations, Side, SizeLimits, ViewContent, ViewInfo, ViewOptions } from "./model.js";
 import * as ops from "./ops.js";
 import { LayoutStore } from "./storage.js";
 import { DragEngine } from "./drag.js";
@@ -20,7 +20,7 @@ import { ResizeController } from "./resize.js";
 import { OutsideWindows } from "./outside.js";
 import type { DockHost, DragState } from "./host.js";
 import { skinNamed, type Skin, type SkinPatch, type SkinScope } from "./skins/core.js";
-import { stateEvents, type BeforeAddDetail, type CommandDetail, type DragKind, type DragOverDetail, type DropDetail, type DockoramaStateEvents, type ResizeDetail } from "./events.js";
+import { stateEvents } from "./events.js";
 
 /** Why the model changed (detail of `dockorama-change`). */
 export type ChangeReason =
@@ -586,41 +586,4 @@ export class DockoramaManager extends LitElement {
 
 
 
-}
-
-declare global {
-  interface HTMLElementTagNameMap {
-    "dockorama-manager": DockoramaManager;
-  }
-  interface HTMLElementEventMap {
-    "dockorama-change": CustomEvent<{ model: DockoramaModel; reason: ChangeReason }>;
-    "dockorama-focus": CustomEvent<{ id: string; previous?: string }>;
-    "dockorama-viewshow": CustomEvent<{ id: string; first: boolean }>;
-    "dockorama-beforeclose": CustomEvent<{ id: string }>;
-    "dockorama-beforemove": CustomEvent<{ id: string; target?: string; zone: DropZone | EdgeZone | "between" }>;
-    "dockorama-dragcancel": CustomEvent<{ id: string }>;
-    "dockorama-dirty": CustomEvent<{ id: string; dirty: boolean }>;
-    "dockorama-layoutissue": CustomEvent<{ source: LayoutSource; problems: string[]; fatal: boolean }>;
-    "dockorama-transfer": CustomEvent<{ id: string; from: DockoramaManager; to: DockoramaManager; direction: "in" | "out" }>;
-    "dockorama-viewhide": CustomEvent<{ id: string }>;
-    "dockorama-close": CustomEvent<{ id: string }>;
-    "dockorama-beforeadd": CustomEvent<BeforeAddDetail>;
-    "dockorama-command": CustomEvent<CommandDetail>;
-    "dockorama-dragstart": CustomEvent<{ id: string; kind: DragKind }>;
-    "dockorama-dragover": CustomEvent<DragOverDetail>;
-    "dockorama-drop": CustomEvent<DropDetail>;
-    "dockorama-resize": CustomEvent<ResizeDetail>;
-    "dockorama-resizing": CustomEvent<ResizeDetail>;
-    "dockorama-float": CustomEvent<DockoramaStateEvents["dockorama-float"]>;
-    "dockorama-dock": CustomEvent<DockoramaStateEvents["dockorama-dock"]>;
-    "dockorama-stow": CustomEvent<DockoramaStateEvents["dockorama-stow"]>;
-    "dockorama-unstow": CustomEvent<DockoramaStateEvents["dockorama-unstow"]>;
-    "dockorama-pin": CustomEvent<DockoramaStateEvents["dockorama-pin"]>;
-    "dockorama-unpin": CustomEvent<DockoramaStateEvents["dockorama-unpin"]>;
-    "dockorama-popout": CustomEvent<DockoramaStateEvents["dockorama-popout"]>;
-    "dockorama-popin": CustomEvent<DockoramaStateEvents["dockorama-popin"]>;
-    "dockorama-collapse": CustomEvent<DockoramaStateEvents["dockorama-collapse"]>;
-    "dockorama-expand": CustomEvent<DockoramaStateEvents["dockorama-expand"]>;
-    "dockorama-viewremove": CustomEvent<DockoramaStateEvents["dockorama-viewremove"]>;
-  }
 }
