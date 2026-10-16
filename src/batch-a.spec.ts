@@ -398,7 +398,7 @@ describe("tab context menu", () => {
     expect(sr(el).activeElement).toBe(items(el)[0]);
     await choose(el, "pin");
     expect(el.hasPin("b")).toBe(true);
-    expect(sr(el).activeElement).toBe(tab(el, "b"));
+    expect(sr(el).activeElement).toBe(tab(el, "b").querySelector(".tab-main"));
     tab(el, "b").dispatchEvent(new KeyboardEvent("keydown", { key: "F10", shiftKey: true, bubbles: true }));
     await el.updateComplete;
     expect(sr(el).querySelector('button[data-key="pin"]')!.getAttribute("aria-checked")).toBe("true");

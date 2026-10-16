@@ -19,9 +19,9 @@ export const nimbusCss = css`
   .bar { border-bottom: 0; padding: 0 8px; }
   .tabs { padding-top: 0; align-items: center; gap: 6px; }
   .tab { border-radius: 999px; border: 0; height: 30px; padding: 0 8px 0 14px; margin: 0; }
-  .tab[aria-selected="true"], .tab[data-pinned][aria-selected="true"] { background: var(--dk-accent); color: var(--dk-accent-ink); margin: 0; }
-  .stack[data-active] .tab[aria-selected="true"] { box-shadow: 0 4px 12px rgb(124 77 255 / 0.35); }
-  .tab[aria-selected="true"] .btn { color: inherit; }
+  .tab[data-selected], .tab[data-pinned][data-selected] { background: var(--dk-accent); color: var(--dk-accent-ink); margin: 0; }
+  .stack[data-active] .tab[data-selected] { box-shadow: 0 4px 12px rgb(124 77 255 / 0.35); }
+  .tab[data-selected] .btn { color: inherit; }
   .btn { border-radius: 999px; }
   .gutter::after { border-radius: 999px; }
   .nimbus-dots { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; color: var(--dk-ink-soft); font-size: 10px; letter-spacing: 1px; }

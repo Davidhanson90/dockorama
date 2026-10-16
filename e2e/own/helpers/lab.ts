@@ -56,10 +56,14 @@ export class Dock {
   stack(id: string): Locator { return this.el.locator(`[data-stack="${id}"]`); }
   stacks(): Locator { return this.el.locator("[data-stack]"); }
   tab(title: string): Locator { return this.el.getByRole("tab").filter({ has: this.page.getByText(title, { exact: true }) }); }
-  /** A tab by view id. */
+  /** The close button next to the tab with this title (it is a sibling of the role="tab" element, not inside it). */
+  closeOf(title: string): Locator { return this.el.locator("dockorama-tab").filter({ has: this.page.getByRole("tab").filter({ has: this.page.getByText(title, { exact: true }) }) }).locator('[part~="tab-close"]'); }
+  /** The `dockorama-tab` wrapper by view id: holds the role="tab" element and its close button. */
   tabOf(id: string): Locator { return this.el.locator(`dockorama-tab[data-view="${id}"]`); }
   tabs(within?: Locator): Locator { return (within ?? this.el).getByRole("tab"); }
   selectedTab(): Locator { return this.el.locator('[role="tab"][aria-selected="true"]'); }
+  /** The role="tab" element by view id. */
+  tabMain(id: string): Locator { return this.tabOf(id).locator('[role="tab"]'); }
   gutters(): Locator { return this.el.getByRole("separator"); }
   windows(): Locator { return this.el.locator('.window[role="dialog"]'); }
   window(title: string): Locator { return this.el.locator(".window").filter({ hasText: title }); }

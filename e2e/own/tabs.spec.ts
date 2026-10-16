@@ -1,4 +1,4 @@
-import { expect, test } from "./helpers/index.js";
+import { expect, test, openLab } from "./helpers/index.js";
 import { Dock } from "./helpers/index.js";
 
 test.describe("tabs", () => {
@@ -34,7 +34,7 @@ test.describe("tabs", () => {
   test("the close button removes the tab and fires beforeclose, close and viewremove in order", async ({ dock }) => {
     await dock.tab("readme.md").click();
     await dock.clearEvents();
-    await dock.tab("readme.md").locator('[part~="tab-close"]').click();
+    await dock.closeOf("readme.md").click();
     await expect(dock.tab("readme.md")).toHaveCount(0);
     const names = await dock.eventNames();
     expect(names.indexOf("beforeclose")).toBeGreaterThanOrEqual(0);
@@ -71,11 +71,11 @@ test.describe("tabs", () => {
     await dock.call("pin", "readme");
     await expect.poll(() => dock.order("main")).toEqual(["readme", "main", "notes"]);
     expect(await dock.call("hasPin", "readme")).toBe(true);
-    await expect(dock.tab("readme.md").locator('[part~="tab-close"]')).toHaveCount(0);
+    await expect(dock.closeOf("readme.md")).toHaveCount(0);
     expect((await dock.events("pin")).length).toBe(1);
     await dock.call("pin", "readme", false);
     expect((await dock.events("unpin")).length).toBe(1);
-    await expect(dock.tab("readme.md").locator('[part~="tab-close"]')).toHaveCount(1);
+    await expect(dock.closeOf("readme.md")).toHaveCount(1);
   });
 
   test("preview tabs are replaced by the next preview and promoted by a double-click", async ({ dock, page }) => {
@@ -202,11 +202,41 @@ test.describe("tabs", () => {
     await expect(dock.tab("main.ts")).toHaveAttribute("aria-selected", "true");
   });
 
-  // ARIA tabs pattern: Left/Right between tabs. Not implemented yet (Alt+PageUp/Down is) -- see docs/testing.md.
-  test.fixme("arrow keys move between tabs in a focused tab strip", async ({ dock, page }) => {
+  test("arrow keys, Home and End move between the tabs of a focused strip and select them (ARIA tabs pattern)", async ({ dock, page }) => {
     await dock.tab("main.ts").focus();
     await page.keyboard.press("ArrowRight");
     await expect(dock.tab("notes.md")).toBeFocused();
+    await expect(dock.tab("notes.md")).toHaveAttribute("aria-selected", "true");
+    await page.keyboard.press("End");
+    await expect(dock.tab("readme.md")).toBeFocused();
+    await expect(dock.tab("readme.md")).toHaveAttribute("aria-selected", "true");
+    await page.keyboard.press("ArrowRight"); // wraps around
+    await expect(dock.tab("main.ts")).toBeFocused();
+    await page.keyboard.press("ArrowLeft");
+    await expect(dock.tab("readme.md")).toBeFocused();
+    await page.keyboard.press("Home");
+    await expect(dock.tab("main.ts")).toBeFocused();
+    await expect(dock.tab("main.ts")).toHaveAttribute("aria-selected", "true");
+  });
+
+  test("in RTL the arrow keys are mirrored", async ({ page }) => {
+    await openLab(page);
+    await page.evaluate(() => { document.documentElement.dir = "rtl"; window.lab.mount(); });
+    const d = new Dock(page);
+    await d.tab("main.ts").focus();
+    await page.keyboard.press("ArrowLeft");
+    await expect(d.tab("notes.md")).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    await expect(d.tab("main.ts")).toBeFocused();
+  });
+
+  test("Alt+PageDown still switches tabs, and Delete closes the focused tab", async ({ dock, page }) => {
+    await dock.tab("main.ts").click();
+    await page.keyboard.press("Alt+PageDown");
+    await expect(dock.tab("notes.md")).toHaveAttribute("aria-selected", "true");
+    await dock.tab("notes.md").click();
+    await page.keyboard.press("Delete");
+    await expect(dock.tab("notes.md")).toHaveCount(0);
   });
 
   test("a long tab strip scrolls and the overflow control reveals hidden tabs", async ({ page }) => {
@@ -225,7 +255,7 @@ test.describe("tabs", () => {
 
   test("closing the selected tab selects a neighbour", async ({ dock }) => {
     await dock.tab("notes.md").click();
-    await dock.tab("notes.md").locator('[part~="tab-close"]').click();
+    await dock.closeOf("notes.md").click();
     await expect(dock.selectedTab().filter({ hasText: /main\.ts|readme\.md/ })).toHaveCount(1);
   });
 

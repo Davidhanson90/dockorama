@@ -16,10 +16,10 @@ test.describe("event contract", () => {
 
   test("beforeclose is cancelable, carries the id, and a veto keeps the view and skips close", async ({ dock, page }) => {
     await page.evaluate(() => { window.lab.dock().addEventListener("dockorama-beforeclose", (e) => { if (e.detail.id === "readme") e.preventDefault(); }); });
-    await dock.tab("readme.md").locator('[part~="tab-close"]').click();
+    await dock.closeOf("readme.md").click();
     await expect(dock.tab("readme.md")).toBeVisible();
     expect((await dock.events("close")).length).toBe(0);
-    await dock.tab("notes.md").locator('[part~="tab-close"]').click();
+    await dock.closeOf("notes.md").click();
     await expect(dock.tab("notes.md")).toHaveCount(0);
     expect((await dock.events("close")).map((e) => e.detail)).toEqual([{ id: "notes" }]);
   });

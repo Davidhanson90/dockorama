@@ -91,7 +91,7 @@ test.describe("keyboard docking mode and focus management", () => {
       return ["main", "readme"].includes(m["focus"]) && m["root"].children[1].children[0].current === m["focus"];
     }).toBe(true);
     const focused = (await dock.model())["focus"] as string;
-    await expect(dock.tabOf(focused)).toBeFocused();
+    await expect(dock.tabMain(focused)).toBeFocused();
   });
 
   test("closing the last view of a group leaves focus on a view that is still shown", async ({ dock }) => {

@@ -25,11 +25,17 @@ describe("<dockorama-tab>", () => {
   it("reflects tab semantics and sends reveal, grab and dismiss", async () => {
     const got = requests();
     const el = await put<P>("dockorama-tab", { view: "a", info: views.a, selected: true, closable: true, closeLabel: "Shut", win: "w" });
-    expect(el.id).toBe("tab-a");
-    expect(el.getAttribute("role")).toBe("tab");
+    const main = el.querySelector<HTMLElement>(".tab-main")!;
+    expect(main.id).toBe("tab-a");
+    expect(el.getAttribute("role")).toBe("presentation");
+    expect(main.getAttribute("role")).toBe("tab");
     expect(el.getAttribute("part")).toBe("tab tab-current");
-    expect(el.getAttribute("aria-selected")).toBe("true");
-    expect(el.tabIndex).toBe(0);
+    expect(main.getAttribute("aria-selected")).toBe("true");
+    expect(main.tabIndex).toBe(0);
+    // The close button is a sibling of the tab, not inside it.
+    expect(main.querySelector("button")).toBeNull();
+    expect(main.nextElementSibling?.getAttribute("part")).toBe("tab-close");
+    expect(main.textContent).not.toContain("Shut");
     expect(el.dataset["view"]).toBe("a");
     expect(el.querySelector(".label")!.textContent).toBe("Alpha");
     const close = el.querySelector<HTMLButtonElement>('[part="tab-close"]')!;
@@ -45,10 +51,50 @@ describe("<dockorama-tab>", () => {
     el.selected = false;
     await el.updateComplete;
     expect(el.getAttribute("part")).toBe("tab");
-    expect(el.tabIndex).toBe(-1);
+    expect(main.tabIndex).toBe(-1);
     el.remove();
     el.click();
     expect(got.length).toBe(4);
+  });
+  it("moves between the tabs of a strip with arrow keys (mirrored in RTL), Home and End, and closes with Delete", async () => {
+    const got = requests();
+    const strip = document.createElement("div");
+    strip.className = "tabs";
+    document.body.append(strip);
+    const tabs = await Promise.all(["a", "b", "c"].map(async (v) => {
+      const t = document.createElement("dockorama-tab") as P & { view: string; closable: boolean };
+      Object.assign(t, { view: v, info: { title: v }, selected: v === "a", closable: true });
+      strip.append(t);
+      await t.updateComplete;
+      return t;
+    }));
+    const main = (i: number) => tabs[i]!.querySelector<HTMLElement>(".tab-main")!;
+    const press = (i: number, key: string) => { const e = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }); main(i).dispatchEvent(e); return e; };
+    main(0).focus();
+    expect(press(0, "ArrowRight").defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(main(1));
+    expect(got.at(-1)).toMatchObject({ action: "reveal", id: "b" });
+    press(1, "ArrowLeft");
+    expect(got.at(-1)).toMatchObject({ action: "reveal", id: "a" });
+    press(0, "ArrowLeft"); // wraps
+    expect(got.at(-1)).toMatchObject({ action: "reveal", id: "c" });
+    press(0, "End");
+    expect(got.at(-1)).toMatchObject({ action: "reveal", id: "c" });
+    press(2, "Home");
+    expect(got.at(-1)).toMatchObject({ action: "reveal", id: "a" });
+    press(1, "Delete");
+    expect(got.at(-1)).toMatchObject({ action: "dismiss", id: "b" });
+    const n = got.length;
+    const withAlt = new KeyboardEvent("keydown", { key: "ArrowRight", altKey: true, bubbles: true, cancelable: true });
+    main(0).dispatchEvent(withAlt);
+    expect(withAlt.defaultPrevented).toBe(false);
+    expect(got.length).toBe(n);
+    strip.dir = "rtl";
+    strip.style.direction = "rtl";
+    press(0, "ArrowRight");
+    expect(got.at(-1)).toMatchObject({ action: "reveal", id: "c" });
+    press(0, "ArrowLeft");
+    expect(got.at(-1)).toMatchObject({ action: "reveal", id: "b" });
   });
   it("falls back to the id without info and has no close button by default", async () => {
     const el = await put<P>("dockorama-tab", { view: "zzz" });

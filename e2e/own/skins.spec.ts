@@ -16,7 +16,7 @@ for (const name of ["default", "nimbus", "ledger", "phosphor"]) {
     await expect(dock).toHaveAttribute("data-skin-name", name);
     const accent = await dock.evaluate((el) => getComputedStyle(el).getPropertyValue("--dk-accent").trim());
     expect(accent.length).toBeGreaterThan(0);
-    if (name === "phosphor") await expect(dock.locator(".tab[aria-selected=true] .label").first()).toHaveText(/^\[.*\]$/);
+    if (name === "phosphor") await expect(dock.locator(".tab[data-selected] .label").first()).toHaveText(/^\[.*\]$/);
     if (name === "ledger") await expect(dock.locator('[part~="action"][part~="more"]').first()).toHaveText("•••");
     if (name === "nimbus") await expect(dock.locator(".nimbus-dots").first()).toBeAttached();
     await demo.scrollIntoViewIfNeeded();
@@ -37,9 +37,9 @@ test("per-dock skins and live overrides", async ({ page }) => {
 
   const global = page.locator(".demo").nth(2);
   await global.getByRole("button", { name: "Override tab labels everywhere" }).click();
-  await expect(global.locator(".tab[aria-selected=true] .label").first()).toContainText("★");
+  await expect(global.locator(".tab[data-selected] .label").first()).toContainText("★");
   await global.getByRole("button", { name: "Remove override" }).click();
-  await expect(global.locator(".tab[aria-selected=true] .label").first()).not.toContainText("★");
+  await expect(global.locator(".tab[data-selected] .label").first()).not.toContainText("★");
 
   const local = page.locator(".demo").nth(3);
   await local.getByRole("button", { name: "Patch this dock" }).click();
@@ -49,5 +49,5 @@ test("per-dock skins and live overrides", async ({ page }) => {
 
   const custom = page.locator(".demo").nth(4).locator("dockorama-manager");
   await expect(custom).toHaveAttribute("data-skin-name", "sunset");
-  await expect(custom.locator(".tab[aria-selected=true] .label").first()).toContainText("▸");
+  await expect(custom.locator(".tab[data-selected] .label").first()).toContainText("▸");
 });

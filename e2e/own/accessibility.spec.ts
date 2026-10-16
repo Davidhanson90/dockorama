@@ -24,11 +24,11 @@ test.describe("accessibility", () => {
   });
 
   test("only the selected tab of a group is in the tab order (roving tabindex)", async ({ dock }) => {
-    await expect(dock.tabOf("main")).toHaveAttribute("tabindex", "0");
-    await expect(dock.tabOf("notes")).toHaveAttribute("tabindex", "-1");
+    await expect(dock.tabMain("main")).toHaveAttribute("tabindex", "0");
+    await expect(dock.tabMain("notes")).toHaveAttribute("tabindex", "-1");
     await dock.tab("notes.md").click();
-    await expect(dock.tabOf("notes")).toHaveAttribute("tabindex", "0");
-    await expect(dock.tabOf("main")).toHaveAttribute("tabindex", "-1");
+    await expect(dock.tabMain("notes")).toHaveAttribute("tabindex", "0");
+    await expect(dock.tabMain("main")).toHaveAttribute("tabindex", "-1");
   });
 
   test("splitters are separators with a value, are keyboard focusable and have a label", async ({ dock }) => {
@@ -130,18 +130,24 @@ test.describe("accessibility", () => {
     await expect(dialog.locator("button[data-cancel]")).toBeFocused();
   });
 
-  // KNOWN ISSUE: axe `nested-interactive`: each closable tab (role="tab") contains a close <button>.
-  test("no axe nested-interactive violations (close button inside a tab)", async ({ dock, page }) => {
-    test.fail(true, "closable tabs nest an interactive button inside role=tab");
+  test("no control is nested inside a tab: the close button is a sibling of the role=tab element", async ({ dock, page }) => {
     void dock;
-    const result = await new AxeBuilder({ page }).include("#stage").withRules(["nested-interactive"]).analyze();
+    const result = await new AxeBuilder({ page }).include("#stage").withRules(["nested-interactive", "aria-required-children", "aria-required-parent"]).analyze();
     expect(result.violations).toEqual([]);
+    await expect(dock.tabMain("notes").locator("button")).toHaveCount(0);
+    await expect(dock.tabOf("notes").locator('[part~="tab-close"]')).toHaveCount(1);
   });
 
-  // The accessible name of a tab and of its tabpanel includes the nested close button's label
-  // ("main.ts Close main.ts"). Screen readers announce it twice. Tracked, not asserted as fixed.
-  test("tab accessible names do not repeat the close button's label", async ({ dock }) => {
-    test.fail(true, "the tab's accessible name includes the nested close button label");
+  test("tab and tabpanel accessible names do not repeat the close button's label", async ({ dock }) => {
     await expect(dock.el.getByRole("tab", { name: "main.ts", exact: true })).toHaveCount(1);
+    await expect(dock.el.getByRole("tab", { name: /Close/ })).toHaveCount(0);
+    await expect(dock.el.getByRole("tabpanel", { name: "main.ts", exact: true })).toHaveCount(1);
+  });
+
+  test("the close button is reachable by keyboard through Delete and the tab menu, not through the tab order", async ({ dock, page }) => {
+    await expect(dock.tabOf("notes").locator('[part~="tab-close"]')).toHaveAttribute("tabindex", "-1");
+    await dock.tabMain("notes").focus();
+    await page.keyboard.press("Delete");
+    await expect(dock.tab("notes.md")).toHaveCount(0);
   });
 });

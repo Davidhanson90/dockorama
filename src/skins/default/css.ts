@@ -98,18 +98,20 @@ export const styles = css`
   }
   .tabs::-webkit-scrollbar { display: none; }
   .tab { flex: 0 0 auto; }
+  .tab > .btn { flex: 0 0 auto; }
   dockorama-tabstrip > .scroll { display: none; flex: 0 0 auto; width: 20px; }
   dockorama-tabstrip[data-overflow] > .scroll { display: inline-grid; }
   dockorama-tabstrip[data-overflow]:not([data-can-back]) > .scroll[data-dir="-1"],
   dockorama-tabstrip[data-overflow]:not([data-can-fwd]) > .scroll[data-dir="1"] { opacity: 0.3; pointer-events: none; }
   .gutter[data-drop]::after { background: var(--dk-accent); inset: 0; }
-  .tab > .label { overflow: hidden; text-overflow: ellipsis; }
+  .tab .label { overflow: hidden; text-overflow: ellipsis; }
   .tab:hover { color: var(--dk-ink); background: color-mix(in srgb, var(--dk-surface) 60%, transparent); }
-  .tab[aria-selected="true"] { color: var(--dk-ink); background: var(--dk-surface); border-color: var(--dk-line); margin-bottom: -1px; }
-  .stack[data-active] .tab[aria-selected="true"] { box-shadow: inset 0 2px 0 var(--dk-accent); }
-  .tab:focus-visible, .btn:focus-visible, .rail-item:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: -2px; }
+  .tab[data-selected] { color: var(--dk-ink); background: var(--dk-surface); border-color: var(--dk-line); margin-bottom: -1px; }
+  .stack[data-active] .tab[data-selected] { box-shadow: inset 0 2px 0 var(--dk-accent); }
+  .tab-main { display: inline-flex; align-items: center; gap: inherit; min-width: 0; align-self: stretch; outline: none; }
+  .tab-main:focus-visible, .btn:focus-visible, .rail-item:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: -2px; }
   .tab .btn { width: 20px; height: 20px; opacity: 0.55; }
-  .tab:hover .btn, .tab[aria-selected="true"] .btn { opacity: 1; }
+  .tab:hover .btn, .tab[data-selected] .btn { opacity: 1; }
   .btn {
     display: inline-grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 6px;
     background: transparent; color: var(--dk-ink-soft); cursor: pointer; flex: 0 0 auto;
@@ -184,8 +186,8 @@ export const styles = css`
   .tab .pin { display: inline-flex; color: var(--dk-ink-soft); }
   .tab .pin svg { width: 11px; height: 11px; }
   .tab[data-pinned] { position: sticky; z-index: 2; background: var(--dk-surface-2); }
-  .tab[data-pinned][aria-selected="true"] { background: var(--dk-surface); }
-  .tab[data-preview] > .label { font-style: italic; }
+  .tab[data-pinned][data-selected] { background: var(--dk-surface); }
+  .tab[data-preview] .label { font-style: italic; }
   .dirty { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--dk-ink-soft); flex: 0 0 auto; margin-inline-start: 6px; }
   .tab[data-dirty][data-closable] .dirty { margin-inline-start: 6px; }
   .tab[data-dirty] [part~="tab-close"] { display: none; }

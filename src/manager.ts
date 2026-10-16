@@ -1049,6 +1049,7 @@ export class DockoramaManager extends LitElement {
   }
 
   protected override updated(changed: PropertyValues): void {
+    this.toggleAttribute("data-moving", Boolean(this._keyMove));
     super.updated(changed);
     if (changed.has("skin") || changed.has("skinPatch") || !this.skinStyle && !this.skinSheet) this.applySkin();
     if (changed.has("storageKey") && this.storageKey && !this.restoredFromStorage) {
@@ -1070,7 +1071,7 @@ export class DockoramaManager extends LitElement {
       this.keepFocus = false;
       if (!this.hasFocus() && !this._palette && !this._menu) {
         const active = this.renderRoot.querySelector<HTMLElement>("[data-stack][data-active]");
-        (active?.querySelector<HTMLElement>('.tab[aria-selected="true"]') ?? active)?.focus({ preventScroll: true });
+        (active?.querySelector<HTMLElement>('.tab[data-selected]') ?? active)?.focus({ preventScroll: true });
       }
     }
     const now = new Set<string>();
@@ -2057,7 +2058,7 @@ export class DockoramaManager extends LitElement {
       if (!best || d < best.d) best = { el, d };
     }
     if (best) {
-      const tab = best.el.querySelector<HTMLElement>('.tab[aria-selected="true"]');
+      const tab = best.el.querySelector<HTMLElement>('.tab[data-selected]');
       const id = tab?.dataset["view"] ?? best.el.dataset["stack"];
       if (id) this.activate(id);
       (tab ?? best.el.querySelector<HTMLElement>(".btn"))?.focus();

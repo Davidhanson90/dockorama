@@ -44,7 +44,7 @@ test("tab context menu: right-click, keyboard, pin and custom items", async ({ p
   const menu = dock.locator("dockorama-tab-menu");
   await expect(menu).toBeVisible();
   await expect(menu.locator('button[data-key="close-others"]')).toBeVisible();
-  await expect(dock.locator('[role="tab"][data-pinned]')).toHaveCount(1);
+  await expect(dock.locator('dockorama-tab[data-pinned]')).toHaveCount(1);
   await page.screenshot({ path: `${SHOTS}/5x-tab-menu.png` });
   await page.keyboard.press("Escape");
   await expect(menu).toHaveCount(0);

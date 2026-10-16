@@ -7,7 +7,7 @@ const stop = (e: Event): void => e.stopPropagation();
 /** Phosphor swaps icons for ASCII, brackets tab labels and prompts the empty state. */
 export const phosphorTemplates: Partial<SkinTemplates> = {
   "tab-label": (c) => html`<span class="label">${c.selected ? `[${c.title}]` : c.title}</span>`,
-  "tab-close-button": (c) => html`<button class="btn phos" part="tab-close" tabindex="-1" aria-label="${c.label} ${c.title}"
+  "tab-close-button": (c) => html`<button class="btn phos" part="tab-close" tabindex="-1" aria-hidden="true" aria-label="${c.label} ${c.title}"
     @pointerdown=${stop} @click=${(e: Event) => { stop(e); c.close(); }}>x</button>`,
   "toolbar-button": (c) => html`<button class="btn phos" part="action ${c.part}" title=${c.label} aria-label=${c.label} @pointerdown=${stop}
     @click=${(e: Event) => { stop(e); c.press(); }}>${{ stow: "_", zoom: "[]", unzoom: "][", menu: "..", dismiss: "x" }[c.action]}</button>`,

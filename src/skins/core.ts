@@ -18,12 +18,13 @@ export interface SkinKit {
  * keep the documented class names on interactive elements (`.btn`, `.tabs`, `.grip`) so keyboard and drag code finds them.
  */
 export interface SkinContexts {
-  /** Inside `<dockorama-tab>` (the element itself is the `role="tab"` host). */
+  /** The content of the `role="tab"` element inside `<dockorama-tab>`: glyph, label and marks. The close button is not part of it (see `tab-close-button`). */
   tab: { view: string; title: string; info?: ViewInfo; selected: boolean; pinned: boolean; preview: boolean; dirty: boolean; closable: boolean; compact: boolean; closeLabel: string; dirtyLabel: string; close(): void };
   "tab-glyph": { icon: string };
   "tab-label": { title: string; selected: boolean; preview: boolean };
   "tab-dirty-dot": { label: string };
   "tab-pin-mark": { title: string };
+  /** Rendered by `<dockorama-tab>` after the `role="tab"` element, as its sibling (a control must not sit inside a tab). */
   "tab-close-button": { title: string; label: string; close(): void };
   /** Inside `<dockorama-tabstrip>`; `tabs` are the tab elements, which must stay inside an element with class `tabs`. */
   tabstrip: { tabs: TemplateResult[]; label: string; back: SkinOutput; forward: SkinOutput; wheel(e: WheelEvent): void; scrolled(): void };

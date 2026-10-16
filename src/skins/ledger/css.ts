@@ -18,9 +18,9 @@ export const ledgerCss = css`
   .title, .tab, .rail-item, .ghost { text-transform: uppercase; letter-spacing: 0.06em; font-weight: 800; font-size: 11px; }
   .tabs { padding-top: 0; gap: 0; }
   .tab { border-radius: 0; border: 0; border-inline-end: 3px solid var(--dk-line); height: 100%; }
-  .tab[aria-selected="true"], .tab[data-pinned][aria-selected="true"] { background: var(--dk-accent); color: var(--dk-accent-ink); border-color: var(--dk-line); margin: 0; }
-  .stack[data-active] .tab[aria-selected="true"] { box-shadow: none; }
-  .tab[aria-selected="true"] .btn { color: inherit; }
+  .tab[data-selected], .tab[data-pinned][data-selected] { background: var(--dk-accent); color: var(--dk-accent-ink); border-color: var(--dk-line); margin: 0; }
+  .stack[data-active] .tab[data-selected] { box-shadow: none; }
+  .tab[data-selected] .btn { color: inherit; }
   .btn { border-radius: 0; }
   .btn:hover { background: var(--dk-accent); color: var(--dk-accent-ink); }
   .ledger-mark { font-weight: 900; margin-inline-start: 4px; }

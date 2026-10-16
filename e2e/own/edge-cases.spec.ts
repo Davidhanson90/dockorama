@@ -111,9 +111,9 @@ test("framework wrappers render live demos", async ({ page }) => {
     await expect(m.locator('[role="tab"]').first()).toBeVisible();
   }
   await page.locator('[data-fw="react"] dockorama-manager [role="tab"]:has-text("notes.md")').click();
-  await page.locator('[data-fw="react"] dockorama-manager [role="tab"]:has-text("main.ts") [part~="tab-close"]').click();
+  await page.locator('[data-fw="react"] dockorama-manager dockorama-tab:has([role="tab"]:has-text("main.ts")) [part~="tab-close"]').click();
   await expect(page.locator('[data-fw="react"] + .fw-status')).toContainText("React state");
-  await page.locator('[data-fw="angular"] dockorama-manager [role="tab"]:has-text("main.ts") [part~="tab-close"]').click();
+  await page.locator('[data-fw="angular"] dockorama-manager dockorama-tab:has([role="tab"]:has-text("main.ts")) [part~="tab-close"]').click();
   await expect(page.locator('[data-fw="angular"] + .fw-status')).toContainText("Angular signal");
   await page.screenshot({ path: "e2e-results/2x-frameworks.png", fullPage: true });
   expect(errors).toEqual([]);

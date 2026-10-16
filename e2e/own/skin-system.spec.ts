@@ -10,7 +10,7 @@ test.describe("skins", () => {
       await expect(dock.el).toHaveAttribute("data-skin-name", name);
       await expect(dock.stacks()).toHaveCount(4);
       expect((await accent(dock)).length).toBeGreaterThan(0);
-      if (name === "phosphor") await expect(dock.el.locator(".tab[aria-selected=true] .label").first()).toHaveText(/^\[.*\]$/);
+      if (name === "phosphor") await expect(dock.el.locator(".tab[data-selected] .label").first()).toHaveText(/^\[.*\]$/);
       if (name === "ledger") await expect(dock.el.locator('[part~="action"][part~="more"]').first()).toHaveText("•••");
       if (name === "nimbus") await expect(dock.el.locator(".nimbus-dots").first()).toBeAttached();
     });
@@ -123,7 +123,7 @@ test.describe("skins", () => {
       const { html } = window.lab;
       overrideSkin({ templates: { "tab-close-button": (c) => html`<button class="mine" part="tab-close" aria-label="close ${c.title}" @click=${c.close}>x</button>` } });
     });
-    await dock.tab("notes.md").locator(".mine").click();
+    await dock.tabOf("notes").locator(".mine").click();
     await expect(dock.tab("notes.md")).toHaveCount(0);
     await page.evaluate(() => { window.lab.skins.clearSkinOverrides(); });
   });
