@@ -227,7 +227,8 @@ Optional subpath exports; each framework is an optional peer dependency.
 npm install
 npm start              # build + docs site dev server
 npm run build:verify   # naming guard, lint, type checks, unit tests with coverage, build
-npm run test:e2e       # Playwright tests of our own docs site
+npm run test:e2e       # Playwright behaviour suite (add :smoke for the fast subset)
+npm run test:visual    # screenshot baselines per skin (Linux; see docs/testing.md)
 ```
 
 Some tests (the Angular wrapper spec, the docs site and e2e) run against the compiled `dist/`. `npm test` and
@@ -235,6 +236,11 @@ Some tests (the Angular wrapper spec, the docs site and e2e) run against the com
 and `npm run test:e2e` builds the docs site first, so a fresh clone needs only `npm ci && npm test`. Run
 `npm run build` yourself after switching branches if a test reports a missing `dist/` file. The naming and API
 guards use the optional private records folder (`DOCKORAMA_RECORDS`) and skip when it is absent.
+
+## Testing
+
+Unit tests use Vitest; behaviour and visual regression tests use Playwright. The strategy, how to run the suites, how to update
+screenshot baselines and how to add tests are in [docs/testing.md](docs/testing.md).
 
 ## License
 

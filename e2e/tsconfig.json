@@ -6,7 +6,31 @@
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "lib": ["ES2022", "DOM"]
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false,
+    "paths": {
+      "dockorama": [
+        "../src/index.ts"
+      ],
+      "dockorama/skins": [
+        "../src/skins/index.ts"
+      ],
+      "dockorama/skins/*": [
+        "../src/skins/*/index.ts"
+      ],
+      "dockorama/*": [
+        "../src/*.ts"
+      ]
+    }
   },
-  "include": ["./**/*.ts", "../playwright.config.ts"]
+  "include": [
+    "./**/*.ts",
+    "../playwright.config.ts",
+    "../harness/lab-main.ts"
+  ]
 }

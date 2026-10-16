@@ -63,7 +63,11 @@
     "test:check": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.angular.json --noEmit && tsc -p harness/tsconfig.json && tsc -p e2e/tsconfig.json",
     "test:watch": "vitest",
     "test:e2e": "playwright test --project=own",
-    "check:api": "node scripts/check-api-overlap.mjs"
+    "check:api": "node scripts/check-api-overlap.mjs",
+    "test:e2e:smoke": "playwright test --project=own --grep @smoke",
+    "test:visual": "playwright test --project=visual",
+    "test:e2e:all": "playwright test",
+    "test:e2e:update": "playwright test --project=visual --update-snapshots"
   },
   "keywords": [
     "dock-manager",
@@ -98,6 +102,7 @@
     "@angular/compiler-cli": "^20.3.33",
     "@angular/core": "^20.3.33",
     "@angular/platform-browser": "^20.3.33",
+    "@axe-core/playwright": "^4.13.0",
     "@eslint/js": "^9.39.5",
     "@playwright/test": "^1.64.0",
     "@types/node": "^26.6.5",
