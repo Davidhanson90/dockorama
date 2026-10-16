@@ -5,6 +5,8 @@ import type { Rect } from "./geometry.js";
 import type { TabMenuItem } from "./components/index.js";
 import type { ViewRegistry } from "./views.js";
 import type { SkinScope } from "./skins/core.js";
+import type { ClosingController } from "./closing.js";
+import type { SkinSheet } from "./skinsheet.js";
 import type { PartRouter } from "./requests.js";
 import type { MenuController } from "./menus.js";
 import type { ResizeController } from "./resize.js";
@@ -69,6 +71,9 @@ export interface DockHost extends HTMLElement, Pick<DockoramaManager, "toggleZoo
   keys: KeyboardController;
   confirmClose?: (viewId: string) => boolean | Promise<boolean>;
   router: PartRouter;
+  skinning: SkinSheet;
+  keepFocus: boolean;
+  closing: ClosingController;
   menus: MenuController;
   resize: ResizeController;
   hasFocus(): boolean;

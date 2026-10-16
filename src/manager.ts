@@ -1,21 +1,20 @@
-import { LitElement, html, nothing, type PropertyValues, type TemplateResult } from "lit";
+import { LitElement, type PropertyValues, type TemplateResult } from "lit";
 import { DEFAULT_LABELS, type DockoramaLabels } from "./labels.js";
 import { Timeline } from "./history.js";
 import { styles } from "./styles.js";
 import { clampBox, snapBox, type Rect } from "./geometry.js";
-import { DockoramaPart, defineParts, type DockContext, type PartRequest, type TabMenuItem } from "./components/index.js";
-import { slotOf } from "./components/context.js";
-import { renderNode } from "./components/tree.js";
+import { DockoramaPart, defineParts, type TabMenuItem } from "./components/index.js";
 import type { Box, DropZone, EdgeZone, DockoramaModel, LayoutMigrations, LayoutSource, Side, SizeLimits, ViewContent, ViewInfo, ViewOptions } from "./model.js";
 import * as ops from "./ops.js";
 import { LayoutStore } from "./storage.js";
-import { DragEngine, managers } from "./drag.js";
+import { DragEngine } from "./drag.js";
+import { Lifecycle } from "./lifecycle.js";
 import { PartRouter } from "./requests.js";
 import { SkinSheet } from "./skinsheet.js";
 import { ViewRegistry } from "./views.js";
 import { ClosingController } from "./closing.js";
 import { MenuController } from "./menus.js";
-import { renderConfirm, renderFlyout, renderGuide, renderNotice } from "./overlays.js";
+import { afterParts, renderDock } from "./render.js";
 import { KeyboardController } from "./keyboard.js";
 import { ResizeController } from "./resize.js";
 import { OutsideWindows } from "./outside.js";
@@ -144,6 +143,7 @@ export class DockoramaManager extends LitElement {
   private readonly views = new ViewRegistry(this.host);
   private readonly skinning = new SkinSheet(this.host);
   private readonly router = new PartRouter(this.host);
+  private readonly life = new Lifecycle(this.host);
   /** Drag from another manager hovering over this one. */
   private _guest?: DragState;
   private _tabMenu?: { id: string; x: number; y: number; items: TabMenuItem[] };
@@ -152,7 +152,6 @@ export class DockoramaManager extends LitElement {
   private _confirm?: { id: string; done: (ok: boolean) => void };
   /** Keyboard docking in progress: the view, the chosen target (index into `moveTargets()`) and side. */
   private _keyMove?: { id: string; index: number; zone: DropZone | EdgeZone };
-  private observer?: MutationObserver;
   private restoredFromStorage = false;
 
   /** The current layout model (immutable; assign a new object to change it). */
@@ -179,50 +178,12 @@ export class DockoramaManager extends LitElement {
 
   override connectedCallback(): void {
     super.connectedCallback();
-    this.assignSlots();
-    this.observer = new MutationObserver(() => this.assignSlots());
-    this.observer.observe(this, { childList: true, attributes: true, attributeFilter: ["data-view"] });
-    this.addEventListener("keydown", this.keys.onKey);
-    this.addEventListener("input", this.onInput);
-    this.renderRoot.addEventListener("dockorama-request", this.router.onRequest);
-    document.addEventListener("pointerdown", this.router.onOutside, true);
-    window.addEventListener("pagehide", this.outside.onUnload);
-    managers.add(this.host);
-    this.skinning.watch();
-    // Direction comes from CSS (usually a `dir` attribute on this element or an ancestor): re-render when it changes.
-    this.lastDir = getComputedStyle(this).direction;
-    this.dirObserver = new MutationObserver(() => {
-      const now = getComputedStyle(this).direction;
-      if (now !== this.lastDir) {
-        this.lastDir = now;
-        this.requestUpdate();
-      }
-    });
-    this.dirObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["dir", "lang"], subtree: true });
-    this.outside.reconcile(true);
+    this.life.connect();
   }
-
-  private dirObserver?: MutationObserver;
-  private lastDir = "ltr";
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
-    this.observer?.disconnect();
-    this.dirObserver?.disconnect();
-    this.removeEventListener("keydown", this.keys.onKey);
-    this.removeEventListener("input", this.onInput);
-    this.renderRoot.removeEventListener("dockorama-request", this.router.onRequest);
-    document.removeEventListener("pointerdown", this.router.onOutside, true);
-    window.removeEventListener("pagehide", this.outside.onUnload);
-    managers.delete(this.host);
-    this.skinning.unwatch();
-  }
-
-  private assignSlots(): void {
-    for (const child of Array.from(this.children)) {
-      const id = child.getAttribute("data-view");
-      if (id && child.getAttribute("slot") !== slotOf(id)) child.setAttribute("slot", slotOf(id));
-    }
+    this.life.disconnect();
   }
 
   // ---------------------------------------------------------------- public API
@@ -548,68 +509,13 @@ export class DockoramaManager extends LitElement {
         this.commit(stored, "restore", false);
       }
     }
-    this.settled = this.afterParts();
-  }
-
-  /** Work that needs the parts' DOM: focus restore and first-show events. */
-  private async afterParts(): Promise<void> {
-    for (const el of Array.from(this.renderRoot.querySelectorAll("*"))) {
-      if (el instanceof DockoramaPart) await el.updateComplete;
-    }
-    if (this.keepFocus) {
-      this.keepFocus = false;
-      if (!this.hasFocus() && !this._palette && !this._menu) {
-        const active = this.renderRoot.querySelector<HTMLElement>("[data-stack][data-active]");
-        (active?.querySelector<HTMLElement>('.tab[data-selected]') ?? active)?.focus({ preventScroll: true });
-      }
-    }
-    this.views.syncVisible();
-    this.views.applyRetain();
+    this.settled = afterParts(this.host);
   }
 
   // ------------------------------------------------------------- rendering
 
-  private context(): DockContext {
-    const g = this._drag?.gap;
-    return {
-      model: this._model,
-      labels: this.t,
-      popped: new Set((this._model.outside ?? []).flatMap((o) => o.views)),
-      gap: g ? { path: g.path.join("."), after: g.after, win: g.win ?? "" } : undefined,
-      dragging: Boolean(this._drag),
-      dirty: new Set(this.closing.dirtySet)
-    };
-  }
-
   override render(): TemplateResult {
-    const m = this._model;
-    const ctx = this.context();
-    const zoomed = m.zoom ? ops.locate(m, m.zoom) : undefined;
-    const body = zoomed?.place === "tree"
-      ? renderNode(zoomed.stack, [], zoomed.window, ctx)
-      : m.root
-        ? renderNode(m.root, [], undefined, ctx)
-        : html`<div class="empty">${this.t.emptyDocs}</div>`;
-    const rail = (side: Side) => m.drawers[side].length
-      ? html`<dockorama-rail .side=${side} .views=${m.drawers[side]} .open=${this._peek} .ctx=${ctx}></dockorama-rail>`
-      : nothing;
-    return html`<div class="frame" part="frame" dir=${getComputedStyle(this).direction || "ltr"}>
-      ${rail("top")}
-      <div class="middle">
-        ${rail("start")}
-        <div class="main" part="main">${body}${renderFlyout(this.host, ctx)}</div>
-        ${rail("end")}
-      </div>
-      ${rail("bottom")}
-      ${m.windows.map((w, i) => html`<dockorama-window .key=${w.key} .box=${w.box} .tree=${w.tree} .layer=${i} .ctx=${ctx}></dockorama-window>`)}
-      ${renderGuide(this.host)}
-      ${this.menus.renderMenu()}
-      ${this.menus.renderTabMenu()}
-      ${this.menus.renderPalette()}
-      ${renderNotice(this.host)}
-      ${renderConfirm(this.host)}
-      <div class="sr" role="status" aria-live="polite">${this._say}</div>
-    </div>`;
+    return renderDock(this.host);
   }
 
   /** Abort the current drag and restore the layout from before it started. */
@@ -678,12 +584,6 @@ export class DockoramaManager extends LitElement {
     this.keys.focusNeighbour(zone);
   }
 
-  /** Typing in a preview view keeps it. */
-  private onInput = (e: Event): void => {
-    const el = (e.target as Element | null)?.closest?.("[data-view]");
-    const id = el?.parentElement === this ? el.getAttribute("data-view") : null;
-    if (id) this.promote(id);
-  };
 
 
 }

@@ -103,6 +103,13 @@ export class PartRouter {
     });
   }
 
+  /** Typing in a preview view keeps it. */
+  onInput = (e: Event): void => {
+    const el = (e.target as Element | null)?.closest?.("[data-view]");
+    const id = el?.parentElement === this.h ? el.getAttribute("data-view") : null;
+    if (id) this.h.promote(id);
+  };
+
   /** Bring a floating window to the front. */
   raise(key: string): void {
     const { h } = this;
