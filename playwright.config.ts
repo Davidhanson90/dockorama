@@ -12,7 +12,7 @@ export default defineConfig({
     }
   ],
   workers: 1,
-  webServer: process.env.PAZURU_SKIP_SERVER
+  webServer: process.env.DOCKORAMA_SKIP_SERVER
     ? undefined
     : {
         command: "npm run build:harness && npx vite preview --config harness/vite.config.ts --port 4173",

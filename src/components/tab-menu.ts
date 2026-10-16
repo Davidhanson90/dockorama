@@ -1,5 +1,5 @@
 import { html, type PropertyValues, type TemplateResult } from "lit";
-import { PazuruPart } from "./part.js";
+import { DockoramaPart } from "./part.js";
 
 /**
  * One item of a tab's context menu. Built-in items carry a `key` the manager acts on; your own items
@@ -10,11 +10,11 @@ export type TabMenuItem =
   | "separator";
 
 /**
- * `<pazuru-tab-menu>`: the right-click / Shift+F10 menu of a tab (`role="menu"`). Arrow keys, Home/End
+ * `<dockorama-tab-menu>`: the right-click / Shift+F10 menu of a tab (`role="menu"`). Arrow keys, Home/End
  * and first-letter typing move between items, Enter/Space choose, Esc and Tab close.
  * Sends `tab-menu-choose` (with the item index) and `tab-menu-close` requests.
  */
-export class PazuruTabMenu extends PazuruPart {
+export class DockoramaTabMenu extends DockoramaPart {
   static override properties = {
     view: {},
     items: { attribute: false },

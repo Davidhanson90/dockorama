@@ -1,17 +1,17 @@
-import type { ChangeReason, PazuruManager } from "./manager.js";
+import type { ChangeReason, DockoramaManager } from "./manager.js";
 import type { TabMenuItem } from "./components/index.js";
-import type { BeforeAddDetail, CommandDetail, DragKind, DragOverDetail, DropDetail, PazuruStateEvents, ResizeDetail } from "./events.js";
-import type { DropZone, EdgeZone, PazuruModel, LayoutMigrations, LayoutSource } from "./model.js";
-import type { PazuruLabels } from "./labels.js";
+import type { BeforeAddDetail, CommandDetail, DragKind, DragOverDetail, DropDetail, DockoramaStateEvents, ResizeDetail } from "./events.js";
+import type { DropZone, EdgeZone, DockoramaModel, LayoutMigrations, LayoutSource } from "./model.js";
+import type { DockoramaLabels } from "./labels.js";
 
 /** Settable element properties shared by every framework wrapper. */
-export interface PazuruProps {
-  model?: PazuruModel;
+export interface DockoramaProps {
+  model?: DockoramaModel;
   theme?: "light" | "dark" | "auto";
   snap?: number;
   storageKey?: string;
   keepEmpty?: boolean;
-  labels?: Partial<PazuruLabels>;
+  labels?: Partial<DockoramaLabels>;
   /** Managers sharing a drag group accept each other's views. */
   dragGroup?: string;
   /** Customise the tab context menu. */
@@ -25,8 +25,8 @@ export interface PazuruProps {
 }
 
 /** Event callbacks shared by every framework wrapper (names are wrapper-neutral). */
-export interface PazuruHandlers {
-  change?: (detail: { model: PazuruModel; reason: ChangeReason }) => void;
+export interface DockoramaHandlers {
+  change?: (detail: { model: DockoramaModel; reason: ChangeReason }) => void;
   focus?: (detail: { id: string; previous?: string }) => void;
   viewshow?: (detail: { id: string; first: boolean }) => void;
   viewhide?: (detail: { id: string }) => void;
@@ -41,24 +41,24 @@ export interface PazuruHandlers {
   drop?: (detail: DropDetail) => void;
   resize?: (detail: ResizeDetail) => void;
   resizing?: (detail: ResizeDetail) => void;
-  float?: (detail: PazuruStateEvents["pazuru-float"]) => void;
-  dock?: (detail: PazuruStateEvents["pazuru-dock"]) => void;
-  stow?: (detail: PazuruStateEvents["pazuru-stow"]) => void;
-  unstow?: (detail: PazuruStateEvents["pazuru-unstow"]) => void;
-  pin?: (detail: PazuruStateEvents["pazuru-pin"]) => void;
-  unpin?: (detail: PazuruStateEvents["pazuru-unpin"]) => void;
-  popout?: (detail: PazuruStateEvents["pazuru-popout"]) => void;
-  popin?: (detail: PazuruStateEvents["pazuru-popin"]) => void;
-  collapse?: (detail: PazuruStateEvents["pazuru-collapse"]) => void;
-  expand?: (detail: PazuruStateEvents["pazuru-expand"]) => void;
-  viewremove?: (detail: PazuruStateEvents["pazuru-viewremove"]) => void;
+  float?: (detail: DockoramaStateEvents["dockorama-float"]) => void;
+  dock?: (detail: DockoramaStateEvents["dockorama-dock"]) => void;
+  stow?: (detail: DockoramaStateEvents["dockorama-stow"]) => void;
+  unstow?: (detail: DockoramaStateEvents["dockorama-unstow"]) => void;
+  pin?: (detail: DockoramaStateEvents["dockorama-pin"]) => void;
+  unpin?: (detail: DockoramaStateEvents["dockorama-unpin"]) => void;
+  popout?: (detail: DockoramaStateEvents["dockorama-popout"]) => void;
+  popin?: (detail: DockoramaStateEvents["dockorama-popin"]) => void;
+  collapse?: (detail: DockoramaStateEvents["dockorama-collapse"]) => void;
+  expand?: (detail: DockoramaStateEvents["dockorama-expand"]) => void;
+  viewremove?: (detail: DockoramaStateEvents["dockorama-viewremove"]) => void;
   /** Call `event.preventDefault()` to keep the view open. */
   beforeclose?: (event: CustomEvent<{ id: string }>) => void;
   /** Call `event.preventDefault()` to stop the move. */
   beforemove?: (event: CustomEvent<{ id: string; target?: string; zone: DropZone | EdgeZone | "between" }>) => void;
   dragcancel?: (detail: { id: string }) => void;
   /** A view moved to (`direction: "out"`) or from (`"in"`) another manager. */
-  transfer?: (detail: { id: string; from: PazuruManager; to: PazuruManager; direction: "in" | "out" }) => void;
+  transfer?: (detail: { id: string; from: DockoramaManager; to: DockoramaManager; direction: "in" | "out" }) => void;
   /** A view's unsaved-changes flag changed. */
   dirty?: (detail: { id: string; dirty: boolean }) => void;
   /** A layout from code, `restore()` or storage had problems (`fatal`: it was not used). */
@@ -74,7 +74,7 @@ export const EVENT_KEYS = [
 const RAW = new Set<string>(["beforeclose", "beforemove", "beforeadd", "command", "dragstart"]);
 
 /** Copy defined props onto the element (skips unchanged values so models are not set twice). */
-export function applyProps(el: PazuruManager, props: PazuruProps): void {
+export function applyProps(el: DockoramaManager, props: DockoramaProps): void {
   for (const key of PROP_KEYS) {
     const value = props[key];
     if (value === undefined) continue;
@@ -88,7 +88,7 @@ export function applyProps(el: PazuruManager, props: PazuruProps): void {
  * Subscribe to element events; `get` is read on every event so handlers may change between renders.
  * Returns an unsubscribe function.
  */
-export function bindEvents(el: HTMLElement, get: () => PazuruHandlers): () => void {
+export function bindEvents(el: HTMLElement, get: () => DockoramaHandlers): () => void {
   const off: Array<() => void> = [];
   for (const key of EVENT_KEYS) {
     const fn = (e: Event) => {
@@ -96,8 +96,8 @@ export function bindEvents(el: HTMLElement, get: () => PazuruHandlers): () => vo
       if (!h) return;
       h(RAW.has(key) ? e : (e as CustomEvent).detail);
     };
-    el.addEventListener(`pazuru-${key}`, fn);
-    off.push(() => el.removeEventListener(`pazuru-${key}`, fn));
+    el.addEventListener(`dockorama-${key}`, fn);
+    off.push(() => el.removeEventListener(`dockorama-${key}`, fn));
   }
   return () => off.forEach((f) => f());
 }

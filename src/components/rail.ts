@@ -1,10 +1,10 @@
 import { html, type PropertyValues, type TemplateResult } from "lit";
 import type { Side } from "../model.js";
 import type { DockContext } from "./context.js";
-import { PazuruPart } from "./part.js";
+import { DockoramaPart } from "./part.js";
 
-/** `<pazuru-rail>`: the strip of auto-hidden views along one edge. Click or hover opens a `<pazuru-flyout>`. */
-export class PazuruRail extends PazuruPart {
+/** `<dockorama-rail>`: the strip of auto-hidden views along one edge. Click or hover opens a `<dockorama-flyout>`. */
+export class DockoramaRail extends DockoramaPart {
   static override properties = {
     side: {},
     views: { attribute: false },

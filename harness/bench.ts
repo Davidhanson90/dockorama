@@ -1,5 +1,5 @@
 // Benchmark used by the "Performance" guide page and scripts/bench.mjs.
-import type * as Lib from "pazuru";
+import type * as Lib from "dockorama";
 
 export interface BenchResult {
   views: number;
@@ -26,7 +26,7 @@ const round = (n: number) => Math.round(n * 100) / 100;
 export async function runBench(lib: typeof Lib, host: HTMLElement, views: number, retain: "all" | "active" = "all"): Promise<BenchResult> {
   const { createModel, docs, row, stack, place } = lib;
   host.replaceChildren();
-  const dock = document.createElement("pazuru-manager") as Lib.PazuruManager;
+  const dock = document.createElement("dockorama-manager") as Lib.DockoramaManager;
   dock.style.cssText = "display:block;height:420px";
   dock.retain = retain;
   const info: Record<string, Lib.ViewInfo> = {};

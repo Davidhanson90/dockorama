@@ -16,12 +16,12 @@ describe("nimbus skin", () => {
     expect(Object.keys(nimbus.templates).length).toBeGreaterThan(0);
     for (const key of Object.keys(nimbus.templates) as Array<keyof typeof nimbus.templates>) expect(templateFor(key, { skin: nimbus })).toBe(nimbus.templates[key]);
     expect(templateFor("confirm", { skin: nimbus })).toBe(defaultSkin.templates.confirm);
-    expect(nimbus.css).toMatch(/--pz-accent/);
+    expect(nimbus.css).toMatch(/--dk-accent/);
   });
 
   it("styles a dock when imported page-wide, and a single dock through its skin attribute", async () => {
     await import("./index.js");
-    const el = document.createElement("pazuru-manager");
+    const el = document.createElement("dockorama-manager");
     for (const id of Object.keys(views)) {
       const d = document.createElement("div");
       d.dataset["view"] = id;

@@ -5,7 +5,7 @@ export interface Page {
   section: string;
   body: string;
   examples?: Example[];
-  after?: (el: HTMLElement, lib: typeof import("pazuru")) => void;
+  after?: (el: HTMLElement, lib: typeof import("dockorama")) => void;
 }
 
 import { benchTable, runBench } from "./bench.js";
@@ -14,7 +14,7 @@ import { RECORDED } from "./bench-results.js";
 const ex = (id: string) => `<div data-example="${id}"></div>`;
 
 // Shared snippet: most examples build a manager the same way.
-const SETUP = `const dock = document.createElement("pazuru-manager");
+const SETUP = `const dock = document.createElement("dockorama-manager");
 host.append(dock);
 const view = (id, html) => dock.insertAdjacentHTML("beforeend", '<div class="v" data-view="' + id + '">' + html + "</div>");`;
 
@@ -42,7 +42,7 @@ add({
   body: `<section class="hero">
     <div>
       <h1>Docking layouts,<br>done properly.</h1>
-      <p class="lead">pazuru is a dependency-light web component for IDE-style workspaces: split panes, tabbed groups,
+      <p class="lead">dockorama is a dependency-light web component for IDE-style workspaces: split panes, tabbed groups,
       document areas, floating windows and auto-hiding drawers — rearranged by drag and drop or keyboard, with undo, persistence and themes built in.</p>
       <div class="cta"><a class="primary" href="#/start">Get started</a><a class="secondary" href="#/examples/ide">See examples</a></div>
     </div>
@@ -81,8 +81,8 @@ dock.model = createModel(
 add({
   slug: "start", title: "Getting started", section: "Introduction",
   body: `<h1>Getting started</h1>
-  <p class="lead">Install the package, put your content inside <code>&lt;pazuru-manager&gt;</code>, and describe the layout as a model.</p>
-  <pre><code>npm install pazuru</code></pre>
+  <p class="lead">Install the package, put your content inside <code>&lt;dockorama-manager&gt;</code>, and describe the layout as a model.</p>
+  <pre><code>npm install dockorama</code></pre>
   <h2>1. Content</h2>
   <p>Each child element with a <code>data-view</code> attribute is a view. Content stays in your DOM (light DOM), so your CSS and framework keep owning it.</p>
   <h2>2. Model</h2>
@@ -91,7 +91,7 @@ add({
   ${ex("basic")}
   <p class="note">Examples on this site use a tiny <code>view(id, html)</code> helper to add content, and <code>button()</code> / <code>log()</code> to drive the demo toolbar.</p>
   <h2>3. Listen</h2>
-  <p>Every change fires <code>pazuru-change</code> with the new model and a reason — save it, sync it, or ignore it.</p>`,
+  <p>Every change fires <code>dockorama-change</code> with the new model and a reason — save it, sync it, or ignore it.</p>`,
   examples: [{ id: "basic", code: basic, openCode: true }]
 });
 
@@ -114,7 +114,7 @@ const out = document.createElement("pre");
 out.style.cssText = "position:absolute;right:8px;bottom:8px;max-width:45%;max-height:60%;overflow:auto;margin:0;font-size:11px;opacity:.92;border-radius:8px;z-index:100";
 host.append(out);
 const show = () => { out.textContent = JSON.stringify(dock.model.root, null, 1); };
-dock.addEventListener("pazuru-change", show);
+dock.addEventListener("dockorama-change", show);
 show();` }]
 });
 
@@ -136,7 +136,7 @@ button("Equalise", () => {
   m.root.weights = m.root.weights.map(() => 1);
   dock.restore(m);
 });
-dock.addEventListener("pazuru-change", (e) => e.detail.reason === "resize" && log("weights " + JSON.stringify(e.detail.model.root.weights.map((w) => +w.toFixed(2)))));` }]
+dock.addEventListener("dockorama-change", (e) => e.detail.reason === "resize" && log("weights " + JSON.stringify(e.detail.model.root.weights.map((w) => +w.toFixed(2)))));` }]
 });
 
 add({
@@ -162,7 +162,7 @@ dock.model = createModel(
 );
 let n = names.length;
 button("New document", () => dock.addView("d" + n, { title: "untitled-" + n++ + ".ts" }));
-dock.addEventListener("pazuru-change", (e) => log(e.detail.reason));` }]
+dock.addEventListener("dockorama-change", (e) => log(e.detail.reason));` }]
 });
 
 add({
@@ -220,7 +220,7 @@ add({
   ${ex("zoom")}`,
   examples: [{ id: "zoom", code: `${basic}
 button("Zoom Output", () => dock.toggleZoom("log"));
-dock.addEventListener("pazuru-change", (e) => e.detail.reason === "zoom" && log("zoom → " + (e.detail.model.zoom ?? "none")));` }]
+dock.addEventListener("dockorama-change", (e) => e.detail.reason === "zoom" && log("zoom → " + (e.detail.model.zoom ?? "none")));` }]
 });
 
 add({
@@ -235,7 +235,7 @@ add({
   <tr><td>Centre of an empty document area</td><td>Open the view there as a document.</td></tr>
   <tr><td>Anywhere else</td><td>Float in a new window.</td></tr></table>
   <p>A translucent preview shows where the view will land. Press <span class="kbd">Esc</span> at any point to cancel: the layout goes back exactly as it was
-  (including live tab reordering and window moves) and <code>pazuru-dragcancel</code> fires. Use <code>pazuru-beforemove</code> to veto a move
+  (including live tab reordering and window moves) and <code>dockorama-dragcancel</code> fires. Use <code>dockorama-beforemove</code> to veto a move
   (its <code>zone</code> is <code>"between"</code> for gutter drops). The same moves are available in code: <code>dropBetween(id, path, after)</code> and <code>dropIntoDocs(id, path)</code>.
   Pointer events are used throughout, so touch and pen work too.</p>
   ${ex("dnd")}`,
@@ -246,10 +246,10 @@ dock.model = createModel(
   Object.fromEntries(Object.keys(colours).map((id) => [id, { title: id[0].toUpperCase() + id.slice(1) }])),
   row([stack(["red", "amber"]), column([stack(["green"]), stack(["blue"])]), stack(["violet"])])
 );
-dock.addEventListener("pazuru-beforemove", (e) => {
+dock.addEventListener("dockorama-beforemove", (e) => {
   if (e.detail.id === "violet" && e.detail.zone === "into") { e.preventDefault(); log("Violet refuses to share a group"); }
 });
-dock.addEventListener("pazuru-change", (e) => log(e.detail.reason));` }]
+dock.addEventListener("dockorama-change", (e) => log(e.detail.reason));` }]
 });
 
 add({
@@ -272,8 +272,8 @@ add({
   <tr><td>Arrows / <span class="kbd">Home</span> / <span class="kbd">End</span> on a gutter</td><td>Resize</td></tr></table>
   ${ex("keys")}`,
   examples: [{ id: "keys", code: `${basic}
-dock.addEventListener("pazuru-focus", (e) => log("focus " + e.detail.id));
-dock.addEventListener("pazuru-change", (e) => log(e.detail.reason));
+dock.addEventListener("dockorama-focus", (e) => log("focus " + e.detail.id));
+dock.addEventListener("dockorama-change", (e) => log(e.detail.reason));
 button("Focus main.ts", () => { dock.activate("main"); dock.shadowRoot.querySelector('[role="tab"][aria-selected="true"]').focus(); });` }]
 });
 
@@ -299,58 +299,58 @@ button("Toggle direction", () => { dock.dir = dock.dir === "rtl" ? "ltr" : "rtl"
 add({
   slug: "guide/events", title: "Events", section: "Guides",
   body: `<h1>Events</h1>
-  <p class="lead">Every event is a <code>CustomEvent</code> fired on <code>&lt;pazuru-manager&gt;</code>. They bubble and cross shadow roots (<code>composed</code>),
-  and are typed through <code>HTMLElementEventMap</code>, so <code>dock.addEventListener("pazuru-float", (e) =&gt; e.detail.window)</code> is checked by TypeScript.
+  <p class="lead">Every event is a <code>CustomEvent</code> fired on <code>&lt;dockorama-manager&gt;</code>. They bubble and cross shadow roots (<code>composed</code>),
+  and are typed through <code>HTMLElementEventMap</code>, so <code>dock.addEventListener("dockorama-float", (e) =&gt; e.detail.window)</code> is checked by TypeScript.
   Cancellable events stop the action when you call <code>preventDefault()</code>.</p>
   <h2>Live event log</h2>
-  <p>Drag tabs, float or stow views, resize splitters, use the tab menu (right-click a tab) — each event is logged below. <code>pazuru-resizing</code> is left out to keep the log readable.</p>
+  <p>Drag tabs, float or stow views, resize splitters, use the tab menu (right-click a tab) — each event is logged below. <code>dockorama-resizing</code> is left out to keep the log readable.</p>
   ${ex("events")}
   <h2>Reference</h2>
   <table><tr><th>Group</th><th>Event</th><th>Detail</th><th>Cancellable</th><th>When</th></tr>
-  <tr><td>Layout</td><td><code>pazuru-change</code></td><td><code>{ model, reason }</code></td><td></td><td>After every layout change (also fires alongside every state event below)</td></tr>
-  <tr><td>Layout</td><td><code>pazuru-focus</code></td><td><code>{ id, previous? }</code></td><td></td><td>The active view changed</td></tr>
-  <tr><td>Layout</td><td><code>pazuru-layoutissue</code></td><td><code>{ source, problems, fatal }</code></td><td></td><td>An assigned, restored or stored layout had problems; <code>fatal</code>: it was not used</td></tr>
-  <tr><td>Views</td><td><code>pazuru-beforeadd</code></td><td><code>{ id, title, at? }</code></td><td>✔</td><td>Before <code>addView</code> registers a view</td></tr>
-  <tr><td>Views</td><td><code>pazuru-viewshow</code></td><td><code>{ id, first }</code></td><td></td><td>A view's content became visible (<code>first</code>: never shown before — lazy loading)</td></tr>
-  <tr><td>Views</td><td><code>pazuru-viewhide</code></td><td><code>{ id }</code></td><td></td><td>A visible view's content was hidden (other tab, closed, stowed, zoomed away)</td></tr>
-  <tr><td>Views</td><td><code>pazuru-beforeclose</code></td><td><code>{ id }</code></td><td>✔</td><td>Before a view closes</td></tr>
-  <tr><td>Views</td><td><code>pazuru-close</code></td><td><code>{ id }</code></td><td></td><td>A view was closed (it stays registered; <code>reveal</code> brings it back)</td></tr>
-  <tr><td>Views</td><td><code>pazuru-viewremove</code></td><td><code>{ id }</code></td><td></td><td>A view was unregistered (<code>removeView</code>, <code>forget</code>, transfer out, undo of an add)</td></tr>
-  <tr><td>Views</td><td><code>pazuru-dirty</code></td><td><code>{ id, dirty }</code></td><td></td><td><code>setDirty</code> changed a view's unsaved state</td></tr>
-  <tr><td>State</td><td><code>pazuru-float</code></td><td><code>{ id, window }</code></td><td></td><td>A view moved into a floating window</td></tr>
-  <tr><td>State</td><td><code>pazuru-dock</code></td><td><code>{ id, from }</code></td><td></td><td>A view joined the main layout; <code>from</code> is <code>"floating" | "drawer" | "closed"</code></td></tr>
-  <tr><td>State</td><td><code>pazuru-stow</code></td><td><code>{ id, side }</code></td><td></td><td>A view was auto-hidden into an edge drawer</td></tr>
-  <tr><td>State</td><td><code>pazuru-unstow</code></td><td><code>{ id }</code></td><td></td><td>A view left its drawer</td></tr>
-  <tr><td>State</td><td><code>pazuru-pin</code></td><td><code>{ id }</code></td><td></td><td>A tab was pinned</td></tr>
-  <tr><td>State</td><td><code>pazuru-unpin</code></td><td><code>{ id }</code></td><td></td><td>A tab was unpinned</td></tr>
-  <tr><td>State</td><td><code>pazuru-popout</code></td><td><code>{ id, window }</code></td><td></td><td>A view's content moved to a separate browser window</td></tr>
-  <tr><td>State</td><td><code>pazuru-popin</code></td><td><code>{ id }</code></td><td></td><td>A popped-out view came back</td></tr>
-  <tr><td>State</td><td><code>pazuru-collapse</code></td><td><code>{ views, path, index, window? }</code></td><td></td><td>A split cell was collapsed</td></tr>
-  <tr><td>State</td><td><code>pazuru-expand</code></td><td><code>{ views, path, index, window? }</code></td><td></td><td>A collapsed split cell was restored</td></tr>
-  <tr><td>Drag</td><td><code>pazuru-dragstart</code></td><td><code>{ id, kind }</code></td><td>✔</td><td>A drag passed the move threshold; <code>kind</code>: <code>"tab" | "loose" | "window"</code>. Cancel to abort the drag</td></tr>
-  <tr><td>Drag</td><td><code>pazuru-dragover</code></td><td><code>{ id, spot, target? }</code></td><td></td><td>The drop spot changed (fires once per change, not per pointer move)</td></tr>
-  <tr><td>Drag</td><td><code>pazuru-beforemove</code></td><td><code>{ id, target?, zone }</code></td><td>✔</td><td>Before a dock/move is applied</td></tr>
-  <tr><td>Drag</td><td><code>pazuru-drop</code></td><td><code>{ id, spot, target?, moved }</code></td><td></td><td>The drag ended; <code>moved</code> is false if nothing changed or a move was vetoed</td></tr>
-  <tr><td>Drag</td><td><code>pazuru-dragcancel</code></td><td><code>{ id }</code></td><td></td><td>A drag was cancelled (Esc or pointer cancel); layout restored</td></tr>
-  <tr><td>Drag</td><td><code>pazuru-transfer</code></td><td><code>{ id, from, to, direction }</code></td><td></td><td>A view moved between two managers; fired on both</td></tr>
-  <tr><td>Resize</td><td><code>pazuru-resizing</code></td><td><code>ResizeDetail</code></td><td></td><td>Live, at most once per animation frame while a splitter or window grip is dragged</td></tr>
-  <tr><td>Resize</td><td><code>pazuru-resize</code></td><td><code>ResizeDetail</code></td><td></td><td>A splitter or floating-window resize finished (pointer up, or a keyboard step)</td></tr>
-  <tr><td>Commands</td><td><code>pazuru-command</code></td><td><code>{ id, command, source, custom }</code></td><td>✔</td><td>Before a tab-menu or pane-menu command runs; <code>source</code>: <code>"tab-menu" | "pane-menu"</code></td></tr></table>
+  <tr><td>Layout</td><td><code>dockorama-change</code></td><td><code>{ model, reason }</code></td><td></td><td>After every layout change (also fires alongside every state event below)</td></tr>
+  <tr><td>Layout</td><td><code>dockorama-focus</code></td><td><code>{ id, previous? }</code></td><td></td><td>The active view changed</td></tr>
+  <tr><td>Layout</td><td><code>dockorama-layoutissue</code></td><td><code>{ source, problems, fatal }</code></td><td></td><td>An assigned, restored or stored layout had problems; <code>fatal</code>: it was not used</td></tr>
+  <tr><td>Views</td><td><code>dockorama-beforeadd</code></td><td><code>{ id, title, at? }</code></td><td>✔</td><td>Before <code>addView</code> registers a view</td></tr>
+  <tr><td>Views</td><td><code>dockorama-viewshow</code></td><td><code>{ id, first }</code></td><td></td><td>A view's content became visible (<code>first</code>: never shown before — lazy loading)</td></tr>
+  <tr><td>Views</td><td><code>dockorama-viewhide</code></td><td><code>{ id }</code></td><td></td><td>A visible view's content was hidden (other tab, closed, stowed, zoomed away)</td></tr>
+  <tr><td>Views</td><td><code>dockorama-beforeclose</code></td><td><code>{ id }</code></td><td>✔</td><td>Before a view closes</td></tr>
+  <tr><td>Views</td><td><code>dockorama-close</code></td><td><code>{ id }</code></td><td></td><td>A view was closed (it stays registered; <code>reveal</code> brings it back)</td></tr>
+  <tr><td>Views</td><td><code>dockorama-viewremove</code></td><td><code>{ id }</code></td><td></td><td>A view was unregistered (<code>removeView</code>, <code>forget</code>, transfer out, undo of an add)</td></tr>
+  <tr><td>Views</td><td><code>dockorama-dirty</code></td><td><code>{ id, dirty }</code></td><td></td><td><code>setDirty</code> changed a view's unsaved state</td></tr>
+  <tr><td>State</td><td><code>dockorama-float</code></td><td><code>{ id, window }</code></td><td></td><td>A view moved into a floating window</td></tr>
+  <tr><td>State</td><td><code>dockorama-dock</code></td><td><code>{ id, from }</code></td><td></td><td>A view joined the main layout; <code>from</code> is <code>"floating" | "drawer" | "closed"</code></td></tr>
+  <tr><td>State</td><td><code>dockorama-stow</code></td><td><code>{ id, side }</code></td><td></td><td>A view was auto-hidden into an edge drawer</td></tr>
+  <tr><td>State</td><td><code>dockorama-unstow</code></td><td><code>{ id }</code></td><td></td><td>A view left its drawer</td></tr>
+  <tr><td>State</td><td><code>dockorama-pin</code></td><td><code>{ id }</code></td><td></td><td>A tab was pinned</td></tr>
+  <tr><td>State</td><td><code>dockorama-unpin</code></td><td><code>{ id }</code></td><td></td><td>A tab was unpinned</td></tr>
+  <tr><td>State</td><td><code>dockorama-popout</code></td><td><code>{ id, window }</code></td><td></td><td>A view's content moved to a separate browser window</td></tr>
+  <tr><td>State</td><td><code>dockorama-popin</code></td><td><code>{ id }</code></td><td></td><td>A popped-out view came back</td></tr>
+  <tr><td>State</td><td><code>dockorama-collapse</code></td><td><code>{ views, path, index, window? }</code></td><td></td><td>A split cell was collapsed</td></tr>
+  <tr><td>State</td><td><code>dockorama-expand</code></td><td><code>{ views, path, index, window? }</code></td><td></td><td>A collapsed split cell was restored</td></tr>
+  <tr><td>Drag</td><td><code>dockorama-dragstart</code></td><td><code>{ id, kind }</code></td><td>✔</td><td>A drag passed the move threshold; <code>kind</code>: <code>"tab" | "loose" | "window"</code>. Cancel to abort the drag</td></tr>
+  <tr><td>Drag</td><td><code>dockorama-dragover</code></td><td><code>{ id, spot, target? }</code></td><td></td><td>The drop spot changed (fires once per change, not per pointer move)</td></tr>
+  <tr><td>Drag</td><td><code>dockorama-beforemove</code></td><td><code>{ id, target?, zone }</code></td><td>✔</td><td>Before a dock/move is applied</td></tr>
+  <tr><td>Drag</td><td><code>dockorama-drop</code></td><td><code>{ id, spot, target?, moved }</code></td><td></td><td>The drag ended; <code>moved</code> is false if nothing changed or a move was vetoed</td></tr>
+  <tr><td>Drag</td><td><code>dockorama-dragcancel</code></td><td><code>{ id }</code></td><td></td><td>A drag was cancelled (Esc or pointer cancel); layout restored</td></tr>
+  <tr><td>Drag</td><td><code>dockorama-transfer</code></td><td><code>{ id, from, to, direction }</code></td><td></td><td>A view moved between two managers; fired on both</td></tr>
+  <tr><td>Resize</td><td><code>dockorama-resizing</code></td><td><code>ResizeDetail</code></td><td></td><td>Live, at most once per animation frame while a splitter or window grip is dragged</td></tr>
+  <tr><td>Resize</td><td><code>dockorama-resize</code></td><td><code>ResizeDetail</code></td><td></td><td>A splitter or floating-window resize finished (pointer up, or a keyboard step)</td></tr>
+  <tr><td>Commands</td><td><code>dockorama-command</code></td><td><code>{ id, command, source, custom }</code></td><td>✔</td><td>Before a tab-menu or pane-menu command runs; <code>source</code>: <code>"tab-menu" | "pane-menu"</code></td></tr></table>
   <h3>Detail types</h3>
   <pre><code>type DragSpot = DropZone | EdgeZone | "between" | "empty" | "tabs" | "outside" | "other-dock" | "none";
 type ResizeDetail =
   | { kind: "split"; path: number[]; window?: string; sizes: number[] }  // sizes = split weights
   | { kind: "window"; window: string; box: Box };</code></pre>
-  <p>All detail types are exported (<code>DragOverDetail</code>, <code>DropDetail</code>, <code>ResizeDetail</code>, <code>CommandDetail</code>, <code>BeforeAddDetail</code>, <code>FoldDetail</code>, <code>PazuruStateEvents</code>).
+  <p>All detail types are exported (<code>DragOverDetail</code>, <code>DropDetail</code>, <code>ResizeDetail</code>, <code>CommandDetail</code>, <code>BeforeAddDetail</code>, <code>FoldDetail</code>, <code>DockoramaStateEvents</code>).
   <code>stateEvents(prev, next)</code> is also exported: it returns the state events implied by any two models, handy for server-side or test code.</p>
   <h3>Order</h3>
-  <p><code>pazuru-change</code> fires first, then the specific state events for the same change. Assigning <code>dock.model</code> fires only <code>pazuru-change</code> (reason <code>"set"</code>).
-  <code>pazuru-close</code> follows its <code>pazuru-change</code>. <code>pazuru-viewshow</code> / <code>pazuru-viewhide</code> fire after the next render.</p>
+  <p><code>dockorama-change</code> fires first, then the specific state events for the same change. Assigning <code>dock.model</code> fires only <code>dockorama-change</code> (reason <code>"set"</code>).
+  <code>dockorama-close</code> follows its <code>dockorama-change</code>. <code>dockorama-viewshow</code> / <code>dockorama-viewhide</code> fire after the next render.</p>
   <h2>Vetoing</h2>
   ${ex("events-veto")}`,
   examples: [{ id: "events", height: 380, code: `${basic}
-const quiet = ["pazuru-resizing"];
-const names = ['pazuru-change', 'pazuru-focus', 'pazuru-layoutissue', 'pazuru-beforeadd', 'pazuru-viewshow', 'pazuru-viewhide', 'pazuru-beforeclose', 'pazuru-close', 'pazuru-viewremove', 'pazuru-dirty', 'pazuru-float', 'pazuru-dock', 'pazuru-stow', 'pazuru-unstow', 'pazuru-pin', 'pazuru-unpin', 'pazuru-popout', 'pazuru-popin', 'pazuru-collapse', 'pazuru-expand', 'pazuru-dragstart', 'pazuru-dragover', 'pazuru-beforemove', 'pazuru-drop', 'pazuru-dragcancel', 'pazuru-transfer', 'pazuru-resizing', 'pazuru-resize', 'pazuru-command'];
+const quiet = ["dockorama-resizing"];
+const names = ['dockorama-change', 'dockorama-focus', 'dockorama-layoutissue', 'dockorama-beforeadd', 'dockorama-viewshow', 'dockorama-viewhide', 'dockorama-beforeclose', 'dockorama-close', 'dockorama-viewremove', 'dockorama-dirty', 'dockorama-float', 'dockorama-dock', 'dockorama-stow', 'dockorama-unstow', 'dockorama-pin', 'dockorama-unpin', 'dockorama-popout', 'dockorama-popin', 'dockorama-collapse', 'dockorama-expand', 'dockorama-dragstart', 'dockorama-dragover', 'dockorama-beforemove', 'dockorama-drop', 'dockorama-dragcancel', 'dockorama-transfer', 'dockorama-resizing', 'dockorama-resize', 'dockorama-command'];
 for (const type of names) {
   if (quiet.includes(type)) continue;
   dock.addEventListener(type, (e) => {
@@ -360,13 +360,13 @@ for (const type of names) {
     log(type + (e.cancelable ? " (cancellable) " : " ") + JSON.stringify(d));
   });
 }` }, { id: "events-veto", height: 320, code: `${basic}
-dock.addEventListener("pazuru-beforeadd", (e) => {
+dock.addEventListener("dockorama-beforeadd", (e) => {
   if (e.detail.id.startsWith("temp")) { e.preventDefault(); log("blocked add of " + e.detail.id); }
 });
-dock.addEventListener("pazuru-command", (e) => {
+dock.addEventListener("dockorama-command", (e) => {
   if (e.detail.command === "close-all") { e.preventDefault(); log("close-all is disabled here"); }
 });
-dock.addEventListener("pazuru-dragstart", (e) => {
+dock.addEventListener("dockorama-dragstart", (e) => {
   if (e.detail.id === "log") { e.preventDefault(); log("Output cannot be dragged"); }
 });
 let n = 0;
@@ -381,7 +381,7 @@ add({
   <p>For named layouts, <code>Workspaces</code> stores snapshots you can switch between. Snapshots are plain JSON — send them to your server too.</p>
   ${ex("persist")}`,
   examples: [{ id: "persist", code: `${SETUP}
-dock.storageKey = "pazuru-demo-persist";
+dock.storageKey = "dockorama-demo-persist";
 ["chart", "orders", "news", "chat"].forEach((id) => view(id, "<h3>" + id + "</h3>"));
 const views = { chart: { title: "Chart" }, orders: { title: "Orders" }, news: { title: "News" }, chat: { title: "Chat" } };
 const presets = {
@@ -391,7 +391,7 @@ const presets = {
 };
 dock.model = createModel(views, presets.Analysis);
 log(dock.restored ? "Restored your last layout from localStorage" : "Fresh layout");
-const ws = new Workspaces("pazuru-demo-workspaces");
+const ws = new Workspaces("dockorama-demo-workspaces");
 for (const name of Object.keys(presets)) button(name, () => dock.restore(createModel(views, presets[name])));
 button("Save as ‘Mine’", () => { ws.save("Mine", dock.snapshot()); log("saved: " + ws.names().join(", ")); });
 button("Load ‘Mine’", () => { const m = ws.load("Mine"); m ? dock.restore(m) : log("nothing saved yet"); });` }]
@@ -406,7 +406,7 @@ add({
 const u = button("Undo", () => dock.undo());
 const r = button("Redo", () => dock.redo());
 const sync = () => { u.disabled = !dock.canUndo; r.disabled = !dock.canRedo; };
-dock.addEventListener("pazuru-change", (e) => { sync(); log(e.detail.reason); });
+dock.addEventListener("dockorama-change", (e) => { sync(); log(e.detail.reason); });
 sync();` }]
 });
 
@@ -418,7 +418,7 @@ add({
   <h2>Several views in one window</h2>
   <p>An outside window has its own tab bar. Drag a tab from the dock and let go over an outside window to add it there, or call <code>popOut(id, { into: key })</code>. Drag a tab out of an outside window and let go over the dock: the drop guides show where it will land. Let go over another outside window to move it there.</p>
   <h2>Saved and re-opened</h2>
-  <p>Outside windows are part of the model (<code>model.outside</code>: <code>{ key, views, current, box? }</code>, where <code>box</code> is the window's screen position and size), so they are saved with <code>storage-key</code>, snapshots and undo. On load pazuru opens them again. Browsers only allow pop-ups after a click or key press, so when they're blocked a notice offers <em>Re-open windows</em> or <em>Keep them here</em>; from code, <code>blockedWindows</code>, <code>reopenWindows()</code> and <code>keepWindowsDocked()</code>.</p>
+  <p>Outside windows are part of the model (<code>model.outside</code>: <code>{ key, views, current, box? }</code>, where <code>box</code> is the window's screen position and size), so they are saved with <code>storage-key</code>, snapshots and undo. On load dockorama opens them again. Browsers only allow pop-ups after a click or key press, so when they're blocked a notice offers <em>Re-open windows</em> or <em>Keep them here</em>; from code, <code>blockedWindows</code>, <code>reopenWindows()</code> and <code>keepWindowsDocked()</code>.</p>
   <pre><code>dock.popOut("log");                          // new window
 dock.popOut("notes", { into: dock.model.outside[0].key }); // join it
 dock.popOut("main", { box: { x: 1600, y: 80, w: 800, h: 600 } }); // screen position
@@ -426,8 +426,8 @@ dock.popIn("log");</code></pre>
   <p><strong>Browser limits:</strong> dragging between windows uses screen coordinates, which browsers report with no exact size for their own toolbars, so landing spots in the main window can be off by the height of the browser's toolbar. Some browsers open pop-ups as tabs, and some ignore the requested position. One pop-up per click is the usual limit, so re-opening several windows may take several clicks.</p>
   ${ex("popout")}`,
   examples: [{ id: "popout", code: `${basic}
-dock.storageKey = "pazuru-demo-popout";
-dock.addEventListener("pazuru-change", (e) => {
+dock.storageKey = "dockorama-demo-popout";
+dock.addEventListener("dockorama-change", (e) => {
   if (e.detail.reason === "popout" || e.detail.reason === "popin") log(e.detail.reason + ": " + JSON.stringify((dock.model.outside ?? []).map((o) => o.views)));
 });
 button("Pop out Output", () => log(dock.popOut("log") ? "opened" : "blocked"));
@@ -441,13 +441,13 @@ button("Bring everything back", () => { for (const o of dock.model.outside ?? []
 add({
   slug: "guide/cross-dock", title: "Dragging between docks", section: "Guides",
   body: `<h1>Dragging between docks</h1>
-  <p class="lead">Give several <code>&lt;pazuru-manager&gt;</code> elements the same <code>drag-group</code> and views can be dragged from one to another. The drop guides appear in the dock under the pointer, and the content element moves with the view.</p>
-  <pre><code>&lt;pazuru-manager drag-group="desk"&gt;…&lt;/pazuru-manager&gt;
-&lt;pazuru-manager drag-group="desk"&gt;…&lt;/pazuru-manager&gt;</code></pre>
+  <p class="lead">Give several <code>&lt;dockorama-manager&gt;</code> elements the same <code>drag-group</code> and views can be dragged from one to another. The drop guides appear in the dock under the pointer, and the content element moves with the view.</p>
+  <pre><code>&lt;dockorama-manager drag-group="desk"&gt;…&lt;/dockorama-manager&gt;
+&lt;dockorama-manager drag-group="desk"&gt;…&lt;/dockorama-manager&gt;</code></pre>
   <ul>
     <li>Managers without a <code>drag-group</code>, or with a different one, never exchange views.</li>
     <li>The move is one undoable change in <em>each</em> manager (<code>reason: "transfer"</code>): the source forgets the view, the target registers it with the same title, icon and caps.</li>
-    <li>Both managers fire <code>pazuru-transfer</code> with <code>{ id, from, to, direction }</code>. The target's <code>pazuru-beforemove</code> (with <code>from</code>) can veto the drop.</li>
+    <li>Both managers fire <code>dockorama-transfer</code> with <code>{ id, from, to, direction }</code>. The target's <code>dockorama-beforemove</code> (with <code>from</code>) can veto the drop.</li>
     <li>A drop is refused when the target already has a view with that id, or when the pointer is not on a drop target.</li>
     <li>Lazy views that haven't been shown yet move their factory, so the content is still created on first show.</li>
   </ul>
@@ -455,14 +455,14 @@ add({
   ${ex("cross-dock")}`,
   examples: [{ id: "cross-dock", height: 440, code: `host.style.cssText += ";display:flex;gap:8px";
 const make = (key, names) => {
-  const dock = document.createElement("pazuru-manager");
+  const dock = document.createElement("dockorama-manager");
   dock.dataset.dock = key;
   dock.dragGroup = "demo";
   dock.style.flex = "1 1 0";
   host.append(dock);
   for (const n of names) dock.insertAdjacentHTML("beforeend", '<div class="v" data-view="' + n + '"><h3>' + n + '</h3><input placeholder="type here, then drag the tab"></div>');
   dock.model = createModel(Object.fromEntries(names.map((n) => [n, { title: n }])), row([stack([names[0]]), docs(names.slice(1))], [1, 2]));
-  dock.addEventListener("pazuru-transfer", (e) => log(key + ": " + e.detail.direction + " " + e.detail.id));
+  dock.addEventListener("dockorama-transfer", (e) => log(key + ": " + e.detail.direction + " " + e.detail.id));
   return dock;
 };
 const left = make("left", ["Inbox", "Draft", "Sent"]);
@@ -491,29 +491,29 @@ for (const f of files) {
     else dock.addView(f, "<" + f + "> — single-click opens a preview; double-click the tab or type to keep it.", { title: f, at: "docs", preview: true });
   });
 }
-dock.addEventListener("pazuru-change", (e) => log(e.detail.reason + (e.detail.model.root ? "" : "")));` }]
+dock.addEventListener("dockorama-change", (e) => log(e.detail.reason + (e.detail.model.root ? "" : "")));` }]
 });
 
 add({
   slug: "guide/dirty", title: "Unsaved changes", section: "Guides",
   body: `<h1>Unsaved changes</h1>
-  <p class="lead">Tell pazuru which views have unsaved work: their tab shows a dot, and closing them asks first.</p>
+  <p class="lead">Tell dockorama which views have unsaved work: their tab shows a dot, and closing them asks first.</p>
   <pre><code>editor.addEventListener("input", () =&gt; dock.setDirty("main"));
 save().then(() =&gt; dock.setDirty("main", false));
 dock.isDirty("main"); dock.dirtyViews; // ["main"]</code></pre>
   <ul>
     <li>The dot (<code>::part(tab-dirty)</code>, labelled “Unsaved changes”) replaces the close button until you hover or focus the tab. Single-view panels show it after their title.</li>
-    <li><code>dismiss(id)</code> now returns a <code>Promise&lt;boolean&gt;</code>. For a dirty view it waits for an answer; clean views close at once, exactly as before. <code>pazuru-beforeclose</code> still fires first.</li>
-    <li>By default the answer comes from a <code>&lt;pazuru-confirm&gt;</code> dialog (focus starts on Cancel; <span class="kbd">Esc</span> cancels). Set <code>confirmClose = (id) =&gt; boolean | Promise&lt;boolean&gt;</code> to ask your own way — a throw or rejection counts as “no”.</li>
+    <li><code>dismiss(id)</code> now returns a <code>Promise&lt;boolean&gt;</code>. For a dirty view it waits for an answer; clean views close at once, exactly as before. <code>dockorama-beforeclose</code> still fires first.</li>
+    <li>By default the answer comes from a <code>&lt;dockorama-confirm&gt;</code> dialog (focus starts on Cancel; <span class="kbd">Esc</span> cancels). Set <code>confirmClose = (id) =&gt; boolean | Promise&lt;boolean&gt;</code> to ask your own way — a throw or rejection counts as “no”.</li>
     <li><code>dismissMany</code> (and <em>Close others / all</em>) closes clean views in one step and then asks about each dirty one in turn.</li>
-    <li><code>pazuru-dirty</code> fires with <code>{ id, dirty }</code>. Dirty state is runtime only; it is not saved in the model.</li>
+    <li><code>dockorama-dirty</code> fires with <code>{ id, dirty }</code>. Dirty state is runtime only; it is not saved in the model.</li>
   </ul>
   ${ex("dirty")}`,
   examples: [{ id: "dirty", height: 440, code: `${basic}
 dock.querySelector('[data-view="main"]').insertAdjacentHTML("beforeend", "<textarea rows=4 style='width:90%'>Edit me</textarea>");
 dock.querySelector('[data-view="notes"]').insertAdjacentHTML("beforeend", "<textarea rows=4 style='width:90%'>Or me</textarea>");
 for (const id of ["main", "notes"]) dock.querySelector('[data-view="' + id + '"] textarea').addEventListener("input", () => dock.setDirty(id));
-dock.addEventListener("pazuru-dirty", (e) => log(e.detail.id + (e.detail.dirty ? " has unsaved changes" : " saved")));
+dock.addEventListener("dockorama-dirty", (e) => log(e.detail.id + (e.detail.dirty ? " has unsaved changes" : " saved")));
 button("Save all", () => { for (const id of dock.dirtyViews) dock.setDirty(id, false); });
 button("Close main.ts", async () => log("closed: " + (await dock.dismiss("main"))));
 let custom = false;
@@ -625,18 +625,18 @@ dock.migrations = {
   0: (m) =&gt; ({ ...m, parked: [...m.parked, "search"] }),      // v0 → v1: new view
   1: (m) =&gt; renameView(m, "log", "output")                     // v1 → v2
 };
-dock.addEventListener("pazuru-layoutissue", (e) =&gt; console.warn(e.detail));
+dock.addEventListener("dockorama-layoutissue", (e) =&gt; console.warn(e.detail));
 dock.storageKey = "my-app";
 dock.model = createModel(views, tree);  // no version: taken as version 2</code></pre>
   <ul>
-    <li><code>model.version</code> is your app's number (missing = 0). It is separate from <code>v</code>, pazuru's own format number.</li>
+    <li><code>model.version</code> is your app's number (missing = 0). It is separate from <code>v</code>, dockorama's own format number.</li>
     <li><code>migrations[n]</code> turns version <code>n</code> into <code>n + 1</code>; steps run in order and the result is stamped with the new version. The pure helper is <code>upgrade(model, migrations, target)</code>.</li>
     <li>A missing step, a step that doesn't return a model, or a layout newer than <code>layoutVersion</code> is <em>fatal</em>: a stored layout is ignored (the app's own layout is used), and <code>restore()</code> throws.</li>
     <li>Every incoming layout is then checked with <code>validate(model)</code> (unknown or repeated view ids, bad weights, focus on a view that isn't placed). Those problems are fixed by normalising and reported as non-fatal.</li>
-    <li>Problems are reported with <code>pazuru-layoutissue</code> <code>{ source: "set" | "restore" | "storage", problems, fatal }</code>.</li>
+    <li>Problems are reported with <code>dockorama-layoutissue</code> <code>{ source: "set" | "restore" | "storage", problems, fatal }</code>.</li>
   </ul>
   ${ex("versions")}`,
-  examples: [{ id: "versions", code: `${basic.replace("dock.model = createModel(", "dock.layoutVersion = 2;\ndock.migrations = {\n  0: (m) => ({ ...m, focus: \"files\" }),\n  1: (m) => ({ ...m, parked: [...m.parked] })\n};\ndock.addEventListener(\"pazuru-layoutissue\", (e) => log((e.detail.fatal ? \"rejected \" : \"fixed \") + e.detail.source + \": \" + e.detail.problems.join(\"; \")));\ndock.model = createModel(")}
+  examples: [{ id: "versions", code: `${basic.replace("dock.model = createModel(", "dock.layoutVersion = 2;\ndock.migrations = {\n  0: (m) => ({ ...m, focus: \"files\" }),\n  1: (m) => ({ ...m, parked: [...m.parked] })\n};\ndock.addEventListener(\"dockorama-layoutissue\", (e) => log((e.detail.fatal ? \"rejected \" : \"fixed \") + e.detail.source + \": \" + e.detail.problems.join(\"; \")));\ndock.model = createModel(")}
 button("Restore a version-0 layout", () => { const old = dock.snapshot(); delete old.version; dock.restore(old); log("now version " + dock.model.version); });
 button("Restore one with problems", () => { const bad = dock.snapshot(); bad.focus = "gone"; bad.parked = [...bad.parked, "ghost"]; dock.restore(bad); });
 button("Restore one from the future", () => { try { dock.restore({ ...dock.snapshot(), version: 9 }); } catch (err) { log(String(err.message)); } });` }]
@@ -648,13 +648,13 @@ add({
   <p class="lead">Right-click a tab, or focus it and press <span class="kbd">Shift</span>+<span class="kbd">F10</span> (or the menu key), for IDE-style tab commands.</p>
   <table><tr><th>Item key</th><th>Does</th></tr>
   <tr><td><code>close</code></td><td>Close this view</td></tr>
-  <tr><td><code>close-others</code> / <code>close-right</code> / <code>close-all</code></td><td>Close other / later / all tabs of the group, in one undoable change. Pinned tabs are kept; each view still asks <code>pazuru-beforeclose</code>.</td></tr>
+  <tr><td><code>close-others</code> / <code>close-right</code> / <code>close-all</code></td><td>Close other / later / all tabs of the group, in one undoable change. Pinned tabs are kept; each view still asks <code>dockorama-beforeclose</code>.</td></tr>
   <tr><td><code>pin</code></td><td>Pin or unpin: pinned tabs sit first, drawn compact (just the icon when there is one), with no close button</td></tr>
   <tr><td><code>float</code></td><td>Float in a window (or dock back)</td></tr>
   <tr><td><code>popout</code></td><td>Open in a separate browser window</td></tr>
   <tr><td><code>split-right</code> / <code>split-down</code></td><td>Move to a new group beside / below</td></tr>
   <tr><td><code>stow</code></td><td>Auto-hide to an edge (docked tool groups only)</td></tr></table>
-  <p>The menu is a <code>&lt;pazuru-tab-menu&gt;</code> (<code>role="menu"</code>): arrow keys, <span class="kbd">Home</span>/<span class="kbd">End</span> and first-letter typing move, <span class="kbd">Enter</span> chooses, <span class="kbd">Esc</span> or <span class="kbd">Tab</span> close and focus goes back to the tab.</p>
+  <p>The menu is a <code>&lt;dockorama-tab-menu&gt;</code> (<code>role="menu"</code>): arrow keys, <span class="kbd">Home</span>/<span class="kbd">End</span> and first-letter typing move, <span class="kbd">Enter</span> chooses, <span class="kbd">Esc</span> or <span class="kbd">Tab</span> close and focus goes back to the tab.</p>
   <h2>Customising</h2>
   <p>Set <code>tabMenu</code> to a function that gets the view id and the built-in items and returns the items to show. Add your own <code>{ key, label, run }</code>, drop or relabel built-ins, or disable them.</p>
   <pre><code>dock.tabMenu = (id, items) =&gt; [
@@ -671,7 +671,7 @@ dock.addView("readme", { title: "README.md", icon: "📘" }, { view: "main", zon
 dock.addView("todo", { title: "TODO.md" }, { view: "main", zone: "into" });
 dock.pin("readme");
 dock.tabMenu = (id, items) => [...items, "separator", { key: "log-id", label: "Log view id", run: (v) => log("custom item: " + v) }];
-dock.addEventListener("pazuru-change", (e) => log(e.detail.reason));
+dock.addEventListener("dockorama-change", (e) => log(e.detail.reason));
 button("Open menu for main.ts", () => dock.openTabMenu("main"));` }]
 });
 
@@ -688,11 +688,11 @@ button("Open palette", () => dock.openPalette());` }]
 add({
   slug: "guide/minimap", title: "Layout minimap", section: "Guides",
   body: `<h1>Layout minimap</h1>
-  <p class="lead"><code>&lt;pazuru-minimap for="id"&gt;</code> renders a live miniature of a manager's layout, including floating windows. Click a block to reveal that view.</p>
+  <p class="lead"><code>&lt;dockorama-minimap for="id"&gt;</code> renders a live miniature of a manager's layout, including floating windows. Click a block to reveal that view.</p>
   ${ex("minimap")}`,
   examples: [{ id: "minimap", code: `${basic}
 dock.id = "mini-demo";
-const map = document.createElement("pazuru-minimap");
+const map = document.createElement("dockorama-minimap");
 map.setAttribute("for", "mini-demo");
 map.style.cssText = "position:absolute;right:12px;bottom:12px;z-index:100;width:180px;height:110px;box-shadow:0 6px 20px rgb(0 0 0/.2);border-radius:8px";
 host.append(map);` }]
@@ -701,23 +701,23 @@ host.append(map);` }]
 add({
   slug: "guide/multiple", title: "Multiple docks", section: "Guides",
   body: `<h1>Multiple docks</h1>
-  <p class="lead">Put as many <code>&lt;pazuru-manager&gt;</code> elements on a page as you like. Each one owns its own layout model, undo history, drag state, focus and saved layout.</p>
+  <p class="lead">Put as many <code>&lt;dockorama-manager&gt;</code> elements on a page as you like. Each one owns its own layout model, undo history, drag state, focus and saved layout.</p>
   <p>Give each manager its own <code>storage-key</code> so their saved layouts don't overwrite each other. Events are dispatched by the manager they happened in, so listen on each element separately.</p>
   <p>By default a drag stays inside the manager it started in. To let views move between managers, give them the same <code>drag-group</code>: see <a href="#/guide/cross-dock">Dragging between docks</a>.</p>
   ${ex("multiple")}`,
   examples: [{ id: "multiple", height: 440, code: `host.style.cssText += ";display:flex;gap:8px";
 const make = (key, names) => {
-  const dock = document.createElement("pazuru-manager");
+  const dock = document.createElement("dockorama-manager");
   dock.dataset.dock = key;
   dock.style.flex = "1 1 0";
-  dock.storageKey = "pazuru-demo-multi-" + key;
+  dock.storageKey = "dockorama-demo-multi-" + key;
   host.append(dock);
   for (const n of names) dock.insertAdjacentHTML("beforeend", '<div class="v" data-view="' + n + '"><h3>' + n + "</h3></div>");
   dock.model = createModel(
     Object.fromEntries(names.map((n) => [n, { title: n }])),
     row([stack([names[0]]), docs(names.slice(1))], [1, 2])
   );
-  dock.addEventListener("pazuru-change", (e) => log(key + ": " + e.detail.reason));
+  dock.addEventListener("dockorama-change", (e) => log(key + ": " + e.detail.reason));
   log(key + (dock.restored ? ": restored its own saved layout" : ": fresh layout"));
   return dock;
 };
@@ -735,7 +735,7 @@ button("Reset both", () => {
 add({
   slug: "guide/add-views", title: "Adding views from code", section: "Guides",
   body: `<h1>Adding views from code</h1>
-  <p class="lead"><code>dock.addView(id, content, options?)</code> adds a view in one call: it sets <code>data-view</code>, appends the content, registers the view and places it. All of that is a single undoable change (<code>pazuru-change</code> with reason <code>"add"</code>).</p>
+  <p class="lead"><code>dock.addView(id, content, options?)</code> adds a view in one call: it sets <code>data-view</code>, appends the content, registers the view and places it. All of that is a single undoable change (<code>dockorama-change</code> with reason <code>"add"</code>).</p>
   <pre><code>dock.addView("chart", chartElement, { title: "Revenue", icon: "📈", at: { near: "orders", zone: "right" } });
 dock.addView("help", "Plain text works too", { at: "parked" });
 dock.addView("report", () =&gt; buildReport(), { title: "Report", at: { float: { w: 420, h: 300 } } }); // created on first show
@@ -743,8 +743,8 @@ const el = dock.removeView("chart");  // returns the element, taken out of the d
   <h2>Content</h2>
   <table><tr><th>Type</th><th>What happens</th></tr>
   <tr><td><code>Element</code></td><td>Appended to the manager (moved if it already lives elsewhere). It's kept alive as it moves between panes.</td></tr>
-  <tr><td><code>string</code></td><td>Wrapped in a <code>&lt;div class="pazuru-text"&gt;</code> as text (never parsed as HTML). Default padding comes from <code>--pz-text-padding</code> (see below).</td></tr>
-  <tr><td><code>() =&gt; Element</code></td><td>Lazy: called once, the first time the view is shown, just before <code>pazuru-viewshow</code> (with <code>first: true</code>). The view gets <code>lazy: true</code>.</td></tr></table>
+  <tr><td><code>string</code></td><td>Wrapped in a <code>&lt;div class="dockorama-text"&gt;</code> as text (never parsed as HTML). Default padding comes from <code>--dk-text-padding</code> (see below).</td></tr>
+  <tr><td><code>() =&gt; Element</code></td><td>Lazy: called once, the first time the view is shown, just before <code>dockorama-viewshow</code> (with <code>first: true</code>). The view gets <code>lazy: true</code>.</td></tr></table>
   <h2>Where it goes: <code>options.at</code></h2>
   <table><tr><th>Value</th><th>Placement</th></tr>
   <tr><td><code>"auto"</code> (default)</td><td>The document area if there is one, otherwise the right edge.</td></tr>
@@ -756,10 +756,10 @@ const el = dock.removeView("chart");  // returns the element, taken out of the d
   <tr><td><code>"parked"</code></td><td>Registered but closed; show it later with <code>reveal(id)</code>.</td></tr></table>
   <p>The other options are the view's own settings: <code>title</code> (defaults to the id), <code>icon</code>, <code>hint</code> and <code>caps</code>.</p>
   <h2>Text views and padding</h2>
-  <p>String content is put in a <code>&lt;div class="pazuru-text"&gt;</code> with padding from <code>--pz-text-padding</code> (default <code>12px 14px</code>), plus comfortable line-height, <code>overflow: auto</code> and <code>user-select: text</code>. Theme it on the manager, or override the class from your own CSS:</p>
-  <pre><code>pazuru-manager { --pz-text-padding: 20px; }
+  <p>String content is put in a <code>&lt;div class="dockorama-text"&gt;</code> with padding from <code>--dk-text-padding</code> (default <code>12px 14px</code>), plus comfortable line-height, <code>overflow: auto</code> and <code>user-select: text</code>. Theme it on the manager, or override the class from your own CSS:</p>
+  <pre><code>dockorama-manager { --dk-text-padding: 20px; }
 /* or */
-.pazuru-text { padding: 8px 12px; }</code></pre>
+.dockorama-text { padding: 8px 12px; }</code></pre>
   <h2>Errors</h2>
   <p><code>addView</code> throws, and changes nothing, if the id is already registered, if <code>near</code> names a view that isn't in the layout, or if <code>"docs"</code> is asked for without a document area. Use <code>hasView(id)</code> to check first.</p>
   <h2>Removing and finding views</h2>
@@ -769,8 +769,8 @@ const el = dock.removeView("chart");  // returns the element, taken out of the d
 view("orders", "<h3>Orders</h3><p class='muted'>Use the buttons to add views.</p>");
 view("main", "<h3>Dashboard</h3>");
 dock.model = createModel({ orders: { title: "Orders" }, main: { title: "Dashboard" } }, row([stack(["orders"]), docs(["main"])], [1, 2]));
-dock.addEventListener("pazuru-change", (e) => log("change: " + e.detail.reason));
-dock.addEventListener("pazuru-viewshow", (e) => log("shown: " + e.detail.id));
+dock.addEventListener("dockorama-change", (e) => log("change: " + e.detail.reason));
+dock.addEventListener("dockorama-viewshow", (e) => log("shown: " + e.detail.id));
 let n = 0;
 const chart = () => {
   const values = Array.from({ length: 8 }, () => 15 + Math.round(Math.random() * 80));
@@ -801,12 +801,12 @@ button("Undo", () => dock.undo());` }]
 add({
   slug: "guide/lazy", title: "Lazy content", section: "Guides",
   body: `<h1>Lazy content</h1>
-  <p class="lead"><code>pazuru-viewshow</code> fires whenever a view becomes visible; <code>detail.first</code> is true the first time — create expensive content (charts, editors, iframes) only then. <code>pazuru-viewhide</code> pairs with it.</p>
+  <p class="lead"><code>dockorama-viewshow</code> fires whenever a view becomes visible; <code>detail.first</code> is true the first time — create expensive content (charts, editors, iframes) only then. <code>dockorama-viewhide</code> pairs with it.</p>
   ${ex("lazy")}`,
   examples: [{ id: "lazy", code: `${SETUP}
 const ids = ["one", "two", "three", "four"];
 ids.forEach((id) => view(id, "<span class='muted'>not loaded</span>"));
-dock.addEventListener("pazuru-viewshow", (e) => {
+dock.addEventListener("dockorama-viewshow", (e) => {
   if (!e.detail.first) return;
   const el = dock.querySelector('[data-view="' + e.detail.id + '"]');
   el.innerHTML = "<h3>Loaded " + e.detail.id + "</h3><p>at " + new Date().toLocaleTimeString() + "</p>";
@@ -862,22 +862,22 @@ const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 add({
   slug: "guide/frameworks", title: "Frameworks", section: "Guides",
   body: `<h1>Frameworks</h1>
-  <p class="lead">pazuru is a standard custom element, and ships thin, typed wrappers as optional subpath exports:
-  <code>pazuru/react</code>, <code>pazuru/vue</code>, <code>pazuru/angular</code> and <code>pazuru/svelte</code>.
+  <p class="lead">dockorama is a standard custom element, and ships thin, typed wrappers as optional subpath exports:
+  <code>dockorama/react</code>, <code>dockorama/vue</code>, <code>dockorama/angular</code> and <code>dockorama/svelte</code>.
   Each framework is an <em>optional</em> peer dependency, so nothing extra is installed unless you use it. Every demo below is live.</p>
   <h2>React</h2>
-  <pre><code>${esc(`import { PazuruLayout } from "pazuru/react";
+  <pre><code>${esc(`import { DockoramaLayout } from "dockorama/react";
 
 export function Workspace() {
   const [model, setModel] = useState(initialModel);
-  const dock = useRef<PazuruManager>(null); // dock.current.undo(), .detach(id) …
+  const dock = useRef<DockoramaManager>(null); // dock.current.undo(), .detach(id) …
   return (
-    <PazuruLayout ref={dock} model={model} theme="auto"
+    <DockoramaLayout ref={dock} model={model} theme="auto"
       onLayoutChange={(d) => setModel(d.model)}
       onBeforeClose={(e) => { if (unsaved) e.preventDefault(); }}>
       <Explorer data-view="files" />
       <Editor data-view="main" />
-    </PazuruLayout>
+    </DockoramaLayout>
   );
 }`)}</code></pre>
   ${fwDemo("react")}
@@ -885,30 +885,30 @@ export function Workspace() {
   <code>onLayoutChange, onViewFocus, onViewShow, onBeforeClose, onBeforeMove, onDragCancel</code>.</p>
   <h2>Vue 3</h2>
   <pre><code>${esc(`<script setup lang="ts">
-import { PazuruLayout } from "pazuru/vue";
+import { DockoramaLayout } from "dockorama/vue";
 const model = ref(initialModel);
 </script>
 
 <template>
-  <PazuruLayout v-model:model="model" theme="auto" @layout-change="(d) => console.log(d.reason)">
+  <DockoramaLayout v-model:model="model" theme="auto" @layout-change="(d) => console.log(d.reason)">
     <FileTree data-view="files" />
     <Editor data-view="main" />
-  </PazuruLayout>
+  </DockoramaLayout>
 </template>`)}</code></pre>
   ${fwDemo("vue")}
   <p>Emits <code>layout-change, update:model, view-focus, view-show, before-close, before-move, drag-cancel</code>; exposes <code>element</code>.
   No <code>isCustomElement</code> setting is needed when you use the wrapper.</p>
   <h2>Angular</h2>
-  <pre><code>${esc(`import { PazuruLayoutComponent } from "pazuru/angular";
+  <pre><code>${esc(`import { DockoramaLayoutComponent } from "dockorama/angular";
 
 @Component({
   selector: "app-workspace",
-  imports: [PazuruLayoutComponent],
+  imports: [DockoramaLayoutComponent],
   template: \`
-    <pazuru-layout [model]="model()" theme="auto" (layoutChange)="model.set($event.model)">
+    <dockorama-layout [model]="model()" theme="auto" (layoutChange)="model.set($event.model)">
       <app-explorer data-view="files" />
       <app-editor data-view="main" />
-    </pazuru-layout>\`
+    </dockorama-layout>\`
 })
 export class Workspace {
   model = signal(initialModel);
@@ -919,21 +919,21 @@ export class Workspace {
   The element is available as <code>element</code>.</p>
   <h2>Svelte</h2>
   <pre><code>${esc(`<script>
-  import { pazuru } from "pazuru/svelte";
+  import { dockorama } from "dockorama/svelte";
   let model = $state(initialModel);
 </script>
 
-<pazuru-manager use:pazuru={{ model, on: { change: (d) => (model = d.model) } }}>
+<dockorama-manager use:dockorama={{ model, on: { change: (d) => (model = d.model) } }}>
   <FileTree data-view="files" />
-</pazuru-manager>`)}</code></pre>
+</dockorama-manager>`)}</code></pre>
   ${fwDemo("svelte")}
-  <p>The action has no Svelte import, so it also works as a plain helper: <code>pazuru(el, options)</code> returns <code>{ update, destroy }</code>.</p>
+  <p>The action has no Svelte import, so it also works as a plain helper: <code>dockorama(el, options)</code> returns <code>{ update, destroy }</code>.</p>
   <h2>Plain HTML / Lit</h2>
-  <pre><code>${esc(`<pazuru-manager id="dock"></pazuru-manager>
+  <pre><code>${esc(`<dockorama-manager id="dock"></dockorama-manager>
 <script type="module">
-  import "pazuru";
+  import "dockorama";
   dock.model = createModel(views, tree);
-  dock.addEventListener("pazuru-change", (e) => save(e.detail.model));
+  dock.addEventListener("dockorama-change", (e) => save(e.detail.model));
 </script>`)}</code></pre>`,
   after: (el) => {
     void import("./frameworks.js").then((fw) => {
@@ -958,8 +958,8 @@ dock.model = createModel(
   { one: { title: "One" }, two: { title: "Two" }, three: { title: "Three" }, four: { title: "Four" }, doc: { title: "draft.md" } },
   row([stack(["one", "two"]), docs(["doc"]), stack(["three", "four"])], [1, 2, 1])
 );
-dock.addEventListener("pazuru-change", (e) => log(e.detail.reason));
-dock.addEventListener("pazuru-dragcancel", (e) => log("drag cancelled: " + e.detail.id));` }]
+dock.addEventListener("dockorama-change", (e) => log(e.detail.reason));
+dock.addEventListener("dockorama-dragcancel", (e) => log("drag cancelled: " + e.detail.id));` }]
 });
 
 // ---------------------------------------------------------------- examples
@@ -992,7 +992,7 @@ button("Undo", () => dock.undo());
 button("Palette (Ctrl+.)", () => dock.openPalette());`);
 
 exPage("dashboard", "Analytics dashboard", "A re-arrangeable KPI dashboard. Drag tiles to build your own view; it is remembered in localStorage.", `${SETUP}
-dock.storageKey = "pazuru-example-dashboard";
+dock.storageKey = "dockorama-example-dashboard";
 const kpi = (v, l, d) => "<div class='kpi'><b>" + v + "</b><small>" + l + " <span class='" + (d[0] === "+" ? "up" : "down") + "'>" + d + "</span></small></div>";
 view("rev", kpi("$1.28M", "Revenue", "+8.2%"));
 view("users", kpi("48,210", "Active users", "+3.1%"));
@@ -1018,8 +1018,8 @@ add({
     <a href="trading.html" target="_blank" rel="noopener">Open full page</a>
     <span class="muted">Click a symbol to drive the chart, book and ticket. Send orders from the ticket; they fill against the simulated tape.</span></div>
     <div class="stage" id="td-stage" style="height:720px"></div></div>
-  <details class="code"><summary>Code</summary><pre><code>import "pazuru";
-import { createModel, row, column, stack, docs } from "pazuru";
+  <details class="code"><summary>Code</summary><pre><code>import "dockorama";
+import { createModel, row, column, stack, docs } from "dockorama";
 
 dock.model = createModel(views,
   row([
@@ -1036,7 +1036,7 @@ dock.model = createModel(views,
   });
 
 // Pop out: the same app on its own page.
-window.open(new URL("trading.html", location.href), "pazuru-trading", "popup,width=1600,height=960");</code></pre></details>`,
+window.open(new URL("trading.html", location.href), "dockorama-trading", "popup,width=1600,height=960");</code></pre></details>`,
   after: (page) => {
     const stage = page.querySelector<HTMLElement>("#td-stage")!;
     void import("./trading/desk.js").then(({ mountTradingDesk }) => {
@@ -1045,7 +1045,7 @@ window.open(new URL("trading.html", location.href), "pazuru-trading", "popup,wid
     page.querySelector("#td-popout")!.addEventListener("click", () => {
       const w = Math.min(1680, screen.availWidth - 40);
       const h = Math.min(1000, screen.availHeight - 60);
-      window.open(new URL("trading.html", location.href).href, "pazuru-trading", `popup,width=${w},height=${h},left=20,top=20`);
+      window.open(new URL("trading.html", location.href).href, "dockorama-trading", `popup,width=${w},height=${h},left=20,top=20`);
     });
   }
 });
@@ -1094,7 +1094,7 @@ dock.model = createModel(
   row([stack(["layers", "assets"]), docs(["canvas"]), stack(["inspect"])], [1, 4, 1.2]),
   { drawers: { start: [], end: ["comments"], top: [], bottom: [] } }
 );
-const map = document.createElement("pazuru-minimap");
+const map = document.createElement("dockorama-minimap");
 map.setAttribute("for", "design-dock");
 map.style.cssText = "position:absolute;left:12px;bottom:12px;z-index:100;box-shadow:0 6px 20px rgb(0 0 0/.2);border-radius:8px";
 host.append(map);`);
@@ -1121,7 +1121,7 @@ dock.model = createModel(
   row([stack(["a", "b"]), column([docs(["c", "d"]), stack(["e"])]), stack(["f"])], [1, 3, 1]),
   { drawers: { start: ["g"], end: ["h"], top: [], bottom: ["i"] }, windows: [{ key: "w", box: { x: 300, y: 80, w: 240, h: 160 }, tree: stack(["j"]) }] }
 );
-const map = document.createElement("pazuru-minimap");
+const map = document.createElement("dockorama-minimap");
 map.setAttribute("for", "sink");
 map.style.cssText = "position:absolute;right:16px;bottom:44px;z-index:100;border-radius:8px;box-shadow:0 6px 20px rgb(0 0 0/.2)";
 host.append(map);
@@ -1129,46 +1129,46 @@ button("Undo", () => dock.undo()); button("Redo", () => dock.redo()); button("Pa
 
 // ---------------------------------------------------------------- theming playground
 const vars: Array<[string, string, string]> = [
-  ["--pz-accent", "#5b5bd6", "Accent"], ["--pz-canvas", "#eef0f4", "Canvas"], ["--pz-surface", "#ffffff", "Surface"],
-  ["--pz-surface-2", "#f6f7f9", "Bars"], ["--pz-ink", "#1d2230", "Text"], ["--pz-ink-soft", "#626a7d", "Soft text"], ["--pz-line", "#dfe2e9", "Lines"]
+  ["--dk-accent", "#5b5bd6", "Accent"], ["--dk-canvas", "#eef0f4", "Canvas"], ["--dk-surface", "#ffffff", "Surface"],
+  ["--dk-surface-2", "#f6f7f9", "Bars"], ["--dk-ink", "#1d2230", "Text"], ["--dk-ink-soft", "#626a7d", "Soft text"], ["--dk-line", "#dfe2e9", "Lines"]
 ];
 add({
   slug: "playground", title: "Theming playground", section: "Reference",
   body: `<h1>Theming playground</h1>
-  <p class="lead">pazuru is styled with <code>--pz-*</code> custom properties and <code>::part()</code>. Tweak them live, then copy the CSS. Text views from <code>addView(id, "…")</code> use <code>--pz-text-padding</code> (default <code>12px 14px</code>) on the <code>.pazuru-text</code> class.</p>
+  <p class="lead">dockorama is styled with <code>--dk-*</code> custom properties and <code>::part()</code>. Tweak them live, then copy the CSS. Text views from <code>addView(id, "…")</code> use <code>--dk-text-padding</code> (default <code>12px 14px</code>) on the <code>.dockorama-text</code> class.</p>
   <div class="play"><div id="controls">
     ${vars.map(([v, d, l]) => `<label>${l}<input type="color" data-var="${v}" value="${d}"></label>`).join("")}
-    <label>Radius <input type="range" min="0" max="16" value="8" data-var="--pz-radius" data-unit="px"></label>
-    <label>Gutter <input type="range" min="2" max="14" value="6" data-var="--pz-gutter" data-unit="px"></label>
-    <label>Bar height <input type="range" min="26" max="48" value="34" data-var="--pz-bar-height" data-unit="px"></label>
-    <label>Font size <input type="range" min="11" max="16" value="13" data-var="--pz-font-size" data-unit="px"></label>
+    <label>Radius <input type="range" min="0" max="16" value="8" data-var="--dk-radius" data-unit="px"></label>
+    <label>Gutter <input type="range" min="2" max="14" value="6" data-var="--dk-gutter" data-unit="px"></label>
+    <label>Bar height <input type="range" min="26" max="48" value="34" data-var="--dk-bar-height" data-unit="px"></label>
+    <label>Font size <input type="range" min="11" max="16" value="13" data-var="--dk-font-size" data-unit="px"></label>
     <label>Preset <select id="preset"><option>Default</option><option>Dark</option><option>Ocean</option><option>Forest</option><option>Sunset</option></select></label>
   </div><div>${ex("play")}</div></div>
   <h2>Your CSS</h2><pre><code id="css"></code></pre>
   <h2>Tokens</h2>
-  <p>Common <code>--pz-*</code> properties: <code>--pz-accent</code>, <code>--pz-canvas</code>, <code>--pz-surface</code>, <code>--pz-surface-2</code>, <code>--pz-ink</code>, <code>--pz-ink-soft</code>, <code>--pz-line</code>, <code>--pz-radius</code>, <code>--pz-gutter</code>, <code>--pz-bar-height</code>, <code>--pz-font-size</code>, <code>--pz-text-padding</code> (padding for string <code>addView</code> bodies; default <code>12px 14px</code>).</p>
+  <p>Common <code>--dk-*</code> properties: <code>--dk-accent</code>, <code>--dk-canvas</code>, <code>--dk-surface</code>, <code>--dk-surface-2</code>, <code>--dk-ink</code>, <code>--dk-ink-soft</code>, <code>--dk-line</code>, <code>--dk-radius</code>, <code>--dk-gutter</code>, <code>--dk-bar-height</code>, <code>--dk-font-size</code>, <code>--dk-text-padding</code> (padding for string <code>addView</code> bodies; default <code>12px 14px</code>).</p>
   <h2>Parts</h2>
   <p><code>frame</code>, <code>main</code>, <code>split</code>, <code>gutter</code>, <code>group</code> (+ <code>docs</code>), <code>bar</code>, <code>tab</code> (+ <code>tab-current</code>), <code>tab-close</code>,
   <code>action</code> (+ <code>stow</code>/<code>zoom</code>/<code>more</code>/<code>close</code>/<code>unstow</code>), <code>body</code>, <code>rail</code>, <code>rail-item</code>, <code>drawer</code>, <code>window</code>, <code>grip</code>,
   <code>overlay</code>, <code>preview</code>, <code>target</code>, <code>ghost</code>, <code>menu</code>, <code>palette</code>.</p>
-  <pre><code>pazuru-manager::part(tab-current) { font-weight: 700; }
-pazuru-manager::part(gutter) { background: repeating-linear-gradient(45deg, #0001 0 2px, transparent 2px 6px); }</code></pre>`,
+  <pre><code>dockorama-manager::part(tab-current) { font-weight: 700; }
+dockorama-manager::part(gutter) { background: repeating-linear-gradient(45deg, #0001 0 2px, transparent 2px 6px); }</code></pre>`,
   examples: [{ id: "play", height: 440, code: basic }],
   after: (el) => {
-    const dock = el.querySelector("pazuru-manager") as HTMLElement & { theme: string };
+    const dock = el.querySelector("dockorama-manager") as HTMLElement & { theme: string };
     dock.setAttribute("data-fixed-theme", "");
     const css = el.querySelector("#css")!;
     const presets: Record<string, Record<string, string>> = {
       Default: {}, Dark: { theme: "dark" },
-      Ocean: { "--pz-accent": "#0ea5e9", "--pz-canvas": "#e0f2fe", "--pz-surface-2": "#f0f9ff", "--pz-line": "#bae6fd" },
-      Forest: { "--pz-accent": "#16a34a", "--pz-canvas": "#ecfdf5", "--pz-surface-2": "#f0fdf4", "--pz-line": "#bbf7d0", "--pz-ink": "#14301f" },
-      Sunset: { "--pz-accent": "#f97316", "--pz-canvas": "#fff7ed", "--pz-surface-2": "#ffedd5", "--pz-line": "#fed7aa", "--pz-radius": "14px" }
+      Ocean: { "--dk-accent": "#0ea5e9", "--dk-canvas": "#e0f2fe", "--dk-surface-2": "#f0f9ff", "--dk-line": "#bae6fd" },
+      Forest: { "--dk-accent": "#16a34a", "--dk-canvas": "#ecfdf5", "--dk-surface-2": "#f0fdf4", "--dk-line": "#bbf7d0", "--dk-ink": "#14301f" },
+      Sunset: { "--dk-accent": "#f97316", "--dk-canvas": "#fff7ed", "--dk-surface-2": "#ffedd5", "--dk-line": "#fed7aa", "--dk-radius": "14px" }
     };
     const write = () => {
       const lines = Array.from(el.querySelectorAll<HTMLInputElement>("[data-var]"))
         .filter((i) => dock.style.getPropertyValue(i.dataset["var"]!))
         .map((i) => `  ${i.dataset["var"]}: ${dock.style.getPropertyValue(i.dataset["var"]!)};`);
-      css.textContent = `pazuru-manager${dock.theme === "dark" ? '[theme="dark"]' : ""} {\n${lines.join("\n") || "  /* defaults */"}\n}`;
+      css.textContent = `dockorama-manager${dock.theme === "dark" ? '[theme="dark"]' : ""} {\n${lines.join("\n") || "  /* defaults */"}\n}`;
     };
     for (const input of Array.from(el.querySelectorAll<HTMLInputElement>("[data-var]"))) {
       input.addEventListener("input", () => {
@@ -1191,27 +1191,27 @@ pazuru-manager::part(gutter) { background: repeating-linear-gradient(45deg, #000
 add({
   slug: "guide/skins", title: "Skins", section: "Guides",
   body: `<h1>Skins</h1>
-  <p class="lead">Every visual part of every pazuru component renders through a named, typed template looked up in a skin.
+  <p class="lead">Every visual part of every dockorama component renders through a named, typed template looked up in a skin.
   A skin is a set of templates plus CSS; anything it leaves out comes from the built-in skin. Swap the whole look with one import,
   or replace a single part — page-wide or for one dock — without forking anything.</p>
   <pre><code>// pick a look for the whole page (the import applies it)
-import "pazuru/skins/nimbus";
+import "dockorama/skins/nimbus";
 
 // or choose at runtime
-import { useSkin, nimbus, ledger, phosphor } from "pazuru/skins";
+import { useSkin, nimbus, ledger, phosphor } from "dockorama/skins";
 useSkin(phosphor);
 
 // or per dock
-&lt;pazuru-manager skin="ledger"&gt;…&lt;/pazuru-manager&gt;</code></pre>
+&lt;dockorama-manager skin="ledger"&gt;…&lt;/dockorama-manager&gt;</code></pre>
   <h2>Live skin switcher</h2>
   <p>The switcher calls <code>useSkin</code>, so every demo on this site follows it (it is remembered while you browse).</p>
   ${ex("skins")}
   <h2>Built-in skins</h2>
   <table><tr><th>Skin</th><th>Import</th><th>Look</th></tr>
-  <tr><td><code>default</code></td><td><code>pazuru/skins/default</code></td><td>Clean, neutral, rounded; applied automatically</td></tr>
-  <tr><td><code>nimbus</code></td><td><code>pazuru/skins/nimbus</code></td><td>Soft and airy: pill tabs, floating cards, dotted splitters, gradient canvas</td></tr>
-  <tr><td><code>ledger</code></td><td><code>pazuru/skins/ledger</code></td><td>Bold and graphic: thick ink borders, square corners, uppercase, text toolbar</td></tr>
-  <tr><td><code>phosphor</code></td><td><code>pazuru/skins/phosphor</code></td><td>Retro terminal: monospace green on black, ASCII icons and drop targets</td></tr></table>
+  <tr><td><code>default</code></td><td><code>dockorama/skins/default</code></td><td>Clean, neutral, rounded; applied automatically</td></tr>
+  <tr><td><code>nimbus</code></td><td><code>dockorama/skins/nimbus</code></td><td>Soft and airy: pill tabs, floating cards, dotted splitters, gradient canvas</td></tr>
+  <tr><td><code>ledger</code></td><td><code>dockorama/skins/ledger</code></td><td>Bold and graphic: thick ink borders, square corners, uppercase, text toolbar</td></tr>
+  <tr><td><code>phosphor</code></td><td><code>dockorama/skins/phosphor</code></td><td>Retro terminal: monospace green on black, ASCII icons and drop targets</td></tr></table>
   <h2>Different skins on one page</h2>
   <p>Set <code>skin</code> (a registered name, or a skin object) on a dock to override the page-wide skin for that dock only.</p>
   ${ex("skins-per-dock")}
@@ -1224,7 +1224,7 @@ useSkin(phosphor);
   <h2>Writing a custom skin</h2>
   <ol>
     <li>Make a folder, e.g. <code>my-skin/</code>, with <code>css.ts</code> and <code>templates.ts</code>.</li>
-    <li>Start from the CSS variables (<code>--pz-accent</code>, <code>--pz-surface</code>, <code>--pz-line</code>, <code>--pz-radius</code>, <code>--pz-gutter</code>, <code>--pz-bar-height</code>, <code>--pz-font</code> …),
+    <li>Start from the CSS variables (<code>--dk-accent</code>, <code>--dk-surface</code>, <code>--dk-line</code>, <code>--dk-radius</code>, <code>--dk-gutter</code>, <code>--dk-bar-height</code>, <code>--dk-font</code> …),
     then add rules for the classes the templates use (<code>.stack</code>, <code>.bar</code>, <code>.tab</code>, <code>.btn</code>, <code>.target</code>, <code>.window</code> …). Your CSS is added after the built-in styles, so equal-specificity rules win.</li>
     <li>Write only the templates you want to change. Each is <code>(ctx, kit) =&gt; TemplateResult</code>; <code>kit.paint(key, ctx)</code> renders another (overridable) template and <code>kit.icons</code> holds the built-in icons.
     Call the callbacks in the context (<code>close()</code>, <code>press()</code>, <code>choose()</code>) to act, and stop propagation on buttons inside tabs or headers so the click does not also select or drag.</li>
@@ -1232,13 +1232,13 @@ useSkin(phosphor);
     <li>Create it with <code>defineSkin(name, { templates, css })</code> (extends the built-in skin) or <code>extendSkin(base, name, patch)</code> (extends another skin), then <code>useSkin</code> it or set it on a dock.</li>
   </ol>
   <pre><code>import { html, css } from "lit";
-import { defineSkin, type SkinTemplates } from "pazuru/skins";
+import { defineSkin, type SkinTemplates } from "dockorama/skins";
 
 const templates: Partial&lt;SkinTemplates&gt; = {
   // ctx is typed: { title: string; selected: boolean; preview: boolean }
   "tab-label": (ctx) =&gt; html\`&lt;span class="label"&gt;\${ctx.selected ? "▸ " : ""}\${ctx.title}&lt;/span&gt;\`
 };
-export const sunset = defineSkin("sunset", { templates, css: css\`:host { --pz-accent: #f2542d; --pz-radius: 4px; }\` });</code></pre>
+export const sunset = defineSkin("sunset", { templates, css: css\`:host { --dk-accent: #f2542d; --dk-radius: 4px; }\` });</code></pre>
   ${ex("skins-custom")}
   <h2>Template keys</h2>
   <table><tr><th>Key</th><th>Context</th><th>Part</th></tr>
@@ -1292,14 +1292,14 @@ dock.pin("app");
 for (const s of [defaultSkin, nimbus, ledger, phosphor]) {
   button(s.name, () => {
     useSkin(s);
-    localStorage.setItem("pz-site-skin", s.name);
+    localStorage.setItem("dk-site-skin", s.name);
     log("useSkin(" + s.name + ")");
   });
 }` }, { id: "skins-per-dock", height: 300, code: `host.style.display = "grid";
 host.style.gridTemplateColumns = "repeat(3, 1fr)";
 host.style.gap = "8px";
 for (const name of ["nimbus", "ledger", "phosphor"]) {
-  const dock = document.createElement("pazuru-manager");
+  const dock = document.createElement("dockorama-manager");
   dock.setAttribute("skin", name);
   dock.setAttribute("data-fixed-theme", "");
   host.append(dock);
@@ -1323,14 +1323,14 @@ button("Patch this dock", () => {
       "tab-close-button": (c) => html\`<button class="btn" aria-label=\${c.label + " " + c.title}
         @pointerdown=\${(e) => e.stopPropagation()} @click=\${(e) => { e.stopPropagation(); c.close(); }}>✖</button>\`
     },
-    css: ".handle { position: absolute; inset: 0; display: grid; place-items: center; color: var(--pz-accent); font-weight: 700; }"
+    css: ".handle { position: absolute; inset: 0; display: grid; place-items: center; color: var(--dk-accent); font-weight: 700; }"
   };
   log("dock.skinPatch set: splitter, tab-close-button");
 });
 button("Clear patch", () => { dock.skinPatch = undefined; log("patch cleared"); });` }, { id: "skins-custom", height: 320, code: `${basic}
 const sunset = extendSkin(defaultSkin, "sunset", {
   templates: { "tab-label": (c) => html\`<span class="label">\${c.selected ? "▸ " : ""}\${c.title}</span>\` },
-  css: \`:host { --pz-accent: #f2542d; --pz-canvas: #fff1e6; --pz-surface-2: #ffe3cf; --pz-line: #f5c3a3; --pz-radius: 4px; }
+  css: \`:host { --dk-accent: #f2542d; --dk-canvas: #fff1e6; --dk-surface-2: #ffe3cf; --dk-line: #f5c3a3; --dk-radius: 4px; }
     .bar { background: linear-gradient(90deg, #ffd6b8, #ffe9d6); }\`
 });
 dock.skin = sunset;
@@ -1341,13 +1341,13 @@ log("dock.skin = sunset");` }]
 add({
   slug: "api", title: "API reference", section: "Reference",
   body: `<h1>API reference</h1>
-  <h2>&lt;pazuru-manager&gt; properties</h2>
+  <h2>&lt;dockorama-manager&gt; properties</h2>
   <table><tr><th>Property</th><th>Type</th><th>Description</th></tr>
-  <tr><td><code>model</code></td><td><code>PazuruModel</code></td><td>The layout. Assigning resets undo history.</td></tr>
+  <tr><td><code>model</code></td><td><code>DockoramaModel</code></td><td>The layout. Assigning resets undo history.</td></tr>
   <tr><td><code>theme</code> (attr)</td><td><code>"light" | "dark" | "auto"</code></td><td>Colour scheme.</td></tr>
   <tr><td><code>snap</code></td><td><code>number</code></td><td>Grid size (px) for floating windows; 0 = off.</td></tr>
   <tr><td><code>storageKey</code> (attr <code>storage-key</code>)</td><td><code>string</code></td><td>Auto-save/restore in localStorage.</td></tr>
-  <tr><td><code>labels</code></td><td><code>Partial&lt;PazuruLabels&gt;</code></td><td>UI strings.</td></tr>
+  <tr><td><code>labels</code></td><td><code>Partial&lt;DockoramaLabels&gt;</code></td><td>UI strings.</td></tr>
   <tr><td><code>restored</code></td><td><code>boolean</code> (read-only)</td><td>Whether the last model came from storage.</td></tr>
   <tr><td><code>canUndo</code>, <code>canRedo</code></td><td><code>boolean</code></td><td>History state.</td></tr>
   <tr><td><code>dragGroup</code> (attr <code>drag-group</code>)</td><td><code>string</code></td><td>Managers with the same group accept each other's views. See <a href="#/guide/cross-dock">Dragging between docks</a>.</td></tr>
@@ -1368,7 +1368,7 @@ add({
   <tr><td><code>reveal(id)</code></td><td>Show wherever it is, or bring it back.</td></tr>
   <tr><td><code>toggleZoom(id?)</code></td><td>Zoom / restore.</td></tr>
   <tr><td><code>activate(id)</code></td><td>Focus a view.</td></tr>
-  <tr><td><code>addView(id, content, options?)</code></td><td>Add a view in one undoable change. <code>content</code>: <code>Element</code> | <code>string</code> (wrapped in <code>.pazuru-text</code>, padding via <code>--pz-text-padding</code>) | <code>() =&gt; Element</code> (lazy). <code>options</code>: <code>title</code>, <code>icon</code>, <code>hint</code>, <code>caps</code> and <code>at</code> (a <code>ViewSpot</code>). Throws on a duplicate id or unknown target. See <a href="#/guide/add-views">Adding views from code</a>.</td></tr>
+  <tr><td><code>addView(id, content, options?)</code></td><td>Add a view in one undoable change. <code>content</code>: <code>Element</code> | <code>string</code> (wrapped in <code>.dockorama-text</code>, padding via <code>--dk-text-padding</code>) | <code>() =&gt; Element</code> (lazy). <code>options</code>: <code>title</code>, <code>icon</code>, <code>hint</code>, <code>caps</code> and <code>at</code> (a <code>ViewSpot</code>). Throws on a duplicate id or unknown target. See <a href="#/guide/add-views">Adding views from code</a>.</td></tr>
   <tr><td><code>removeView(id, { keepElement? })</code></td><td>Remove a view; returns its element (or <code>null</code>).</td></tr>
   <tr><td><code>getViewElement(id)</code> / <code>hasView(id)</code></td><td>The content element (<code>null</code> if none yet) / whether the id is registered.</td></tr>
   <tr><td><code>addView(id, info, near?)</code> / <code>forget(id)</code></td><td>Register a view whose <code>data-view</code> child you add yourself / remove from the model only.</td></tr>
@@ -1392,62 +1392,62 @@ add({
   <tr><td><code>openPalette()</code></td><td>Go-to-view palette.</td></tr>
   <tr><td><code>nudge(id, zone)</code>, <code>cycleTab(id, step)</code>, <code>focusNeighbour(zone)</code></td><td>Keyboard helpers.</td></tr></table>
   <h2 id="components">UI components</h2>
-  <p>Every piece of the dock is its own Lit custom element, exported as a class and registered by <code>defineParts()</code> (importing <code>pazuru</code> does this for you).
-  <code>&lt;pazuru-manager&gt;</code> owns the layout model and renders the parts inside its shadow root. Parts are presentational: they get state through properties (<code>ctx</code> is a read-only <code>DockContext</code>)
-  and report user intent with a composed <code>pazuru-request</code> event, which the manager handles and stops, so it never reaches your listeners. Parts render without their own shadow root, so the manager's CSS custom properties and <code>::part()</code> names style them.
+  <p>Every piece of the dock is its own Lit custom element, exported as a class and registered by <code>defineParts()</code> (importing <code>dockorama</code> does this for you).
+  <code>&lt;dockorama-manager&gt;</code> owns the layout model and renders the parts inside its shadow root. Parts are presentational: they get state through properties (<code>ctx</code> is a read-only <code>DockContext</code>)
+  and report user intent with a composed <code>dockorama-request</code> event, which the manager handles and stops, so it never reaches your listeners. Parts render without their own shadow root, so the manager's CSS custom properties and <code>::part()</code> names style them.
   You normally don't create parts yourself; they're documented so you can style and test them.</p>
-  <h3 id="pazuru-split">&lt;pazuru-split&gt; <small><code>PazuruSplit</code></small></h3>
-  <p>Lays out the children of a row or column node, with a <code>&lt;pazuru-gutter&gt;</code> between each pair. Each child sits in a <code>.cell</code> sized by the node's weights.</p>
+  <h3 id="dockorama-split">&lt;dockorama-split&gt; <small><code>DockoramaSplit</code></small></h3>
+  <p>Lays out the children of a row or column node, with a <code>&lt;dockorama-gutter&gt;</code> between each pair. Each child sits in a <code>.cell</code> sized by the node's weights.</p>
   <table><tr><th>Properties</th><td><code>node</code>, <code>path</code>, <code>win</code>, <code>ctx</code></td></tr><tr><th>Requests</th><td>—</td></tr><tr><th>CSS parts</th><td><code>split</code></td></tr><tr><th>State attributes</th><td><code>data-axis</code></td></tr></table>
-  <h3 id="pazuru-gutter">&lt;pazuru-gutter&gt; <small><code>PazuruGutter</code></small></h3>
+  <h3 id="dockorama-gutter">&lt;dockorama-gutter&gt; <small><code>DockoramaGutter</code></small></h3>
   <p>The splitter between two cells. <code>role="separator"</code> with <code>aria-valuenow</code>; drag or use arrow keys, <span class="kbd">Home</span> and <span class="kbd">End</span>. Also a drop target during drags.</p>
   <table><tr><th>Properties</th><td><code>path</code>, <code>index</code>, <code>win</code>, <code>axis</code>, <code>weights</code>, <code>value</code>, <code>label</code>, <code>drop</code></td></tr><tr><th>Requests</th><td><code>gutter-grab</code>, <code>gutter-key</code></td></tr><tr><th>CSS parts</th><td><code>gutter</code></td></tr><tr><th>State attributes</th><td><code>data-path</code>, <code>data-after</code>, <code>data-win</code>, <code>data-drop</code></td></tr></table>
-  <h3 id="pazuru-stack">&lt;pazuru-stack&gt; <small><code>PazuruStack</code></small></h3>
-  <p>A group of views: a header bar (title, or a <code>&lt;pazuru-tabstrip&gt;</code> when it holds several views), a <code>&lt;pazuru-toolbar&gt;</code> and a <code>&lt;pazuru-view&gt;</code>. Drag the header to move a single view; double-click to zoom.</p>
+  <h3 id="dockorama-stack">&lt;dockorama-stack&gt; <small><code>DockoramaStack</code></small></h3>
+  <p>A group of views: a header bar (title, or a <code>&lt;dockorama-tabstrip&gt;</code> when it holds several views), a <code>&lt;dockorama-toolbar&gt;</code> and a <code>&lt;dockorama-view&gt;</code>. Drag the header to move a single view; double-click to zoom.</p>
   <table><tr><th>Properties</th><td><code>group</code>, <code>path</code>, <code>win</code>, <code>ctx</code></td></tr><tr><th>Requests</th><td><code>activate</code>, <code>grab</code>, <code>zoom</code></td></tr><tr><th>CSS parts</th><td><code>group</code>, <code>bar</code></td></tr><tr><th>State attributes</th><td><code>data-stack</code>, <code>data-active</code>, <code>data-tabs</code>, <code>data-empty</code>, <code>data-path</code>, <code>data-win</code></td></tr></table>
-  <h3 id="pazuru-docs">&lt;pazuru-docs&gt; <small><code>PazuruDocs</code></small></h3>
+  <h3 id="dockorama-docs">&lt;dockorama-docs&gt; <small><code>DockoramaDocs</code></small></h3>
   <p>The document host: a stack that always shows tabs, puts close buttons on the tabs and accepts document-only views. When empty it shows the “Drop a view here” zone, which takes a drop in its centre.</p>
-  <table><tr><th>Properties</th><td>Same as <code>&lt;pazuru-stack&gt;</code></td></tr><tr><th>Requests</th><td>Same as <code>&lt;pazuru-stack&gt;</code></td></tr><tr><th>CSS parts</th><td><code>group docs</code></td></tr><tr><th>State attributes</th><td><code>data-docs</code> plus the stack attributes</td></tr></table>
-  <h3 id="pazuru-tabstrip">&lt;pazuru-tabstrip&gt; <small><code>PazuruTabstrip</code></small></h3>
-  <p>A <code>role="tablist"</code> of <code>&lt;pazuru-tab&gt;</code>s that scrolls when the tabs don't fit: wheel, or the arrow buttons. Keeps the selected tab in view. Methods: <code>scrollTabs(dir)</code>, <code>markOverflow()</code>.</p>
+  <table><tr><th>Properties</th><td>Same as <code>&lt;dockorama-stack&gt;</code></td></tr><tr><th>Requests</th><td>Same as <code>&lt;dockorama-stack&gt;</code></td></tr><tr><th>CSS parts</th><td><code>group docs</code></td></tr><tr><th>State attributes</th><td><code>data-docs</code> plus the stack attributes</td></tr></table>
+  <h3 id="dockorama-tabstrip">&lt;dockorama-tabstrip&gt; <small><code>DockoramaTabstrip</code></small></h3>
+  <p>A <code>role="tablist"</code> of <code>&lt;dockorama-tab&gt;</code>s that scrolls when the tabs don't fit: wheel, or the arrow buttons. Keeps the selected tab in view. Methods: <code>scrollTabs(dir)</code>, <code>markOverflow()</code>.</p>
   <table><tr><th>Properties</th><td><code>views</code>, <code>current</code>, <code>docs</code>, <code>win</code>, <code>ctx</code></td></tr><tr><th>Requests</th><td>—</td></tr><tr><th>CSS parts</th><td><code>tab-scroll</code></td></tr><tr><th>State attributes</th><td><code>data-overflow</code>, <code>data-can-back</code>, <code>data-can-fwd</code></td></tr></table>
-  <h3 id="pazuru-tab">&lt;pazuru-tab&gt; <small><code>PazuruTab</code></small></h3>
+  <h3 id="dockorama-tab">&lt;dockorama-tab&gt; <small><code>DockoramaTab</code></small></h3>
   <p>One <code>role="tab"</code>. Click to select, drag to move or reorder, middle-click or the close button to close.</p>
   <table><tr><th>Properties</th><td><code>view</code>, <code>info</code>, <code>selected</code>, <code>closable</code>, <code>closeLabel</code>, <code>win</code>, <code>pinned</code>, <code>preview</code>, <code>dirty</code>, <code>dirtyLabel</code></td></tr><tr><th>Requests</th><td><code>reveal</code>, <code>grab</code>, <code>dismiss</code>, <code>tab-menu</code>, <code>promote</code></td></tr><tr><th>CSS parts</th><td><code>tab</code>, <code>tab-current</code>, <code>tab-close</code>, <code>tab-pin</code>, <code>tab-dirty</code></td></tr><tr><th>State attributes</th><td><code>data-view</code>, <code>aria-selected</code>, <code>data-pinned</code>, <code>data-preview</code>, <code>data-dirty</code></td></tr></table>
-  <h3 id="pazuru-toolbar">&lt;pazuru-toolbar&gt; <small><code>PazuruToolbar</code></small></h3>
+  <h3 id="dockorama-toolbar">&lt;dockorama-toolbar&gt; <small><code>DockoramaToolbar</code></small></h3>
   <p>The action buttons in a group header: auto-hide, zoom, more actions and close. Buttons follow the view's <code>caps</code>.</p>
   <table><tr><th>Properties</th><td><code>view</code>, <code>docs</code>, <code>win</code>, <code>ctx</code></td></tr><tr><th>Requests</th><td><code>stow</code>, <code>zoom</code>, <code>menu</code>, <code>dismiss</code></td></tr><tr><th>CSS parts</th><td><code>action</code> plus <code>stow</code>, <code>zoom</code>, <code>more</code>, <code>close</code></td></tr><tr><th>State attributes</th><td>—</td></tr></table>
-  <h3 id="pazuru-view">&lt;pazuru-view&gt; <small><code>PazuruView</code></small></h3>
+  <h3 id="dockorama-view">&lt;dockorama-view&gt; <small><code>DockoramaView</code></small></h3>
   <p>The content host. Projects the light-DOM element with the matching <code>data-view</code> through a named slot; shows a placeholder while the content is popped out, and the empty drop zone when there is no view.</p>
   <table><tr><th>Properties</th><td><code>view</code>, <code>kind</code> (<code>region</code> | <code>tabpanel</code>), <code>labelledBy</code>, <code>label</code>, <code>ctx</code></td></tr><tr><th>Requests</th><td><code>popin</code></td></tr><tr><th>CSS parts</th><td><code>body</code></td></tr><tr><th>State attributes</th><td><code>data-inert</code></td></tr></table>
-  <h3 id="pazuru-window">&lt;pazuru-window&gt; <small><code>PazuruWindow</code></small></h3>
+  <h3 id="dockorama-window">&lt;dockorama-window&gt; <small><code>DockoramaWindow</code></small></h3>
   <p>A floating <code>role="dialog"</code> with its own layout tree and a resize grip. Pressing on it brings it to the front.</p>
   <table><tr><th>Properties</th><td><code>key</code>, <code>box</code>, <code>tree</code>, <code>layer</code>, <code>ctx</code></td></tr><tr><th>Requests</th><td><code>raise</code>, <code>grip</code></td></tr><tr><th>CSS parts</th><td><code>window</code>, <code>grip</code></td></tr><tr><th>State attributes</th><td><code>data-window</code></td></tr></table>
-  <h3 id="pazuru-drop-guide">&lt;pazuru-drop-guide&gt; <small><code>PazuruDropGuide</code></small></h3>
+  <h3 id="dockorama-drop-guide">&lt;dockorama-drop-guide&gt; <small><code>DockoramaDropGuide</code></small></h3>
   <p>Drag feedback: the compass and edge drop targets, the gutter target, the landing preview and the ghost label that follows the pointer.</p>
   <table><tr><th>Properties</th><td><code>spots</code> (<code>GuideSpot[]</code>), <code>preview</code>, <code>ghost</code></td></tr><tr><th>Requests</th><td>—</td></tr><tr><th>CSS parts</th><td><code>overlay</code>, <code>target</code>, <code>preview</code>, <code>ghost</code></td></tr><tr><th>State attributes</th><td><code>data-zone</code>, <code>data-hot</code> on targets</td></tr></table>
-  <h3 id="pazuru-rail">&lt;pazuru-rail&gt; <small><code>PazuruRail</code></small></h3>
+  <h3 id="dockorama-rail">&lt;dockorama-rail&gt; <small><code>DockoramaRail</code></small></h3>
   <p>The strip of auto-hidden views along one edge (<code>role="toolbar"</code>). Click, or hover with a mouse, to open a view's flyout.</p>
   <table><tr><th>Properties</th><td><code>side</code>, <code>views</code>, <code>open</code>, <code>ctx</code></td></tr><tr><th>Requests</th><td><code>peek</code></td></tr><tr><th>CSS parts</th><td><code>rail</code>, <code>rail-item</code></td></tr><tr><th>State attributes</th><td><code>data-side</code></td></tr></table>
-  <h3 id="pazuru-flyout">&lt;pazuru-flyout&gt; <small><code>PazuruFlyout</code></small></h3>
+  <h3 id="dockorama-flyout">&lt;dockorama-flyout&gt; <small><code>DockoramaFlyout</code></small></h3>
   <p>The panel that slides over the layout to show an auto-hidden view, with “Keep open” and close buttons. <span class="kbd">Esc</span> closes it.</p>
   <table><tr><th>Properties</th><td><code>view</code>, <code>side</code>, <code>ctx</code></td></tr><tr><th>Requests</th><td><code>unstow</code>, <code>dismiss</code>, <code>peek-close</code></td></tr><tr><th>CSS parts</th><td><code>drawer</code>, <code>action unstow</code></td></tr><tr><th>State attributes</th><td><code>data-side</code></td></tr></table>
-  <h3 id="pazuru-menu">&lt;pazuru-menu&gt; <small><code>PazuruMenu</code></small></h3>
+  <h3 id="dockorama-menu">&lt;dockorama-menu&gt; <small><code>DockoramaMenu</code></small></h3>
   <p>The <code>role="menu"</code> popup behind ⋯: the group's tab list (as radio items) and the view's commands. Arrow keys move, <span class="kbd">Esc</span> closes.</p>
   <table><tr><th>Properties</th><td><code>entries</code> (<code>MenuEntry[]</code>), <code>x</code>, <code>y</code></td></tr><tr><th>Requests</th><td>The chosen entry's action, <code>menu-close</code></td></tr><tr><th>CSS parts</th><td><code>menu</code></td></tr><tr><th>State attributes</th><td>—</td></tr></table>
-  <h3 id="pazuru-tab-menu">&lt;pazuru-tab-menu&gt; <small><code>PazuruTabMenu</code></small></h3>
+  <h3 id="dockorama-tab-menu">&lt;dockorama-tab-menu&gt; <small><code>DockoramaTabMenu</code></small></h3>
   <p>A tab's right-click / <span class="kbd">Shift</span>+<span class="kbd">F10</span> menu (<code>role="menu"</code>). Arrow keys, <span class="kbd">Home</span>/<span class="kbd">End</span> and first-letter typing move; <span class="kbd">Esc</span>/<span class="kbd">Tab</span> close. Method: <code>focusFirst()</code>.</p>
   <table><tr><th>Properties</th><td><code>view</code>, <code>items</code> (<code>TabMenuItem[]</code>), <code>x</code>, <code>y</code>, <code>label</code></td></tr><tr><th>Requests</th><td><code>tab-menu-choose</code>, <code>tab-menu-close</code></td></tr><tr><th>CSS parts</th><td><code>menu tab-menu</code></td></tr><tr><th>State attributes</th><td><code>data-key</code>, <code>aria-checked</code>, <code>disabled</code> on items</td></tr></table>
-  <h3 id="pazuru-notice">&lt;pazuru-notice&gt; <small><code>PazuruNotice</code></small></h3>
+  <h3 id="dockorama-notice">&lt;dockorama-notice&gt; <small><code>DockoramaNotice</code></small></h3>
   <p>A banner (<code>role="alertdialog"</code>) shown when the browser blocked re-opening saved outside windows, with <em>Re-open windows</em> / <em>Keep them here</em>.</p>
   <table><tr><th>Properties</th><td><code>message</code>, <code>actions</code> (<code>NoticeAction[]</code>)</td></tr><tr><th>Requests</th><td><code>outside-reopen</code>, <code>outside-dismiss</code></td></tr><tr><th>CSS parts</th><td><code>notice</code></td></tr><tr><th>State attributes</th><td><code>data-primary</code> on the main button</td></tr></table>
-  <h3 id="pazuru-confirm">&lt;pazuru-confirm&gt; <small><code>PazuruConfirm</code></small></h3>
+  <h3 id="dockorama-confirm">&lt;dockorama-confirm&gt; <small><code>DockoramaConfirm</code></small></h3>
   <p>The modal “unsaved changes” question (<code>role="alertdialog"</code>, <code>aria-modal</code>). Focus starts on Cancel, <span class="kbd">Tab</span> cycles its buttons, <span class="kbd">Esc</span> cancels. Method: <code>focusSafe()</code>.</p>
   <table><tr><th>Properties</th><td><code>view</code>, <code>message</code>, <code>okLabel</code>, <code>cancelLabel</code></td></tr><tr><th>Requests</th><td><code>confirm-close</code> (<code>ok</code>)</td></tr><tr><th>CSS parts</th><td><code>confirm</code></td></tr><tr><th>State attributes</th><td>—</td></tr></table>
-  <h3 id="pazuru-palette">&lt;pazuru-palette&gt; <small><code>PazuruPalette</code></small></h3>
+  <h3 id="dockorama-palette">&lt;dockorama-palette&gt; <small><code>DockoramaPalette</code></small></h3>
   <p>The “go to view” search dialog (<span class="kbd">Ctrl</span>+<span class="kbd">.</span>). Arrow keys move, <span class="kbd">Enter</span> chooses, <span class="kbd">Esc</span> closes.</p>
   <table><tr><th>Properties</th><td><code>items</code>, <code>query</code>, <code>index</code>, <code>label</code>, <code>placeholder</code>, <code>empty</code></td></tr><tr><th>Requests</th><td><code>palette-query</code>, <code>palette-index</code>, <code>palette-choose</code>, <code>palette-close</code></td></tr><tr><th>CSS parts</th><td><code>palette</code></td></tr><tr><th>State attributes</th><td>—</td></tr></table>
-  <h3 id="pazuru-minimap">&lt;pazuru-minimap&gt; <small><code>PazuruMinimap</code></small></h3>
+  <h3 id="dockorama-minimap">&lt;dockorama-minimap&gt; <small><code>DockoramaMinimap</code></small></h3>
   <p>A live miniature of a manager's layout, placed anywhere on the page with <code>for="manager-id"</code>, or connected with <code>attach(manager)</code>. Click a block to reveal that view. It has its own shadow root. CSS part: <code>map</code>.</p>
   <h2>Model helpers (pure functions)</h2>
   <p><code>createModel</code>, <code>row</code>, <code>column</code>, <code>stack</code>, <code>docs</code>, <code>normalize</code>, <code>isModel</code>, <code>locate</code>, <code>viewsIn</code>, <code>stacksOf</code>,
@@ -1455,7 +1455,7 @@ add({
   <code>select</code>, <code>reorder</code>, <code>setWeights</code>, <code>toggleZoom</code>, <code>catalogue</code>, <code>copy</code>, <code>emptyModel</code>,
   <code>pin</code>, <code>setPreview</code>, <code>promote</code>, <code>previewOf</code>, <code>upgrade</code>, <code>validate</code>, <code>closeSet</code>, <code>adopt</code>, <code>goOutside</code>, <code>comeInside</code>, <code>tuneOutside</code>, <code>outsideOf</code>.</p>
   <h2>Other exports</h2>
-  <p><code>PazuruMinimap</code> (<code>&lt;pazuru-minimap for&gt;</code>), the UI component classes above, <code>PazuruPart</code> (their base class), <code>PARTS</code> (tag → class), <code>defineParts()</code>, <code>Workspaces</code>, <code>Timeline</code>, <code>DEFAULT_LABELS</code>, <code>geometry</code>, <code>VERSION</code>.</p>
+  <p><code>DockoramaMinimap</code> (<code>&lt;dockorama-minimap for&gt;</code>), the UI component classes above, <code>DockoramaPart</code> (their base class), <code>PARTS</code> (tag → class), <code>defineParts()</code>, <code>Workspaces</code>, <code>Timeline</code>, <code>DEFAULT_LABELS</code>, <code>geometry</code>, <code>VERSION</code>.</p>
   <h2>Events</h2><p>See <a href="#/guide/events">Events</a>.</p>`
 });
 

@@ -1,12 +1,12 @@
 import { html, type PropertyValues, type TemplateResult } from "lit";
 import type { ViewInfo } from "../model.js";
-import { PazuruPart } from "./part.js";
+import { DockoramaPart } from "./part.js";
 
 /**
- * `<pazuru-tab>`: one tab (`role="tab"`). Click reveals, pointer-drag moves, middle-click or the
+ * `<dockorama-tab>`: one tab (`role="tab"`). Click reveals, pointer-drag moves, middle-click or the
  * close button (when `closable`) closes.
  */
-export class PazuruTab extends PazuruPart {
+export class DockoramaTab extends DockoramaPart {
   static override properties = {
     view: {},
     info: { attribute: false },

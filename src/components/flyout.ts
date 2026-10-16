@@ -1,10 +1,10 @@
 import { html, type PropertyValues, type TemplateResult } from "lit";
 import type { Side } from "../model.js";
 import type { DockContext } from "./context.js";
-import { PazuruPart } from "./part.js";
+import { DockoramaPart } from "./part.js";
 
-/** `<pazuru-flyout>`: the sliding panel that shows an auto-hidden view over the layout. Esc closes it. */
-export class PazuruFlyout extends PazuruPart {
+/** `<dockorama-flyout>`: the sliding panel that shows an auto-hidden view over the layout. Esc closes it. */
+export class DockoramaFlyout extends DockoramaPart {
   static override properties = {
     view: {},
     side: {},
@@ -41,7 +41,7 @@ export class PazuruFlyout extends PazuruPart {
     return html`${this.paint("flyout", {
       id, title: info?.title ?? id, unstowLabel: t.unstow, unstow: () => this.request("unstow", { id }),
       ...(closable ? { closeLabel: t.dismiss, close: () => this.request("dismiss", { id }) } : {}),
-      body: html`<pazuru-view .view=${id} .label=${info?.title ?? id} .ctx=${this.ctx}></pazuru-view>`
+      body: html`<dockorama-view .view=${id} .label=${info?.title ?? id} .ctx=${this.ctx}></dockorama-view>`
     })}`;
   }
 }

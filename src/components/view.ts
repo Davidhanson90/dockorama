@@ -1,12 +1,12 @@
 import { html, type PropertyValues, type TemplateResult } from "lit";
 import { slotOf, type DockContext } from "./context.js";
-import { PazuruPart } from "./part.js";
+import { DockoramaPart } from "./part.js";
 
 /**
- * `<pazuru-view>`: hosts one view's content (a named slot for the light-DOM element with matching
+ * `<dockorama-view>`: hosts one view's content (a named slot for the light-DOM element with matching
  * `data-view`). Shows a placeholder when the content is popped out, and the empty drop zone when there is no view.
  */
-export class PazuruView extends PazuruPart {
+export class DockoramaView extends DockoramaPart {
   static override properties = {
     view: {},
     kind: {},

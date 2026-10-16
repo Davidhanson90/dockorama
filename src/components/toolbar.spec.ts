@@ -15,16 +15,16 @@ async function put<T extends HTMLElement & { updateComplete: Promise<boolean> }>
 }
 export function requests(): PartRequest[] {
   const out: PartRequest[] = [];
-  document.addEventListener("pazuru-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
+  document.addEventListener("dockorama-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
   return out;
 }
 afterEach(() => { document.body.innerHTML = ""; });
 
 type P = HTMLElement & { updateComplete: Promise<boolean> };
-describe("<pazuru-toolbar>", () => {
+describe("<dockorama-toolbar>", () => {
   it("offers stow, zoom, more and close for a docked panel", async () => {
     const got = requests();
-    const el = await put<P>("pazuru-toolbar", { view: "a", ctx: ctx() });
+    const el = await put<P>("dockorama-toolbar", { view: "a", ctx: ctx() });
     const parts = Array.from(el.querySelectorAll("button")).map((b) => b.getAttribute("part"));
     expect(parts).toEqual(["action stow", "action zoom", "action more", "action close"]);
     for (const b of Array.from(el.querySelectorAll("button"))) {
@@ -36,13 +36,13 @@ describe("<pazuru-toolbar>", () => {
   });
   it("respects caps, documents, windows and zoom", async () => {
     const c = ctx();
-    const locked = await put<P>("pazuru-toolbar", { view: "c", ctx: c });
+    const locked = await put<P>("dockorama-toolbar", { view: "c", ctx: c });
     expect(Array.from(locked.querySelectorAll("button")).map((b) => b.getAttribute("part"))).toEqual(["action more"]);
-    const doc = await put<P>("pazuru-toolbar", { view: "a", docs: true, ctx: c });
+    const doc = await put<P>("dockorama-toolbar", { view: "a", docs: true, ctx: c });
     expect(doc.querySelectorAll("button").length).toBe(2);
-    const floating = await put<P>("pazuru-toolbar", { view: "a", win: "w", ctx: c });
+    const floating = await put<P>("dockorama-toolbar", { view: "a", win: "w", ctx: c });
     expect(floating.querySelector('[part~="stow"]')).toBeNull();
-    const zoomed = await put<P>("pazuru-toolbar", { view: "a", ctx: ctx({ model: { ...c.model, zoom: "a" } }) });
+    const zoomed = await put<P>("dockorama-toolbar", { view: "a", ctx: ctx({ model: { ...c.model, zoom: "a" } }) });
     expect(zoomed.querySelector('[part~="stow"]')).toBeNull();
     expect(zoomed.querySelector('[part~="zoom"]')!.getAttribute("aria-label")).toBe(DEFAULT_LABELS.unzoom);
   });

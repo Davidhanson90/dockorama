@@ -24,7 +24,7 @@ export interface ViewInfo {
   /** Optional short glyph / emoji shown before the title. */
   icon?: string;
   caps?: Caps;
-  /** Hint for apps: content should be created on first reveal (see `pazuru-viewshow`). */
+  /** Hint for apps: content should be created on first reveal (see `dockorama-viewshow`). */
   lazy?: boolean;
   /** With the manager's `retain="active"`: keep this view's content attached while hidden. */
   keepAlive?: boolean;
@@ -91,7 +91,7 @@ export interface OutsideWindow {
   box?: Box;
 }
 
-export interface PazuruModel {
+export interface DockoramaModel {
   v: 1;
   /** Your app's layout version (see the manager's `layoutVersion` and `migrations`). Missing = 0. */
   version?: number;
@@ -143,7 +143,7 @@ export interface ViewOptions extends Partial<ViewInfo> {
 }
 
 /** Upgrade steps for saved layouts: `migrations[n]` turns a version-`n` model into version `n + 1`. */
-export type LayoutMigrations = Record<number, (model: PazuruModel) => PazuruModel>;
+export type LayoutMigrations = Record<number, (model: DockoramaModel) => DockoramaModel>;
 
-/** Where a layout being checked came from (detail of `pazuru-layoutissue`). */
+/** Where a layout being checked came from (detail of `dockorama-layoutissue`). */
 export type LayoutSource = "set" | "restore" | "storage";

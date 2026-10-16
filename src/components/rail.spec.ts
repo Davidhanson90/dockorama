@@ -15,16 +15,16 @@ async function put<T extends HTMLElement & { updateComplete: Promise<boolean> }>
 }
 export function requests(): PartRequest[] {
   const out: PartRequest[] = [];
-  document.addEventListener("pazuru-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
+  document.addEventListener("dockorama-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
   return out;
 }
 afterEach(() => { document.body.innerHTML = ""; });
 
 type P = HTMLElement & { updateComplete: Promise<boolean> };
-describe("<pazuru-rail>", () => {
+describe("<dockorama-rail>", () => {
   it("lists stowed views and asks to open them on click or mouse hover", async () => {
     const got = requests();
-    const el = await put<P>("pazuru-rail", { side: "end", views: ["a", "x"], open: "a", ctx: ctx() });
+    const el = await put<P>("dockorama-rail", { side: "end", views: ["a", "x"], open: "a", ctx: ctx() });
     expect(el.getAttribute("role")).toBe("toolbar");
     expect(el.getAttribute("aria-label")).toBe("end");
     expect(el.dataset["side"]).toBe("end");

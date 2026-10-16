@@ -1,6 +1,6 @@
 // Naming guard. Fails when code or docs contain a third-party product's names (kept encoded so the
 // names themselves never appear in this repo). Extra terms are read from the private records folder
-// (PAZURU_RECORDS, default ../pazuru-records/naming-terms.txt) when it is present.
+// (DOCKORAMA_RECORDS, default ../dockorama-records/naming-terms.txt) when it is present.
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,7 +9,7 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const scanRoots = ["src", "harness", "scripts", "e2e", "docs", ".github", "README.md", "CONTRIBUTING.md", "AGENTS.md", "package.json", "playwright.config.ts"];
 const allowed = [`scripts${sep}check-naming.mjs`];
 const decoded = Buffer.from("aW5mcmFnaXN0aWNzfGlnbml0ZVtcc18tXT91aXxcYmlnbml0ZVxifFxiaWdbY3hdLXxcYklnW2N4XVtBLVpd", "base64").toString("utf8");
-const recordsDir = process.env.PAZURU_RECORDS ?? join(root, "..", "pazuru-records");
+const recordsDir = process.env.DOCKORAMA_RECORDS ?? join(root, "..", "dockorama-records");
 const extraPath = join(recordsDir, "naming-terms.txt");
 const escape = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const extra = existsSync(extraPath)

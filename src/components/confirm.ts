@@ -1,12 +1,12 @@
 import { html, type PropertyValues, type TemplateResult } from "lit";
-import { PazuruPart } from "./part.js";
+import { DockoramaPart } from "./part.js";
 
 /**
- * `<pazuru-confirm>`: the "unsaved changes" question shown before a dirty view closes
+ * `<dockorama-confirm>`: the "unsaved changes" question shown before a dirty view closes
  * (`role="alertdialog"`, modal over the layout). Tab cycles its two buttons, Esc cancels.
  * Sends `confirm-close` with `ok: true | false`.
  */
-export class PazuruConfirm extends PazuruPart {
+export class DockoramaConfirm extends DockoramaPart {
   static override properties = {
     view: {},
     message: {},

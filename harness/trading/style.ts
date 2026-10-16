@@ -1,7 +1,7 @@
 // Light-DOM styles for the trading desk views (the dock's own look comes from its skinPatch).
 export const deskCss = `
 .td-view { width: 100%; }
-pazuru-manager.td { height: 100%; font-variant-numeric: tabular-nums; }
+dockorama-manager.td { height: 100%; font-variant-numeric: tabular-nums; }
 .td-view { color: #d8dee9; font: 12px/1.35 "Inter", system-ui, sans-serif; overflow: auto; background: #0d1118; display: flex; flex-direction: column; min-height: 0; }
 .td-view .up { color: #2ecc71; } .td-view .down { color: #ff5b5b; } .td-view .dim { color: #6b7685; }
 .td-view table { margin: 0; font-size: 12px; } .td-view th, .td-view td { vertical-align: middle; border-bottom: 1px solid #151c27; }

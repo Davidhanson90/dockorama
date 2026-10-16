@@ -4,15 +4,15 @@ import { defineParts, type PartRequest } from "../index.js";
 defineParts();
 function requests(): PartRequest[] {
   const out: PartRequest[] = [];
-  document.addEventListener("pazuru-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
+  document.addEventListener("dockorama-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
   return out;
 }
 afterEach(() => { document.body.innerHTML = ""; });
 
-describe("<pazuru-tab-menu>", () => {
+describe("<dockorama-tab-menu>", () => {
   it("renders items, checkboxes, disabled entries and separators, and reports choices", async () => {
     const got = requests();
-    const el = document.createElement("pazuru-tab-menu");
+    const el = document.createElement("dockorama-tab-menu");
     Object.assign(el, {
       view: "a", x: 3, y: 4, label: "Tab actions",
       items: [{ key: "close", label: "Close" }, "separator", { key: "pin", label: "Pin", checked: false }, { key: "x", label: "Off", disabled: true }]

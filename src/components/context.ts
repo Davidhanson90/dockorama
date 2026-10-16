@@ -1,10 +1,10 @@
-import type { PazuruLabels } from "../labels.js";
-import type { PazuruModel } from "../model.js";
+import type { DockoramaLabels } from "../labels.js";
+import type { DockoramaModel } from "../model.js";
 
 /** Read-only state a manager hands down to its UI parts on every render. */
 export interface DockContext {
-  model: PazuruModel;
-  labels: PazuruLabels;
+  model: DockoramaModel;
+  labels: DockoramaLabels;
   /** Views whose content is in a separate browser window. */
   popped: ReadonlySet<string>;
   /** The gutter currently under a drag, if any. */

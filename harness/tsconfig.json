@@ -9,7 +9,7 @@
     "types": ["vite/client"],
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "experimentalDecorators": true,
-    "paths": { "pazuru": ["../src/index.ts"], "pazuru/skins": ["../src/skins/index.ts"], "pazuru/skins/*": ["../src/skins/*/index.ts"], "pazuru/*": ["../src/*.ts"] }
+    "paths": { "dockorama": ["../src/index.ts"], "dockorama/skins": ["../src/skins/index.ts"], "dockorama/skins/*": ["../src/skins/*/index.ts"], "dockorama/*": ["../src/*.ts"] }
   },
   "include": ["./**/*.ts"]
 }

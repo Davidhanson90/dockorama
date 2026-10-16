@@ -1,11 +1,11 @@
 import { html, type PropertyValues, type TemplateResult } from "lit";
 import type { SplitNode } from "../model.js";
 import type { DockContext } from "./context.js";
-import { PazuruPart } from "./part.js";
+import { DockoramaPart } from "./part.js";
 import { renderNode } from "./tree.js";
 
-/** `<pazuru-split>`: lays out child nodes in a row or column with a `<pazuru-gutter>` between each pair. */
-export class PazuruSplit extends PazuruPart {
+/** `<dockorama-split>`: lays out child nodes in a row or column with a `<dockorama-gutter>` between each pair. */
+export class DockoramaSplit extends DockoramaPart {
   static override properties = {
     node: { attribute: false },
     path: { attribute: false },
@@ -45,8 +45,8 @@ export class PazuruSplit extends PazuruPart {
         const pct = Math.round((node.weights.slice(0, i).reduce((a, b) => a + b, 0) / total) * 100);
         const drop = ctx.gap?.path === key && ctx.gap.after === i - 1 && ctx.gap.win === (win ?? "");
         const folded = node.folded?.[i - 1] ? "before" : node.folded?.[i] ? "after" : "";
-        parts.push(html`<pazuru-gutter .path=${path} .index=${i - 1} .win=${win} .axis=${node.axis} .weights=${node.weights}
-          .value=${pct} .label=${ctx.labels.resize} .drop=${drop} .folded=${folded}></pazuru-gutter>`);
+        parts.push(html`<dockorama-gutter .path=${path} .index=${i - 1} .win=${win} .axis=${node.axis} .weights=${node.weights}
+          .value=${pct} .label=${ctx.labels.resize} .drop=${drop} .folded=${folded}></dockorama-gutter>`);
       }
       parts.push(html`<div class="cell" style=${this.cellStyle(i)} ?data-folded=${Boolean(node.folded?.[i])}
         ?data-fixed=${typeof node.fixed?.[i] === "number"}>${renderNode(child, [...path, i], win, ctx)}</div>`);

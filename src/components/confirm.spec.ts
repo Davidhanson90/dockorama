@@ -4,11 +4,11 @@ import { defineParts, type PartRequest } from "../index.js";
 defineParts();
 afterEach(() => { document.body.innerHTML = ""; });
 
-describe("<pazuru-confirm>", () => {
+describe("<dockorama-confirm>", () => {
   it("asks, focuses Cancel, traps Tab and answers", async () => {
     const got: PartRequest[] = [];
-    document.addEventListener("pazuru-request", (e) => got.push((e as CustomEvent<PartRequest>).detail));
-    const el = document.createElement("pazuru-confirm");
+    document.addEventListener("dockorama-request", (e) => got.push((e as CustomEvent<PartRequest>).detail));
+    const el = document.createElement("dockorama-confirm");
     Object.assign(el, { view: "a", message: "Unsaved. Close?", okLabel: "Close", cancelLabel: "Keep" });
     document.body.append(el);
     await el.updateComplete;

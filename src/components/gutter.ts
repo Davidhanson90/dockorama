@@ -1,11 +1,11 @@
 import { html, type PropertyValues, type TemplateResult } from "lit";
-import { PazuruPart } from "./part.js";
+import { DockoramaPart } from "./part.js";
 
 /**
- * `<pazuru-gutter>`: the draggable, keyboard-operable splitter between two cells of a split.
+ * `<dockorama-gutter>`: the draggable, keyboard-operable splitter between two cells of a split.
  * Sends `gutter-grab` (pointer) and `gutter-key` (keyboard) requests; the manager resizes.
  */
-export class PazuruGutter extends PazuruPart {
+export class DockoramaGutter extends DockoramaPart {
   static override properties = {
     path: { attribute: false },
     index: { type: Number },

@@ -15,18 +15,18 @@ async function put<T extends HTMLElement & { updateComplete: Promise<boolean> }>
 }
 export function requests(): PartRequest[] {
   const out: PartRequest[] = [];
-  document.addEventListener("pazuru-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
+  document.addEventListener("dockorama-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
   return out;
 }
 afterEach(() => { document.body.innerHTML = ""; });
 
 type P = HTMLElement & { updateComplete: Promise<boolean> };
-describe("<pazuru-stack>", () => {
+describe("<dockorama-stack>", () => {
   it("renders a tab strip, toolbar and content host for several views", async () => {
     const c = ctx();
     c.model = { ...c.model, focus: "b" };
     const group = { ...stack(["a", "b"]), current: "b" };
-    const el = await put<P>("pazuru-stack", { group, path: [0], ctx: c });
+    const el = await put<P>("dockorama-stack", { group, path: [0], ctx: c });
     expect(el.getAttribute("part")).toBe("group");
     expect(el.dataset["stack"]).toBe("a");
     expect(el.dataset["path"]).toBe("0");
@@ -34,18 +34,18 @@ describe("<pazuru-stack>", () => {
     expect(el.hasAttribute("data-active")).toBe(true);
     expect(el.getAttribute("role")).toBe("group");
     expect(el.getAttribute("aria-label")).toBe("Beta");
-    expect(el.querySelectorAll("pazuru-tab").length).toBe(2);
-    expect(el.querySelector("pazuru-toolbar")).not.toBeNull();
-    const body = el.querySelector("pazuru-view")!;
+    expect(el.querySelectorAll("dockorama-tab").length).toBe(2);
+    expect(el.querySelector("dockorama-toolbar")).not.toBeNull();
+    const body = el.querySelector("dockorama-view")!;
     expect(body.getAttribute("role")).toBe("tabpanel");
     expect(body.getAttribute("aria-labelledby")).toBe("tab-b");
   });
   it("shows a title for a single view and sends activate, grab and zoom", async () => {
     const got = requests();
-    const el = await put<P>("pazuru-stack", { group: stack(["a"]), path: [], win: "w", ctx: ctx() });
+    const el = await put<P>("dockorama-stack", { group: stack(["a"]), path: [], win: "w", ctx: ctx() });
     expect(el.querySelector(".title")!.textContent).toContain("Alpha");
     expect(el.querySelector(".glyph")!.textContent).toBe("★");
-    expect(el.querySelector("pazuru-view")!.getAttribute("role")).toBe("region");
+    expect(el.querySelector("dockorama-view")!.getAttribute("role")).toBe("region");
     const bar = el.querySelector<HTMLElement>(".bar")!;
     bar.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
     bar.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
@@ -54,11 +54,11 @@ describe("<pazuru-stack>", () => {
   });
   it("is empty without views", async () => {
     const got = requests();
-    const el = await put<P>("pazuru-stack", { group: stack([]), path: [2], ctx: ctx() });
+    const el = await put<P>("dockorama-stack", { group: stack([]), path: [2], ctx: ctx() });
     expect(el.hasAttribute("data-empty")).toBe(true);
     expect(el.dataset["stack"]).toBe("docs-2");
     expect(el.getAttribute("aria-label")).toBe(DEFAULT_LABELS.emptyDocs);
-    expect(el.querySelector("pazuru-toolbar")).toBeNull();
+    expect(el.querySelector("dockorama-toolbar")).toBeNull();
     el.querySelector<HTMLElement>(".bar")!.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
     el.querySelector<HTMLElement>(".bar")!.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
     expect(got.map((r) => r.action)).toEqual(["activate"]);

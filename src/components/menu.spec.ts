@@ -15,16 +15,16 @@ async function put<T extends HTMLElement & { updateComplete: Promise<boolean> }>
 }
 export function requests(): PartRequest[] {
   const out: PartRequest[] = [];
-  document.addEventListener("pazuru-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
+  document.addEventListener("dockorama-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
   return out;
 }
 afterEach(() => { document.body.innerHTML = ""; });
 
 type P = HTMLElement & { updateComplete: Promise<boolean> };
-describe("<pazuru-menu>", () => {
+describe("<dockorama-menu>", () => {
   it("renders commands, radio items and separators, with keyboard navigation", async () => {
     const got = requests();
-    const el = await put<P>("pazuru-menu", {
+    const el = await put<P>("dockorama-menu", {
       x: 12, y: 34,
       entries: [{ label: "Alpha", action: "reveal", id: "a", checked: true }, { label: "Beta", action: "reveal", id: "b", checked: false }, "separator", { label: "Float", action: "float", id: "a" }]
     });

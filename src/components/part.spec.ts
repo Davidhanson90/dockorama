@@ -15,31 +15,31 @@ async function put<T extends HTMLElement & { updateComplete: Promise<boolean> }>
 }
 export function requests(): PartRequest[] {
   const out: PartRequest[] = [];
-  document.addEventListener("pazuru-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
+  document.addEventListener("dockorama-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
   return out;
 }
 afterEach(() => { document.body.innerHTML = ""; });
 
-import { PazuruPart, PARTS, PazuruManager } from "../index.js";
+import { DockoramaPart, PARTS, DockoramaManager } from "../index.js";
 describe("UI parts", () => {
   it("registers every part once and renders into light DOM", async () => {
     defineParts();
     for (const [tag, cls] of Object.entries(PARTS)) {
       expect(customElements.get(tag)).toBe(cls);
-      expect(cls.prototype).toBeInstanceOf(PazuruPart);
+      expect(cls.prototype).toBeInstanceOf(DockoramaPart);
     }
-    const el = await put<HTMLElement & { updateComplete: Promise<boolean> }>("pazuru-tab", { view: "a" });
+    const el = await put<HTMLElement & { updateComplete: Promise<boolean> }>("dockorama-tab", { view: "a" });
     expect(el.shadowRoot).toBeNull();
-    expect(customElements.get("pazuru-manager")).toBe(PazuruManager);
+    expect(customElements.get("dockorama-manager")).toBe(DockoramaManager);
   });
   it("keeps part requests inside the manager", async () => {
-    const m = document.createElement("pazuru-manager");
+    const m = document.createElement("dockorama-manager");
     document.body.append(m);
     m.model = createModel(views, row([stack(["a", "b"])]));
     await m.updateComplete;
     const leaked: Event[] = [];
-    m.addEventListener("pazuru-request", (e) => leaked.push(e));
-    m.shadowRoot!.querySelector<HTMLElement>('pazuru-tab[data-view="b"]')!.click();
+    m.addEventListener("dockorama-request", (e) => leaked.push(e));
+    m.shadowRoot!.querySelector<HTMLElement>('dockorama-tab[data-view="b"]')!.click();
     await m.updateComplete;
     expect(leaked).toEqual([]);
     expect(m.model.focus).toBe("b");
