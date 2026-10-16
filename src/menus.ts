@@ -16,17 +16,23 @@ export class MenuController {
     return html`<dockorama-tab-menu .view=${m.id} .items=${m.items} .x=${m.x} .y=${m.y} .label=${this.h.t.tabMenu}></dockorama-tab-menu>`;
   }
 
+  /** What both menus build their items from: the view's caps, labels, group and whether it floats. */
+  private facts(id: string) {
+    const where = ops.locate(this.h._model, id);
+    return {
+      c: this.h.caps(id), t: this.h.t,
+      s: where.place === "tree" ? where.stack : undefined,
+      floating: where.place === "tree" && Boolean(where.window)
+    };
+  }
+
   /** The built-in tab context menu items for a view (before the `tabMenu` hook). */
   tabMenuItems(id: string): TabMenuItem[] {
-    const c = this.h.caps(id);
-    const t = this.h.t;
-    const where = ops.locate(this.h._model, id);
-    const s = where.place === "tree" ? where.stack : undefined;
+    const { c, t, s, floating } = this.facts(id);
     const views = s?.views ?? [];
     const pinned = this.h.hasPin(id);
     const others = ops.closeSet(this.h._model, id, "others");
     const right = ops.closeSet(this.h._model, id, "right");
-    const floating = where.place === "tree" && Boolean(where.window);
     const out: TabMenuItem[] = [
       { key: "close", label: t.dismiss, disabled: c.dismiss === false },
       { key: "close-others", label: t.closeOthers, disabled: !others.length },
@@ -108,11 +114,7 @@ export class MenuController {
 
   /** Entries of the "more actions" menu for a view. */
   menuEntries(id: string): MenuEntry[] {
-    const c = this.h.caps(id);
-    const t = this.h.t;
-    const where = ops.locate(this.h._model, id);
-    const s = where.place === "tree" ? where.stack : undefined;
-    const floating = where.place === "tree" && Boolean(where.window);
+    const { c, t, s, floating } = this.facts(id);
     const out: MenuEntry[] = [];
     if (s && s.views.length > 1) {
       for (const v of s.views) out.push({ label: this.h._model.views[v]?.title ?? v, action: "reveal", id: v, checked: v === s.current });

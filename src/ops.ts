@@ -380,26 +380,21 @@ export function reveal(model: DockoramaModel, id: string): DockoramaModel {
 
 /** Select a tab (and focus it). */
 export function select(model: DockoramaModel, id: string): DockoramaModel {
-  const m = copy(model);
   const apply = (s: StackNode): DockNode => (s.views.includes(id) ? { ...s, current: id } : s);
-  m.root = mapTree(m.root, apply);
-  m.windows = m.windows.map((w) => ({ ...w, tree: mapTree(w.tree, apply)! }));
+  const m = mapStacks(model, apply);
   m.focus = id;
   return m;
 }
 
 /** Reorder a tab inside its own group. */
 export function reorder(model: DockoramaModel, id: string, index: number): DockoramaModel {
-  const m = copy(model);
   const apply = (s: StackNode): DockNode => {
     if (!s.views.includes(id)) return s;
     const views = s.views.filter((v) => v !== id);
     views.splice(Math.max(0, Math.min(index, views.length)), 0, id);
     return { ...s, views };
   };
-  m.root = mapTree(m.root, apply);
-  m.windows = m.windows.map((w) => ({ ...w, tree: mapTree(w.tree, apply)! }));
-  return normalize(m);
+  return normalize(mapStacks(model, apply));
 }
 
 /** Set the weights of the split at `path` (in the root, or in a window). */
@@ -541,15 +536,12 @@ export function pin(model: DockoramaModel, id: string, on = true): DockoramaMode
   if (where.place !== "tree") return model;
   const has = where.stack.pinned?.includes(id) ?? false;
   if (has === on) return model;
-  const m = copy(model);
   const apply = (s: StackNode): DockNode => {
     if (!s.views.includes(id)) return s;
     const pinned = on ? [...(s.pinned ?? []), id] : (s.pinned ?? []).filter((v) => v !== id);
     return { ...s, pinned };
   };
-  m.root = mapTree(m.root, apply);
-  m.windows = m.windows.map((w) => ({ ...w, tree: mapTree(w.tree, apply)! }));
-  return normalize(m);
+  return normalize(mapStacks(model, apply));
 }
 
 /** The outside (browser) window holding a view's content, if any. */
