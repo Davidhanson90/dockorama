@@ -2,7 +2,7 @@ import type { ViewSpot, OutsideWindow, LayoutMigrations, SizeLimits,
   Box, DockNode, DropZone, EdgeZone, DockoramaModel, Side, SplitNode, StackNode, ViewInfo, Whereabouts
 } from "./model.js";
 
-export const SIDES: Side[] = ["start", "end", "top", "bottom"];
+const SIDES: Side[] = ["start", "end", "top", "bottom"];
 
 /** Deep copy (models are plain JSON). */
 export function copy<T>(value: T): T {
@@ -85,27 +85,14 @@ function withoutExtras(node: SplitNode): SplitNode {
 
 /** Remove a view from a tree. Prunes empty non-document stacks and collapses single-child splits. */
 function pluck(node: DockNode | null, id: string, keepEmpty: boolean): DockNode | null {
-  if (!node) return null;
-  if (node.kind === "stack") {
-    if (!node.views.includes(id)) return node;
-    const idx = node.views.indexOf(id);
-    const views = node.views.filter((v) => v !== id);
-    const current = node.current === id ? (views[Math.min(idx, views.length - 1)] ?? "") : node.current;
-    if (!views.length && !node.docs && !keepEmpty) return null;
-    return { ...node, views, current };
-  }
-  const children: DockNode[] = [];
-  const weights: number[] = [];
-  const from: number[] = [];
-  node.children.forEach((child, i) => {
-    const next = pluck(child, id, keepEmpty);
-    if (next) {
-      children.push(next);
-      weights.push(node.weights[i] ?? 1);
-      from.push(i);
-    }
+  return mapTree(node, (s) => {
+    const idx = s.views.indexOf(id);
+    if (idx < 0) return s;
+    const views = s.views.filter((v) => v !== id);
+    const current = s.current === id ? (views[Math.min(idx, views.length - 1)] ?? "") : s.current;
+    if (!views.length && !s.docs && !keepEmpty) return null;
+    return { ...s, views, current };
   });
-  return tidySplit({ ...withoutExtras(node), ...carryExtras(node, from), children, weights });
 }
 
 /** Collapse single-child splits and flatten nested same-axis splits. */
@@ -147,10 +134,12 @@ export function normalize(input: DockoramaModel): DockoramaModel {
   m.drawers = { start: d.start ?? [], end: d.end ?? [], top: d.top ?? [], bottom: d.bottom ?? [] };
   const known = (id: string) => id in m.views;
   const seen = new Set<string>();
+  /** True the first time a known view id is met (so each view is kept once). */
+  const firstKnown = (v: string) => known(v) && !seen.has(v) && (seen.add(v), true);
   const fix = (node: DockNode | null): DockNode | null => {
     if (!node) return null;
     if (node.kind === "stack") {
-      let views = node.views.filter((v) => known(v) && !seen.has(v) && (seen.add(v), true));
+      let views = node.views.filter(firstKnown);
       if (!views.length && !node.docs) return null;
       const out: StackNode = { ...node, views, current: views.includes(node.current) ? node.current : (views[0] ?? "") };
       if (node.preview && !views.includes(node.preview)) delete out.preview;
@@ -185,8 +174,8 @@ export function normalize(input: DockoramaModel): DockoramaModel {
   m.windows = m.windows
     .map((w) => ({ ...w, tree: fix(w.tree) as DockNode }))
     .filter((w) => w.tree && viewsIn(w.tree).length > 0);
-  for (const side of SIDES) m.drawers[side] = m.drawers[side].filter((v) => known(v) && !seen.has(v) && (seen.add(v), true));
-  m.parked = m.parked.filter((v) => known(v) && !seen.has(v) && (seen.add(v), true));
+  for (const side of SIDES) m.drawers[side] = m.drawers[side].filter(firstKnown);
+  m.parked = m.parked.filter(firstKnown);
   if (m.focus && !seen.has(m.focus)) delete m.focus;
   if (m.zoom && !seen.has(m.zoom)) delete m.zoom;
   if (m.outside) {
@@ -216,7 +205,7 @@ export function unplace(model: DockoramaModel, id: string, keepEmpty = false): D
   return m;
 }
 
-function mapTree(node: DockNode | null, fn: (s: StackNode) => DockNode): DockNode | null {
+function mapTree(node: DockNode | null, fn: (s: StackNode) => DockNode | null): DockNode | null {
   if (!node) return null;
   if (node.kind === "stack") return fn(node);
   const mapped = node.children.map((c) => mapTree(c, fn));
@@ -306,7 +295,7 @@ export function raiseWindow(model: DockoramaModel, key: string): DockoramaModel 
 }
 
 /** Guess which side a docked view should stow to. */
-export function sideFor(model: DockoramaModel, id: string): Side {
+function sideFor(model: DockoramaModel, id: string): Side {
   const where = locate(model, id);
   if (where.place !== "tree" || where.window || !model.root || model.root.kind !== "split" || !where.path.length) return "start";
   const top = where.path[0]!;
@@ -380,26 +369,21 @@ export function reveal(model: DockoramaModel, id: string): DockoramaModel {
 
 /** Select a tab (and focus it). */
 export function select(model: DockoramaModel, id: string): DockoramaModel {
-  const m = copy(model);
   const apply = (s: StackNode): DockNode => (s.views.includes(id) ? { ...s, current: id } : s);
-  m.root = mapTree(m.root, apply);
-  m.windows = m.windows.map((w) => ({ ...w, tree: mapTree(w.tree, apply)! }));
+  const m = mapStacks(model, apply);
   m.focus = id;
   return m;
 }
 
 /** Reorder a tab inside its own group. */
 export function reorder(model: DockoramaModel, id: string, index: number): DockoramaModel {
-  const m = copy(model);
   const apply = (s: StackNode): DockNode => {
     if (!s.views.includes(id)) return s;
     const views = s.views.filter((v) => v !== id);
     views.splice(Math.max(0, Math.min(index, views.length)), 0, id);
     return { ...s, views };
   };
-  m.root = mapTree(m.root, apply);
-  m.windows = m.windows.map((w) => ({ ...w, tree: mapTree(w.tree, apply)! }));
-  return normalize(m);
+  return normalize(mapStacks(model, apply));
 }
 
 /** Set the weights of the split at `path` (in the root, or in a window). */
@@ -541,15 +525,12 @@ export function pin(model: DockoramaModel, id: string, on = true): DockoramaMode
   if (where.place !== "tree") return model;
   const has = where.stack.pinned?.includes(id) ?? false;
   if (has === on) return model;
-  const m = copy(model);
   const apply = (s: StackNode): DockNode => {
     if (!s.views.includes(id)) return s;
     const pinned = on ? [...(s.pinned ?? []), id] : (s.pinned ?? []).filter((v) => v !== id);
     return { ...s, pinned };
   };
-  m.root = mapTree(m.root, apply);
-  m.windows = m.windows.map((w) => ({ ...w, tree: mapTree(w.tree, apply)! }));
-  return normalize(m);
+  return normalize(mapStacks(model, apply));
 }
 
 /** The outside (browser) window holding a view's content, if any. */

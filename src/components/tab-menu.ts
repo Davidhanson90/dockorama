@@ -28,13 +28,8 @@ export class DockoramaTabMenu extends DockoramaPart {
   y = 0;
   label = "Tab actions";
 
-  override connectedCallback(): void {
-    super.connectedCallback();
-    this.addEventListener("keydown", this.onKey);
-  }
-  override disconnectedCallback(): void {
-    super.disconnectedCallback();
-    this.removeEventListener("keydown", this.onKey);
+  protected override get listeners() {
+    return { keydown: this.onKey };
   }
 
   private buttons(): HTMLButtonElement[] {

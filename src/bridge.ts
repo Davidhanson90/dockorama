@@ -65,8 +65,8 @@ export interface DockoramaHandlers {
   layoutissue?: (detail: { source: LayoutSource; problems: string[]; fatal: boolean }) => void;
 }
 
-export const PROP_KEYS = ["model", "theme", "snap", "storageKey", "keepEmpty", "labels", "dragGroup", "tabMenu", "confirmClose", "layoutVersion", "migrations", "retain"] as const;
-export const EVENT_KEYS = [
+const PROP_KEYS = ["model", "theme", "snap", "storageKey", "keepEmpty", "labels", "dragGroup", "tabMenu", "confirmClose", "layoutVersion", "migrations", "retain"] as const;
+const EVENT_KEYS = [
   "change", "focus", "viewshow", "viewhide", "beforeclose", "close", "beforemove", "beforeadd", "command", "dragstart", "dragover", "drop",
   "dragcancel", "transfer", "dirty", "layoutissue", "resize", "resizing", "float", "dock", "stow", "unstow", "pin", "unpin", "popout", "popin",
   "collapse", "expand", "viewremove"

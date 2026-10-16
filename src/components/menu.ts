@@ -8,7 +8,7 @@ export type MenuEntry = { label: string; action: string; id: string; checked?: b
 /** Lists longer than this are virtualised: only the rows in view are rendered. */
 export const VIRTUAL_AFTER = 40;
 /** Row height (px) of a virtualised list. */
-export const ROW = 30;
+const ROW = 30;
 const SHOW = 12;
 
 /**
@@ -28,13 +28,8 @@ export class DockoramaMenu extends DockoramaPart {
   y = 0;
   private _top = 0;
 
-  override connectedCallback(): void {
-    super.connectedCallback();
-    this.addEventListener("keydown", this.onKey);
-  }
-  override disconnectedCallback(): void {
-    super.disconnectedCallback();
-    this.removeEventListener("keydown", this.onKey);
+  protected override get listeners() {
+    return { keydown: this.onKey };
   }
 
   /** The leading radio items (the tab list) and the rest. */

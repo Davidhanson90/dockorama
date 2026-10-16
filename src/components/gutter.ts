@@ -29,17 +29,8 @@ export class DockoramaGutter extends DockoramaPart {
   /** Which neighbour is collapsed: `"before"`, `"after"` or `""`. Double-click or Enter toggles. */
   folded: "before" | "after" | "" = "";
 
-  override connectedCallback(): void {
-    super.connectedCallback();
-    this.addEventListener("pointerdown", this.onDown);
-    this.addEventListener("keydown", this.onKey);
-    this.addEventListener("dblclick", this.onFold);
-  }
-  override disconnectedCallback(): void {
-    super.disconnectedCallback();
-    this.removeEventListener("pointerdown", this.onDown);
-    this.removeEventListener("keydown", this.onKey);
-    this.removeEventListener("dblclick", this.onFold);
+  protected override get listeners() {
+    return { pointerdown: this.onDown, keydown: this.onKey, dblclick: this.onFold };
   }
   private readonly onDown = (event: PointerEvent): void =>
     this.request("gutter-grab", { path: this.path, after: this.index, axis: this.axis, win: this.win, event, source: this });
