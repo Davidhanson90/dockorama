@@ -828,7 +828,7 @@ add({
   <tr><td><code>float</code></td><td>Cannot float in a window</td></tr>
   <tr><td><code>move</code></td><td>Cannot be dragged or re-docked</td></tr>
   <tr><td><code>zoom</code> / <code>popout</code></td><td>No zoom / pop-out</td></tr>
-  <tr><td><code>docsOnly: true</code></td><td>May only live in a document area</td></tr>
+  <tr><td><code>docsOnly: true</code></td><td>May only live in a document area: it cannot be dropped on tool groups or outer edges, and it is not floated by dropping it on empty space or by <code>detach()</code></td></tr>
   <tr><td><code>inert: true</code></td><td>Content is shown but not interactive</td></tr></table>
   ${ex("caps")}`,
   examples: [{ id: "caps", code: `${SETUP}

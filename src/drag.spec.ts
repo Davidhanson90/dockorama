@@ -184,6 +184,31 @@ describe("dragging", () => {
   });
 });
 
+describe("document-only views and floating", () => {
+  const make = () => mount(createModel({ ...views, d: { title: "D", caps: { docsOnly: true } } }, row([stack(["a"]), docs(["d", "e"]), stack(["b"])])));
+  it("detach() leaves a document-only view in its area, and other views still float", async () => {
+    const el = await make();
+    const before = el.model;
+    el.detach("d");
+    expect(el.model).toBe(before);
+    el.detach("e");
+    expect(el.model.windows).toHaveLength(1);
+  });
+  it("dropping a document-only tab on empty space does not float it", async () => {
+    const el = await make();
+    el.addEventListener("dockorama-drop", () => {});
+    pd(tab(el, "d"), 320, 10);
+    pm(330, 10);
+    pm(330, 200);
+    pm(5000, 5000);
+    await el.updateComplete;
+    pu(5000, 5000);
+    await el.updateComplete;
+    expect(el.model.windows).toHaveLength(0);
+    expect(locate(el.model, "d").place).toBe("tree");
+  });
+});
+
 describe("tab overflow", () => {
   function overflow(strip: HTMLElement, scrollWidth: number, clientWidth: number) {
     Object.defineProperty(strip, "scrollWidth", { configurable: true, value: scrollWidth });

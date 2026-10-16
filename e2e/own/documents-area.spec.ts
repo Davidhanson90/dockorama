@@ -41,6 +41,21 @@ test.describe("documents area", () => {
     expect(await d.order("tool")).toEqual(["tool", "tool2"]); // never joined the tool group
   });
 
+  test("a docsOnly view dropped on empty space stays in the documents area", async ({ page }) => {
+    const d = await Dock.mountWith(page, ({ dk }) => ({
+      model: dk.createModel(
+        { doc: { title: "Report", caps: { docsOnly: true } }, other: { title: "Other" }, tool: { title: "Tool" } },
+        dk.row([dk.stack(["tool"]), dk.docs(["doc", "other"])], [1, 3])
+      )
+    }), null);
+    await d.hold(d.tab("Report"), { x: 700, y: 400 });
+    await d.release();
+    await expect(d.windows()).toHaveCount(0);
+    expect(await d.order("doc")).toEqual(["doc", "other"]);
+    await page.evaluate(() => { window.lab.dock().detach("doc"); });
+    await expect(d.windows()).toHaveCount(0);
+  });
+
   test("documents can be dragged into a floating window and back to the area", async ({ dock }) => {
     await dock.drag(await dock.center(dock.tab("readme.md")), { x: 600, y: 120 });
     await expect(dock.windows()).toHaveCount(1);

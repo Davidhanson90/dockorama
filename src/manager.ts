@@ -317,7 +317,7 @@ export class DockoramaManager extends LitElement {
   }
   /** Float a view in its own window. */
   detach(id: string, box?: Box): void {
-    if (this.caps(id).float === false) return;
+    if (this.caps(id).float === false || this.caps(id).docsOnly) return;
     const b = box ?? this.defaultBox();
     this.commit(ops.detach(this._model, id, this.fitBox(b)), "detach");
   }
@@ -1655,6 +1655,11 @@ export class DockoramaManager extends LitElement {
         this._model = ops.moveWindow(this._model, d.windowKey, d.windowStart);
         this.commit(ops.moveWindow(this._model, d.windowKey, fitted), "window");
       }
+      return;
+    }
+    // A view that may only live in a document area is not floated by dropping it on empty space.
+    if (this.caps(d.id).docsOnly) {
+      this.requestUpdate();
       return;
     }
     const host = this.getBoundingClientRect();
