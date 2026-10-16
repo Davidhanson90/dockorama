@@ -1,26 +1,26 @@
-import { PazuruConfirm } from "./confirm.js";
-import { PazuruDocs } from "./docs.js";
-import { PazuruDropGuide } from "./drop-guide.js";
-import { PazuruFlyout } from "./flyout.js";
-import { PazuruGutter } from "./gutter.js";
-import { PazuruMenu } from "./menu.js";
-import { PazuruNotice } from "./notice.js";
-import { PazuruPalette } from "./palette.js";
-import { PazuruRail } from "./rail.js";
-import { PazuruSplit } from "./split.js";
-import { PazuruStack } from "./stack.js";
-import { PazuruTab } from "./tab.js";
-import { PazuruTabMenu } from "./tab-menu.js";
-import { PazuruTabstrip } from "./tabstrip.js";
-import { PazuruToolbar } from "./toolbar.js";
-import { PazuruView } from "./view.js";
-import { PazuruWindow } from "./window.js";
+import { DockoramaConfirm } from "./confirm.js";
+import { DockoramaDocs } from "./docs.js";
+import { DockoramaDropGuide } from "./drop-guide.js";
+import { DockoramaFlyout } from "./flyout.js";
+import { DockoramaGutter } from "./gutter.js";
+import { DockoramaMenu } from "./menu.js";
+import { DockoramaNotice } from "./notice.js";
+import { DockoramaPalette } from "./palette.js";
+import { DockoramaRail } from "./rail.js";
+import { DockoramaSplit } from "./split.js";
+import { DockoramaStack } from "./stack.js";
+import { DockoramaTab } from "./tab.js";
+import { DockoramaTabMenu } from "./tab-menu.js";
+import { DockoramaTabstrip } from "./tabstrip.js";
+import { DockoramaToolbar } from "./toolbar.js";
+import { DockoramaView } from "./view.js";
+import { DockoramaWindow } from "./window.js";
 
 export {
-  PazuruConfirm, PazuruDocs, PazuruDropGuide, PazuruFlyout, PazuruGutter, PazuruMenu, PazuruNotice, PazuruPalette, PazuruRail,
-  PazuruSplit, PazuruStack, PazuruTab, PazuruTabMenu, PazuruTabstrip, PazuruToolbar, PazuruView, PazuruWindow
+  DockoramaConfirm, DockoramaDocs, DockoramaDropGuide, DockoramaFlyout, DockoramaGutter, DockoramaMenu, DockoramaNotice, DockoramaPalette, DockoramaRail,
+  DockoramaSplit, DockoramaStack, DockoramaTab, DockoramaTabMenu, DockoramaTabstrip, DockoramaToolbar, DockoramaView, DockoramaWindow
 };
-export { PazuruPart, type PartRequest } from "./part.js";
+export { DockoramaPart, type PartRequest } from "./part.js";
 export type { DockContext } from "./context.js";
 export type { GuideSpot } from "./drop-guide.js";
 export type { MenuEntry } from "./menu.js";
@@ -29,23 +29,23 @@ export type { NoticeAction } from "./notice.js";
 
 /** Tag name → class of every UI part a manager renders. */
 export const PARTS = {
-  "pazuru-split": PazuruSplit,
-  "pazuru-gutter": PazuruGutter,
-  "pazuru-stack": PazuruStack,
-  "pazuru-docs": PazuruDocs,
-  "pazuru-tabstrip": PazuruTabstrip,
-  "pazuru-tab": PazuruTab,
-  "pazuru-toolbar": PazuruToolbar,
-  "pazuru-view": PazuruView,
-  "pazuru-window": PazuruWindow,
-  "pazuru-drop-guide": PazuruDropGuide,
-  "pazuru-rail": PazuruRail,
-  "pazuru-flyout": PazuruFlyout,
-  "pazuru-menu": PazuruMenu,
-  "pazuru-palette": PazuruPalette,
-  "pazuru-tab-menu": PazuruTabMenu,
-  "pazuru-notice": PazuruNotice,
-  "pazuru-confirm": PazuruConfirm
+  "dockorama-split": DockoramaSplit,
+  "dockorama-gutter": DockoramaGutter,
+  "dockorama-stack": DockoramaStack,
+  "dockorama-docs": DockoramaDocs,
+  "dockorama-tabstrip": DockoramaTabstrip,
+  "dockorama-tab": DockoramaTab,
+  "dockorama-toolbar": DockoramaToolbar,
+  "dockorama-view": DockoramaView,
+  "dockorama-window": DockoramaWindow,
+  "dockorama-drop-guide": DockoramaDropGuide,
+  "dockorama-rail": DockoramaRail,
+  "dockorama-flyout": DockoramaFlyout,
+  "dockorama-menu": DockoramaMenu,
+  "dockorama-palette": DockoramaPalette,
+  "dockorama-tab-menu": DockoramaTabMenu,
+  "dockorama-notice": DockoramaNotice,
+  "dockorama-confirm": DockoramaConfirm
 } as const;
 
 /** Register every UI part (safe to call more than once). */
@@ -57,22 +57,22 @@ export function defineParts(): void {
 
 declare global {
   interface HTMLElementTagNameMap {
-    "pazuru-split": PazuruSplit;
-    "pazuru-gutter": PazuruGutter;
-    "pazuru-stack": PazuruStack;
-    "pazuru-docs": PazuruDocs;
-    "pazuru-tabstrip": PazuruTabstrip;
-    "pazuru-tab": PazuruTab;
-    "pazuru-toolbar": PazuruToolbar;
-    "pazuru-view": PazuruView;
-    "pazuru-window": PazuruWindow;
-    "pazuru-drop-guide": PazuruDropGuide;
-    "pazuru-rail": PazuruRail;
-    "pazuru-flyout": PazuruFlyout;
-    "pazuru-menu": PazuruMenu;
-    "pazuru-palette": PazuruPalette;
-    "pazuru-tab-menu": PazuruTabMenu;
-    "pazuru-notice": PazuruNotice;
-    "pazuru-confirm": PazuruConfirm;
+    "dockorama-split": DockoramaSplit;
+    "dockorama-gutter": DockoramaGutter;
+    "dockorama-stack": DockoramaStack;
+    "dockorama-docs": DockoramaDocs;
+    "dockorama-tabstrip": DockoramaTabstrip;
+    "dockorama-tab": DockoramaTab;
+    "dockorama-toolbar": DockoramaToolbar;
+    "dockorama-view": DockoramaView;
+    "dockorama-window": DockoramaWindow;
+    "dockorama-drop-guide": DockoramaDropGuide;
+    "dockorama-rail": DockoramaRail;
+    "dockorama-flyout": DockoramaFlyout;
+    "dockorama-menu": DockoramaMenu;
+    "dockorama-palette": DockoramaPalette;
+    "dockorama-tab-menu": DockoramaTabMenu;
+    "dockorama-notice": DockoramaNotice;
+    "dockorama-confirm": DockoramaConfirm;
   }
 }

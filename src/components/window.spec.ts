@@ -15,16 +15,16 @@ async function put<T extends HTMLElement & { updateComplete: Promise<boolean> }>
 }
 export function requests(): PartRequest[] {
   const out: PartRequest[] = [];
-  document.addEventListener("pazuru-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
+  document.addEventListener("dockorama-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
   return out;
 }
 afterEach(() => { document.body.innerHTML = ""; });
 
 type P = HTMLElement & { updateComplete: Promise<boolean> };
-describe("<pazuru-window>", () => {
+describe("<dockorama-window>", () => {
   it("positions a dialog with its own tree and sends raise and grip", async () => {
     const got = requests();
-    const el = await put<P>("pazuru-window", { key: "w1", box: { x: 10, y: 20, w: 300, h: 200 }, tree: stack(["a", "b"]), layer: 2, ctx: ctx() });
+    const el = await put<P>("dockorama-window", { key: "w1", box: { x: 10, y: 20, w: 300, h: 200 }, tree: stack(["a", "b"]), layer: 2, ctx: ctx() });
     expect(el.getAttribute("role")).toBe("dialog");
     expect(el.getAttribute("part")).toBe("window");
     expect(el.getAttribute("aria-label")).toBe("Alpha, Beta");
@@ -32,7 +32,7 @@ describe("<pazuru-window>", () => {
     expect(el.style.left).toBe("10px");
     expect(el.style.height).toBe("200px");
     expect(el.style.zIndex).toBe("32");
-    expect(el.querySelector(".content pazuru-stack")!.getAttribute("data-win")).toBe("w1");
+    expect(el.querySelector(".content dockorama-stack")!.getAttribute("data-win")).toBe("w1");
     el.querySelector<HTMLElement>(".grip")!.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
     expect(got.map((r) => r.action)).toEqual(["grip", "raise"]);
     expect(got[0]).toMatchObject({ key: "w1" });
@@ -41,7 +41,7 @@ describe("<pazuru-window>", () => {
     expect(got.length).toBe(2);
   });
   it("labels unknown views by id", async () => {
-    const el = await put<P>("pazuru-window", { key: "w2", tree: stack(["nope"]), ctx: ctx() });
+    const el = await put<P>("dockorama-window", { key: "w2", tree: stack(["nope"]), ctx: ctx() });
     expect(el.getAttribute("aria-label")).toBe("nope");
   });
 });

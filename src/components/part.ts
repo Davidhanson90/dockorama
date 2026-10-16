@@ -3,7 +3,7 @@ import { icons } from "../icons.js";
 import { templateFor, type SkinContexts, type SkinKey, type SkinKit, type SkinOutput, type SkinScope } from "../skins/core.js";
 import "../skins/default/skin.js";
 
-/** Detail of the internal `pazuru-request` event that UI parts send to their manager. */
+/** Detail of the internal `dockorama-request` event that UI parts send to their manager. */
 export interface PartRequest {
   action: string;
   id?: string;
@@ -11,11 +11,11 @@ export interface PartRequest {
 }
 
 /**
- * Base class of pazuru's UI parts. Parts render into their own light DOM so that they live inside the
+ * Base class of dockorama's UI parts. Parts render into their own light DOM so that they live inside the
  * manager's shadow root (one stylesheet, CSS parts and `::slotted` keep working), and report user intent
- * to the manager with composed `pazuru-request` events. They never change the layout model themselves.
+ * to the manager with composed `dockorama-request` events. They never change the layout model themselves.
  */
-export abstract class PazuruPart extends LitElement {
+export abstract class DockoramaPart extends LitElement {
   protected override createRenderRoot(): HTMLElement {
     return this;
   }
@@ -24,7 +24,7 @@ export abstract class PazuruPart extends LitElement {
   protected override async getUpdateComplete(): Promise<boolean> {
     let done = await super.getUpdateComplete();
     for (const el of Array.from(this.querySelectorAll("*"))) {
-      if (el instanceof PazuruPart) done = (await el.updateComplete) && done;
+      if (el instanceof DockoramaPart) done = (await el.updateComplete) && done;
     }
     return done;
   }
@@ -45,7 +45,7 @@ export abstract class PazuruPart extends LitElement {
 
   /** Ask the owning manager to do something. */
   protected request(action: string, detail: Omit<PartRequest, "action"> = {}): void {
-    this.dispatchEvent(new CustomEvent<PartRequest>("pazuru-request", { detail: { ...detail, action }, bubbles: true, composed: true }));
+    this.dispatchEvent(new CustomEvent<PartRequest>("dockorama-request", { detail: { ...detail, action }, bubbles: true, composed: true }));
   }
 
   /** Set or remove a host attribute. */
@@ -60,6 +60,6 @@ export abstract class PazuruPart extends LitElement {
 
 declare global {
   interface HTMLElementEventMap {
-    "pazuru-request": CustomEvent<PartRequest>;
+    "dockorama-request": CustomEvent<PartRequest>;
   }
 }

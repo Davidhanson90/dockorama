@@ -15,15 +15,15 @@ async function put<T extends HTMLElement & { updateComplete: Promise<boolean> }>
 }
 export function requests(): PartRequest[] {
   const out: PartRequest[] = [];
-  document.addEventListener("pazuru-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
+  document.addEventListener("dockorama-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
   return out;
 }
 afterEach(() => { document.body.innerHTML = ""; });
 
-describe("<pazuru-gutter>", () => {
+describe("<dockorama-gutter>", () => {
   it("is an accessible separator and reports pointer and key input", async () => {
     const got = requests();
-    const el = await put<HTMLElement & { updateComplete: Promise<boolean> }>("pazuru-gutter", { path: [1, 0], index: 2, win: "w", axis: "column", weights: [1, 1, 1], value: 40, label: "Size" });
+    const el = await put<HTMLElement & { updateComplete: Promise<boolean> }>("dockorama-gutter", { path: [1, 0], index: 2, win: "w", axis: "column", weights: [1, 1, 1], value: 40, label: "Size" });
     expect(el.getAttribute("role")).toBe("separator");
     expect(el.tabIndex).toBe(0);
     expect(el.getAttribute("aria-orientation")).toBe("horizontal");
@@ -42,7 +42,7 @@ describe("<pazuru-gutter>", () => {
     expect(got.length).toBe(2);
   });
   it("defaults to a vertical row gutter", async () => {
-    const el = await put<HTMLElement & { updateComplete: Promise<boolean> }>("pazuru-gutter", {});
+    const el = await put<HTMLElement & { updateComplete: Promise<boolean> }>("dockorama-gutter", {});
     expect(el.getAttribute("aria-orientation")).toBe("vertical");
     expect(el.dataset["win"]).toBe("");
     expect(el.hasAttribute("data-drop")).toBe(false);

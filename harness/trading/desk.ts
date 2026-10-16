@@ -1,6 +1,6 @@
 // The trading desk demo: a dense, dark, live-updating workspace built from plain DOM, canvas and SVG.
-import type { PazuruManager } from "pazuru";
-import { column, createModel, docs, row, stack } from "pazuru";
+import type { DockoramaManager } from "dockorama";
+import { column, createModel, docs, row, stack } from "dockorama";
 import { Market, tick, type Instrument } from "./sim.js";
 import { deskCss } from "./style.js";
 
@@ -61,14 +61,14 @@ export function mountTradingDesk(host: HTMLElement, options: { standalone?: bool
   const style = document.createElement("style");
   style.textContent = deskCss;
   host.append(style);
-  const dock = document.createElement("pazuru-manager") as PazuruManager;
+  const dock = document.createElement("dockorama-manager") as DockoramaManager;
   dock.theme = "dark";
   dock.setAttribute("data-fixed-theme", "");
   dock.classList.add("td");
   dock.skinPatch = {
-    css: `:host { --pz-accent: #f5b041; --pz-accent-ink: #14110a; --pz-canvas: #07090d; --pz-surface: #0d1118; --pz-surface-2: #121823;
-      --pz-ink: #d8dee9; --pz-ink-soft: #7b8696; --pz-line: #1e2633; --pz-radius: 4px; --pz-bar-height: 28px; --pz-gutter: 4px;
-      --pz-font: "Inter", system-ui, sans-serif; --pz-font-size: 12px; --pz-target: rgb(245 176 65 / 0.16); }
+    css: `:host { --dk-accent: #f5b041; --dk-accent-ink: #14110a; --dk-canvas: #07090d; --dk-surface: #0d1118; --dk-surface-2: #121823;
+      --dk-ink: #d8dee9; --dk-ink-soft: #7b8696; --dk-line: #1e2633; --dk-radius: 4px; --dk-bar-height: 28px; --dk-gutter: 4px;
+      --dk-font: "Inter", system-ui, sans-serif; --dk-font-size: 12px; --dk-target: rgb(245 176 65 / 0.16); }
       .stack[data-active] { border-color: #f5b04188; }
       .main { padding: 3px; }`
   };
@@ -400,7 +400,7 @@ export function mountTradingDesk(host: HTMLElement, options: { standalone?: bool
   }
   syncTicket(true);
   drawAll();
-  dock.addEventListener("pazuru-viewshow", (e) => {
+  dock.addEventListener("dockorama-viewshow", (e) => {
     if (e.detail.id === "chart") requestAnimationFrame(() => chart.redraw());
     if (e.detail.id === "depth") requestAnimationFrame(() => depth.redraw());
   });

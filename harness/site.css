@@ -28,7 +28,7 @@ a { color: var(--accent); }
 .demo .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 10px; border-bottom: 1px solid var(--line); font-size: 13px; }
 .demo .toolbar button, .demo .toolbar select { font: inherit; border: 1px solid var(--line); background: var(--bg); color: var(--fg); padding: 4px 10px; border-radius: 6px; cursor: pointer; }
 .demo .stage { position: relative; }
-.demo pazuru-manager { height: 100%; }
+.demo dockorama-manager { height: 100%; }
 details.code { margin: 0 0 24px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 details.code summary { cursor: pointer; padding: 8px 14px; font-weight: 600; font-size: 14px; color: var(--soft); background: var(--card); }
 pre { margin: 0; padding: 16px 18px; background: var(--code-bg); color: var(--code-fg); overflow: auto; font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }

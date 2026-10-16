@@ -1,5 +1,5 @@
-import * as core from "pazuru";
-import * as skins from "pazuru/skins";
+import * as core from "dockorama";
+import * as skins from "dockorama/skins";
 import { html } from "lit";
 import { pages, type Page, type Example } from "./content.js";
 
@@ -8,16 +8,16 @@ const page = document.getElementById("page")!;
 const root = document.documentElement;
 
 // Theme toggle (site + all demos).
-const stored = localStorage.getItem("pz-site-theme");
+const stored = localStorage.getItem("dk-site-theme");
 if (stored === "dark" || (!stored && matchMedia("(prefers-color-scheme: dark)").matches)) root.classList.add("dark");
 const syncThemes = () => {
-  for (const m of Array.from(document.querySelectorAll("pazuru-manager"))) {
+  for (const m of Array.from(document.querySelectorAll("dockorama-manager"))) {
     if (!m.hasAttribute("data-fixed-theme")) m.theme = root.classList.contains("dark") ? "dark" : "light";
   }
 };
 document.getElementById("theme")!.addEventListener("click", () => {
   root.classList.toggle("dark");
-  localStorage.setItem("pz-site-theme", root.classList.contains("dark") ? "dark" : "light");
+  localStorage.setItem("dk-site-theme", root.classList.contains("dark") ? "dark" : "light");
   syncThemes();
 });
 document.getElementById("menu")!.addEventListener("click", () => side.classList.toggle("open"));
@@ -29,13 +29,13 @@ side.innerHTML = sections
   .join("");
 
 const escapeHtml = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
-const pazuru = { ...core, ...skins };
+const dockorama = { ...core, ...skins };
 const CORE_IMPORTS = ["createModel", "row", "column", "stack", "docs", "Workspaces"];
 const SKIN_IMPORTS = ["useSkin", "defineSkin", "extendSkin", "overrideSkin", "clearSkinOverrides", "defaultSkin", "nimbus", "ledger", "phosphor"];
 const IMPORTS = [...CORE_IMPORTS, ...SKIN_IMPORTS, "html"];
 
 // Site-wide skin chosen on the Skins page.
-const savedSkin = localStorage.getItem("pz-site-skin");
+const savedSkin = localStorage.getItem("dk-site-skin");
 if (savedSkin && skins.skinNamed(savedSkin)) skins.useSkin(savedSkin);
 
 /** Show example code exactly as it runs. */
@@ -43,8 +43,8 @@ export function sourceOf(ex: Example): string {
   const uses = (names: string[]) => names.filter((n) => new RegExp(`\\b${n}\\b`).test(ex.code));
   const lines = [];
   if (/\bhtml`/.test(ex.code)) lines.push(`import { html } from "lit";`);
-  if (uses(CORE_IMPORTS).length) lines.push(`import { ${uses(CORE_IMPORTS).join(", ")} } from "pazuru";`);
-  if (uses(SKIN_IMPORTS).length) lines.push(`import { ${uses(SKIN_IMPORTS).join(", ")} } from "pazuru/skins";`);
+  if (uses(CORE_IMPORTS).length) lines.push(`import { ${uses(CORE_IMPORTS).join(", ")} } from "dockorama";`);
+  if (uses(SKIN_IMPORTS).length) lines.push(`import { ${uses(SKIN_IMPORTS).join(", ")} } from "dockorama/skins";`);
   return `${lines.join("\n")}\n\n${ex.code.trim()}\n`;
 }
 
@@ -78,7 +78,7 @@ function mountExample(ex: Example, container: HTMLElement): void {
     events.prepend(line);
   };
   const run = new Function("host", "button", "log", ...IMPORTS, ex.code) as (...a: unknown[]) => void;
-  const lib = { ...pazuru, html } as Record<string, unknown>;
+  const lib = { ...dockorama, html } as Record<string, unknown>;
   run(stage, button, log, ...IMPORTS.map((n) => lib[n]));
   const details = document.createElement("details");
   details.className = "code";
@@ -94,7 +94,7 @@ function render(): void {
     if (a.getAttribute("href") === `#/${p.slug}`) a.setAttribute("aria-current", "page");
     else a.removeAttribute("aria-current");
   }
-  document.title = p.slug ? `${p.title} — pazuru` : "pazuru — docking layouts for the web";
+  document.title = p.slug ? `${p.title} — dockorama` : "dockorama — docking layouts for the web";
   page.innerHTML = p.body;
   for (const holder of Array.from(page.querySelectorAll<HTMLElement>("[data-example]"))) {
     const ex = p.examples?.find((e) => e.id === holder.dataset["example"]);
@@ -103,7 +103,7 @@ function render(): void {
       mountExample(ex, holder);
     }
   }
-  p.after?.(page, pazuru);
+  p.after?.(page, dockorama);
   syncThemes();
   side.classList.remove("open");
   page.focus({ preventScroll: true });

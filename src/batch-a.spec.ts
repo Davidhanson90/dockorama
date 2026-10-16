@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  PazuruManager, adopt, closeSet, comeInside, createModel, docs, goOutside, locate, normalize, outsideOf, pin, row, stack, tuneOutside,
+  DockoramaManager, adopt, closeSet, comeInside, createModel, docs, goOutside, locate, normalize, outsideOf, pin, row, stack, tuneOutside,
   type TabMenuItem
 } from "./index.js";
-import type { PazuruModel } from "./model.js";
+import type { DockoramaModel } from "./model.js";
 
 type R = { left: number; top: number; width: number; height: number };
 const rects = new Map<Element, R>();
@@ -25,10 +25,10 @@ afterEach(() => {
 });
 
 const views = { a: { title: "A" }, b: { title: "B" }, c: { title: "C" }, d: { title: "D" } };
-const sr = (el: PazuruManager) => el.shadowRoot!;
+const sr = (el: DockoramaManager) => el.shadowRoot!;
 
-async function mount(model: PazuruModel, ids: string[], left = 0, group?: string) {
-  const el = document.createElement("pazuru-manager");
+async function mount(model: DockoramaModel, ids: string[], left = 0, group?: string) {
+  const el = document.createElement("dockorama-manager");
   if (group) el.dragGroup = group;
   for (const id of ids) {
     const d = document.createElement("div");
@@ -43,7 +43,7 @@ async function mount(model: PazuruModel, ids: string[], left = 0, group?: string
   return el;
 }
 /** Host at `left`..+900 x 0..600; stacks 300px wide; tabs 80px. */
-function lay(el: PazuruManager, left: number) {
+function lay(el: DockoramaManager, left: number) {
   rects.set(el, { left, top: 0, width: 900, height: 600 });
   rects.set(sr(el).querySelector(".main")!, { left, top: 0, width: 900, height: 600 });
   const stacks = Array.from(sr(el).querySelectorAll<HTMLElement>("[data-stack]")).filter((s) => !s.dataset["win"]);
@@ -56,7 +56,7 @@ function lay(el: PazuruManager, left: number) {
 }
 const pe = (type: string, x: number, y: number, extra: PointerEventInit = {}) =>
   new PointerEvent(type, { bubbles: true, composed: true, clientX: x, clientY: y, button: 0, pointerId: 1, ...extra });
-const tab = (el: PazuruManager, id: string) => sr(el).querySelector<HTMLElement>(`.tab[data-view="${id}"]`)!;
+const tab = (el: DockoramaManager, id: string) => sr(el).querySelector<HTMLElement>(`.tab[data-view="${id}"]`)!;
 
 /** A stand-in browser window for outside-window tests. */
 function fakeWin(over: Record<string, unknown> = {}) {
@@ -117,14 +117,14 @@ describe("dragging between managers", () => {
     const one = await mount(createModel({ a: views.a, b: views.b }, row([stack(["a", "b"]), stack([])])), ["a", "b"], 0, "g");
     const two = await mount(createModel({ c: views.c, d: views.d }, row([stack(["c"]), stack(["d"])])), ["c", "d"], 1000, "g");
     const events: string[] = [];
-    for (const el of [one, two]) el.addEventListener("pazuru-transfer", (e) => events.push(`${e.detail.direction}:${e.detail.id}`));
+    for (const el of [one, two]) el.addEventListener("dockorama-transfer", (e) => events.push(`${e.detail.direction}:${e.detail.id}`));
     const el = one.querySelector('[data-view="b"]');
     tab(one, "b").dispatchEvent(pe("pointerdown", 100, 10));
     window.dispatchEvent(pe("pointermove", 110, 60));
     window.dispatchEvent(pe("pointermove", 1147, 300));
     await two.updateComplete;
-    expect(sr(two).querySelector("pazuru-drop-guide")).not.toBeNull();
-    expect(sr(one).querySelector("pazuru-drop-guide")).toBeNull();
+    expect(sr(two).querySelector("dockorama-drop-guide")).not.toBeNull();
+    expect(sr(one).querySelector("dockorama-drop-guide")).toBeNull();
     window.dispatchEvent(pe("pointermove", 1147 + 40, 300));
     window.dispatchEvent(pe("pointerup", 1147 + 40, 300));
     await two.updateComplete;
@@ -132,7 +132,7 @@ describe("dragging between managers", () => {
     expect(locate(two.model, "b")).toMatchObject({ place: "tree" });
     expect(two.querySelector('[data-view="b"]')).toBe(el);
     expect(events).toEqual(["out:b", "in:b"]);
-    expect(sr(two).querySelector("pazuru-drop-guide")).toBeNull();
+    expect(sr(two).querySelector("dockorama-drop-guide")).toBeNull();
     one.undo();
     two.undo();
     expect(one.hasView("b")).toBe(true);
@@ -164,12 +164,12 @@ describe("dragging between managers", () => {
     await drag(1147, 300, false);
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     await two.updateComplete;
-    expect(sr(two).querySelector("pazuru-drop-guide")).toBeNull();
+    expect(sr(two).querySelector("dockorama-drop-guide")).toBeNull();
     // Moving back over the source clears the peer's guide.
     await drag(1147, 300, false);
     window.dispatchEvent(pe("pointermove", 400, 300));
     await two.updateComplete;
-    expect(sr(two).querySelector("pazuru-drop-guide")).toBeNull();
+    expect(sr(two).querySelector("dockorama-drop-guide")).toBeNull();
     window.dispatchEvent(pe("pointermove", 147, 300));
     window.dispatchEvent(pe("pointerup", 147, 300));
     expect(one.model.windows).toHaveLength(0);
@@ -182,7 +182,7 @@ describe("dragging between managers", () => {
     await one.updateComplete;
     // A vetoed move is refused too.
     two.dragGroup = "g";
-    two.addEventListener("pazuru-beforemove", (e) => e.preventDefault(), { once: true });
+    two.addEventListener("dockorama-beforemove", (e) => e.preventDefault(), { once: true });
     await drag(1147 + 40, 300);
     expect(two.hasView("a")).toBe(false);
   });
@@ -223,20 +223,20 @@ describe("outside windows", () => {
       return w as unknown as Window;
     });
     const el = await mount(model(), ids);
-    el.storageKey = "pz-out";
+    el.storageKey = "dk-out";
     expect(el.popOut("a", { box: { x: 10, y: 20 } })).toBe(true);
     expect(el.model.outside).toEqual([{ key: expect.stringMatching(/^o-a-/), views: ["a"], current: "a", box: { x: 10, y: 20, w: 640, h: 480 } }]);
     const key = el.model.outside![0]!.key;
-    expect(wins[0]!.document.querySelector('.pzo-body > [data-view="a"]')).not.toBeNull();
-    expect(el.getViewElement("a")).toBe(wins[0]!.document.querySelector(".pzo-body > [data-view=a]"));
+    expect(wins[0]!.document.querySelector('.dko-body > [data-view="a"]')).not.toBeNull();
+    expect(el.getViewElement("a")).toBe(wins[0]!.document.querySelector(".dko-body > [data-view=a]"));
     expect(el.popOut("c", { into: key })).toBe(true);
     expect(wins).toHaveLength(1);
     const doc = wins[0]!.document;
-    expect(Array.from(doc.querySelectorAll(".pzo-tab")).map((t) => t.textContent)).toEqual(["A\u2199", "C\u2199"]);
-    expect(doc.querySelector('.pzo-body > [data-view="a"]')!.hasAttribute("data-outside-hidden")).toBe(true);
-    (doc.querySelector('.pzo-tab[data-view="a"]') as HTMLElement).click();
+    expect(Array.from(doc.querySelectorAll(".dko-tab")).map((t) => t.textContent)).toEqual(["A\u2199", "C\u2199"]);
+    expect(doc.querySelector('.dko-body > [data-view="a"]')!.hasAttribute("data-outside-hidden")).toBe(true);
+    (doc.querySelector('.dko-tab[data-view="a"]') as HTMLElement).click();
     expect(el.model.outside![0]!.current).toBe("a");
-    expect(JSON.parse(localStorage.getItem("pz-out")!).outside[0].views).toEqual(["a", "c"]);
+    expect(JSON.parse(localStorage.getItem("dk-out")!).outside[0].views).toEqual(["a", "c"]);
     await el.updateComplete;
     expect(sr(el).querySelectorAll(".away")).toHaveLength(2);
     // Resizing records the box silently.
@@ -247,7 +247,7 @@ describe("outside windows", () => {
     vi.useRealTimers();
     expect(el.model.outside![0]!.box!.x).toBe(2222);
     // The back button docks one view; undo puts it back out.
-    (doc.querySelector('.pzo-tab[data-view="c"] .pzo-back') as HTMLButtonElement).click();
+    (doc.querySelector('.dko-tab[data-view="c"] .dko-back') as HTMLButtonElement).click();
     expect(el.querySelector(':scope > [data-view="c"]')).not.toBeNull();
     el.undo();
     expect(doc.querySelector('[data-view="c"]')).not.toBeNull();
@@ -274,20 +274,20 @@ describe("outside windows", () => {
     const el = await mount(saved, ids);
     await el.updateComplete;
     expect(el.blockedWindows).toEqual(["kb"]);
-    const notice = sr(el).querySelector("pazuru-notice")!;
+    const notice = sr(el).querySelector("dockorama-notice")!;
     expect(notice.getAttribute("role")).toBe("alertdialog");
     const w = fakeWin();
     open.mockReturnValue(w as unknown as Window);
     (notice.querySelector("button[data-primary]") as HTMLButtonElement).click();
     expect(el.blockedWindows).toEqual([]);
     expect(w.document.querySelector('[data-view="b"]')).not.toBeNull();
-    expect(open).toHaveBeenLastCalledWith("", "pazuru-kb", "popup,width=300,height=200,left=1,top=1");
+    expect(open).toHaveBeenLastCalledWith("", "dockorama-kb", "popup,width=300,height=200,left=1,top=1");
     // Blocked again after a restore; this time keep them docked.
     open.mockReturnValue(null);
     el.restore(goOutside(model(), "a", "ka"));
     await el.updateComplete;
     expect(el.blockedWindows).toEqual(["ka"]);
-    (sr(el).querySelectorAll("pazuru-notice button")[1] as HTMLButtonElement).click();
+    (sr(el).querySelectorAll("dockorama-notice button")[1] as HTMLButtonElement).click();
     expect(el.model.outside).toBeUndefined();
     expect(el.blockedWindows).toEqual([]);
     open.mockImplementation(() => { throw new Error("nope"); });
@@ -307,7 +307,7 @@ describe("outside windows", () => {
     window.dispatchEvent(pe("pointermove", 110, 60));
     window.dispatchEvent(pe("pointermove", 3100, 300, { screenX: 3100, screenY: 300 }));
     await el.updateComplete;
-    expect(sr(el).querySelector("pazuru-drop-guide")).toBeNull();
+    expect(sr(el).querySelector("dockorama-drop-guide")).toBeNull();
     window.dispatchEvent(pe("pointerup", 3100, 300, { screenX: 3100, screenY: 300 }));
     expect(el.model.outside![0]).toMatchObject({ views: ["b"], box: { x: 3040, y: 280 } });
     // Released over that outside window's screen box: joins it.
@@ -320,21 +320,21 @@ describe("outside windows", () => {
     // Drag "c" out of the outside window onto the left group of the layout.
     const w = wins[0]!;
     Object.assign(window, { screenX: 0, screenY: 0, outerWidth: 3000, outerHeight: 800, innerHeight: 760 });
-    const ctab = w.document.querySelector('.pzo-tab[data-view="c"]') as HTMLElement;
+    const ctab = w.document.querySelector('.dko-tab[data-view="c"]') as HTMLElement;
     ctab.dispatchEvent(new PointerEvent("pointerdown", { button: 0, screenX: 2100, screenY: 120, bubbles: true }));
     w.fire("pointermove", new PointerEvent("pointermove", { screenX: 2102, screenY: 121, clientX: 102, clientY: 21 }));
     w.fire("pointermove", new PointerEvent("pointermove", { screenX: 147, screenY: 340, clientX: -1800, clientY: 300 }));
     await el.updateComplete;
-    expect(sr(el).querySelector("pazuru-drop-guide")).not.toBeNull();
+    expect(sr(el).querySelector("dockorama-drop-guide")).not.toBeNull();
     w.fire("pointermove", new PointerEvent("pointermove", { screenX: 2100, screenY: 200, clientX: 100, clientY: 100 }));
     await el.updateComplete;
-    expect(sr(el).querySelector("pazuru-drop-guide")).toBeNull();
+    expect(sr(el).querySelector("dockorama-drop-guide")).toBeNull();
     w.fire("pointermove", new PointerEvent("pointermove", { screenX: 147, screenY: 340, clientX: -1800, clientY: 300 }));
     w.fire("pointerup", new PointerEvent("pointerup", { screenX: 147, screenY: 340, clientX: -1800, clientY: 300 }));
     expect(outsideOf(el.model, "c")).toBeUndefined();
     expect(locate(el.model, "c")).toMatchObject({ stack: { views: ["a", "b", "c"] } });
     // Nowhere useful: just comes back. A click without movement does nothing.
-    const btab = w.document.querySelector('.pzo-tab[data-view="b"]') as HTMLElement;
+    const btab = w.document.querySelector('.dko-tab[data-view="b"]') as HTMLElement;
     btab.dispatchEvent(new PointerEvent("pointerdown", { button: 2 }));
     btab.dispatchEvent(new PointerEvent("pointerdown", { button: 0, screenX: 2100, screenY: 120 }));
     w.fire("pointerup", new PointerEvent("pointerup", { screenX: 2100, screenY: 120 }));
@@ -365,7 +365,7 @@ describe("outside windows", () => {
     el.popOut("c");
     const [k1, k2] = el.model.outside!.map((o) => o.key);
     const w = wins[0]!;
-    (w.document.querySelector(".pzo-tab") as HTMLElement).dispatchEvent(new PointerEvent("pointerdown", { button: 0, screenX: 2100, screenY: 120 }));
+    (w.document.querySelector(".dko-tab") as HTMLElement).dispatchEvent(new PointerEvent("pointerdown", { button: 0, screenX: 2100, screenY: 120 }));
     w.fire("pointermove", new PointerEvent("pointermove", { screenX: 2800, screenY: 200, clientX: 800, clientY: 100 }));
     w.fire("pointerup", new PointerEvent("pointerup", { screenX: 2800, screenY: 200, clientX: 800, clientY: 100 }));
     expect(el.model.outside!.map((o) => o.key)).toEqual([k2]);
@@ -377,12 +377,12 @@ describe("outside windows", () => {
 
 describe("tab context menu", () => {
   const model = () => createModel(views, row([stack(["a", "b", "c"]), docs(["d"])]));
-  const items = (el: PazuruManager) => Array.from(sr(el).querySelectorAll<HTMLButtonElement>("pazuru-tab-menu button"));
-  const choose = async (el: PazuruManager, key: string) => {
-    sr(el).querySelector<HTMLButtonElement>(`pazuru-tab-menu button[data-key="${key}"]`)!.click();
+  const items = (el: DockoramaManager) => Array.from(sr(el).querySelectorAll<HTMLButtonElement>("dockorama-tab-menu button"));
+  const choose = async (el: DockoramaManager, key: string) => {
+    sr(el).querySelector<HTMLButtonElement>(`dockorama-tab-menu button[data-key="${key}"]`)!.click();
     await el.updateComplete;
   };
-  const open = async (el: PazuruManager, id: string) => {
+  const open = async (el: DockoramaManager, id: string) => {
     await el.updateComplete;
     tab(el, id).dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 50, clientY: 40 }));
     await el.updateComplete;
@@ -437,7 +437,7 @@ describe("tab context menu", () => {
     await choose(el, "stow");
     expect(locate(el.model, "a").place).toBe("drawer");
     el.openTabMenu("a");
-    expect(sr(el).querySelector("pazuru-tab-menu")).toBeNull();
+    expect(sr(el).querySelector("dockorama-tab-menu")).toBeNull();
     el.openTabMenu("c");
     await el.updateComplete;
     vi.spyOn(window, "open").mockReturnValue(null);
@@ -454,7 +454,7 @@ describe("tab context menu", () => {
     el.tabMenu = (id, base) => [...base.filter((i) => i === "separator" || i.key !== "stow"), "separator", { key: "copy", label: "Copy name", run: (v) => ran.push(v) }];
     el.openTabMenu("a", { x: 5000, y: 5 });
     await el.updateComplete;
-    const menu = sr(el).querySelector<HTMLElement>("pazuru-tab-menu")!;
+    const menu = sr(el).querySelector<HTMLElement>("dockorama-tab-menu")!;
     expect(menu.style.left).toBe("680px");
     expect(menu.getAttribute("aria-label")).toBe("Tab actions");
     const key = (k: string) => { const e = new KeyboardEvent("keydown", { key: k, cancelable: true, bubbles: true }); menu.dispatchEvent(e); return e; };
@@ -476,9 +476,9 @@ describe("tab context menu", () => {
     expect(ran).toEqual(["a"]);
     el.openTabMenu("a");
     await el.updateComplete;
-    sr(el).querySelector<HTMLElement>("pazuru-tab-menu")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    sr(el).querySelector<HTMLElement>("dockorama-tab-menu")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     await el.updateComplete;
-    expect(sr(el).querySelector("pazuru-tab-menu")).toBeNull();
+    expect(sr(el).querySelector("dockorama-tab-menu")).toBeNull();
     // Disabled entries do nothing; outside clicks close.
     el.tabMenu = (_id, base) => base.map((i) => (i === "separator" ? i : { ...i, disabled: true }));
     el.openTabMenu("a");
@@ -491,9 +491,9 @@ describe("tab context menu", () => {
     await el.updateComplete;
     document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
     await el.updateComplete;
-    expect(sr(el).querySelector("pazuru-tab-menu")).toBeNull();
+    expect(sr(el).querySelector("dockorama-tab-menu")).toBeNull();
     // dismissMany honours vetoes and caps.
-    el.addEventListener("pazuru-beforeclose", (e) => { if (e.detail.id === "b") e.preventDefault(); });
+    el.addEventListener("dockorama-beforeclose", (e) => { if (e.detail.id === "b") e.preventDefault(); });
     expect(el.dismissMany(["a", "b", "c"])).toEqual(["a", "c"]);
     expect(el.dismissMany(["b"])).toEqual([]);
     const separators: TabMenuItem[] = el.tabMenuItems("b").filter((i) => i === "separator");

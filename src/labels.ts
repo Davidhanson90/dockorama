@@ -1,5 +1,5 @@
 /** User-facing strings. Override any of them through the `labels` property. */
-export interface PazuruLabels {
+export interface DockoramaLabels {
   dismiss: string;
   zoom: string;
   unzoom: string;
@@ -40,7 +40,7 @@ export interface PazuruLabels {
   outerEdge: string;
 }
 
-export const DEFAULT_LABELS: PazuruLabels = {
+export const DEFAULT_LABELS: DockoramaLabels = {
   dismiss: "Close",
   zoom: "Fill the layout",
   unzoom: "Back to layout",

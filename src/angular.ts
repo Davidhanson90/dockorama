@@ -3,37 +3,37 @@ import {
   ViewChild, type AfterViewInit, type OnChanges, type OnDestroy
 } from "@angular/core";
 import "./index.js";
-import type { ChangeReason, PazuruManager } from "./manager.js";
-import type { DropZone, EdgeZone, PazuruModel, LayoutMigrations, LayoutSource, ViewContent, ViewOptions } from "./model.js";
-import type { PazuruLabels } from "./labels.js";
+import type { ChangeReason, DockoramaManager } from "./manager.js";
+import type { DropZone, EdgeZone, DockoramaModel, LayoutMigrations, LayoutSource, ViewContent, ViewOptions } from "./model.js";
+import type { DockoramaLabels } from "./labels.js";
 import type { TabMenuItem } from "./components/index.js";
 import { applyProps, bindEvents } from "./bridge.js";
 
 /**
- * Angular standalone component wrapping `<pazuru-manager>`. Project view content with `data-view`:
+ * Angular standalone component wrapping `<dockorama-manager>`. Project view content with `data-view`:
  *
  * ```html
- * <pazuru-layout [model]="layout" (layoutChange)="save($event.model)">
+ * <dockorama-layout [model]="layout" (layoutChange)="save($event.model)">
  *   <div data-view="files">…</div>
- * </pazuru-layout>
+ * </dockorama-layout>
  * ```
- * The underlying element is available as `element` (e.g. `@ViewChild(PazuruLayoutComponent)`).
+ * The underlying element is available as `element` (e.g. `@ViewChild(DockoramaLayoutComponent)`).
  */
 @Component({
-  selector: "pazuru-layout",
+  selector: "dockorama-layout",
   standalone: true,
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `<pazuru-manager #host style="display:block;width:100%;height:100%"><ng-content></ng-content></pazuru-manager>`,
+  template: `<dockorama-manager #host style="display:block;width:100%;height:100%"><ng-content></ng-content></dockorama-manager>`,
   styles: [":host { display: block; }"]
 })
-export class PazuruLayoutComponent implements AfterViewInit, OnChanges, OnDestroy {
-  @Input() model?: PazuruModel;
+export class DockoramaLayoutComponent implements AfterViewInit, OnChanges, OnDestroy {
+  @Input() model?: DockoramaModel;
   @Input() theme?: "light" | "dark" | "auto";
   @Input() snap?: number;
   @Input() storageKey?: string;
   @Input() keepEmpty?: boolean;
-  @Input() labels?: Partial<PazuruLabels>;
+  @Input() labels?: Partial<DockoramaLabels>;
   @Input() dragGroup?: string;
   @Input() tabMenu?: (viewId: string, items: TabMenuItem[]) => TabMenuItem[];
   @Input() confirmClose?: (viewId: string) => boolean | Promise<boolean>;
@@ -41,7 +41,7 @@ export class PazuruLayoutComponent implements AfterViewInit, OnChanges, OnDestro
   @Input() retain?: "all" | "active";
   @Input() migrations?: LayoutMigrations;
 
-  @Output() readonly layoutChange = new EventEmitter<{ model: PazuruModel; reason: ChangeReason }>();
+  @Output() readonly layoutChange = new EventEmitter<{ model: DockoramaModel; reason: ChangeReason }>();
   @Output() readonly viewFocus = new EventEmitter<{ id: string; previous?: string }>();
   @Output() readonly viewShow = new EventEmitter<{ id: string; first: boolean }>();
   @Output() readonly beforeClose = new EventEmitter<CustomEvent<{ id: string }>>();
@@ -49,17 +49,17 @@ export class PazuruLayoutComponent implements AfterViewInit, OnChanges, OnDestro
   @Output() readonly dragCancel = new EventEmitter<{ id: string }>();
   @Output() readonly dirtyChange = new EventEmitter<{ id: string; dirty: boolean }>();
   @Output() readonly layoutIssue = new EventEmitter<{ source: LayoutSource; problems: string[]; fatal: boolean }>();
-  @Output() readonly transfer = new EventEmitter<{ id: string; from: PazuruManager; to: PazuruManager; direction: "in" | "out" }>();
+  @Output() readonly transfer = new EventEmitter<{ id: string; from: DockoramaManager; to: DockoramaManager; direction: "in" | "out" }>();
 
-  @ViewChild("host", { static: true }) private host?: ElementRef<PazuruManager>;
+  @ViewChild("host", { static: true }) private host?: ElementRef<DockoramaManager>;
   private off?: () => void;
 
-  /** The underlying `<pazuru-manager>` element. */
-  get element(): PazuruManager | undefined {
+  /** The underlying `<dockorama-manager>` element. */
+  get element(): DockoramaManager | undefined {
     return this.host?.nativeElement;
   }
 
-  /** Add a view in one call (see `PazuruManager.addView`). */
+  /** Add a view in one call (see `DockoramaManager.addView`). */
   addView(id: string, content: ViewContent, options?: ViewOptions): void {
     this.need().addView(id, content, options);
   }
@@ -74,9 +74,9 @@ export class PazuruLayoutComponent implements AfterViewInit, OnChanges, OnDestro
     return this.element?.hasView(id) ?? false;
   }
 
-  private need(): PazuruManager {
+  private need(): DockoramaManager {
     const el = this.element;
-    if (!el) throw new Error("pazuru: the layout is not initialised yet");
+    if (!el) throw new Error("dockorama: the layout is not initialised yet");
     return el;
   }
 

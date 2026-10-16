@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PazuruManager, createModel, docs, locate, row, column, stack } from "./index.js";
-import type { PazuruModel } from "./model.js";
+import { DockoramaManager, createModel, docs, locate, row, column, stack } from "./index.js";
+import type { DockoramaModel } from "./model.js";
 
 // jsdom has no layout: give elements rectangles from a map (default: zero box).
 type R = { left: number; top: number; width: number; height: number };
@@ -19,10 +19,10 @@ afterEach(() => {
 });
 
 const views = { a: { title: "A" }, b: { title: "B" }, c: { title: "C" }, d: { title: "D" }, e: { title: "E" } };
-const layout = (): PazuruModel => createModel(views, row([stack(["a"]), stack(["b", "c"]), docs([])]));
+const layout = (): DockoramaModel => createModel(views, row([stack(["a"]), stack(["b", "c"]), docs([])]));
 
 async function mount(model = layout()) {
-  const el = document.createElement("pazuru-manager");
+  const el = document.createElement("dockorama-manager");
   for (const id of Object.keys(views)) {
     const d = document.createElement("div");
     d.dataset["view"] = id;
@@ -34,9 +34,9 @@ async function mount(model = layout()) {
   layoutRects(el);
   return el;
 }
-const sr = (el: PazuruManager) => el.shadowRoot!;
+const sr = (el: DockoramaManager) => el.shadowRoot!;
 /** Lay out: host/main 0..900 x 0..600; stacks side by side 300px each; gutters 6px at 300 and 600. */
-function layoutRects(el: PazuruManager) {
+function layoutRects(el: DockoramaManager) {
   rects.set(el, { left: 0, top: 0, width: 900, height: 600 });
   rects.set(sr(el).querySelector(".main")!, { left: 0, top: 0, width: 900, height: 600 });
   sr(el).querySelectorAll("[data-stack]:not([data-win])").forEach(() => undefined);
@@ -54,9 +54,9 @@ const pd = (target: Element, x: number, y: number) =>
   target.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, composed: true, clientX: x, clientY: y, button: 0, pointerId: 1 }));
 const pm = (x: number, y: number) => window.dispatchEvent(new PointerEvent("pointermove", { clientX: x, clientY: y, pointerId: 1 }));
 const pu = (x: number, y: number) => window.dispatchEvent(new PointerEvent("pointerup", { clientX: x, clientY: y, pointerId: 1 }));
-const tab = (el: PazuruManager, id: string) => sr(el).querySelector<HTMLElement>(`.tab[data-view="${id}"]`)!;
+const tab = (el: DockoramaManager, id: string) => sr(el).querySelector<HTMLElement>(`.tab[data-view="${id}"]`)!;
 
-async function dragTab(el: PazuruManager, id: string, to: [number, number], drop = true) {
+async function dragTab(el: DockoramaManager, id: string, to: [number, number], drop = true) {
   pd(tab(el, id), 320, 10);
   pm(330, 10);
   pm(to[0], 200);
@@ -115,7 +115,7 @@ describe("dragging", () => {
     const el = await mount();
     const before = el.model;
     const cancel = vi.fn();
-    el.addEventListener("pazuru-dragcancel", cancel);
+    el.addEventListener("dockorama-dragcancel", cancel);
     // Reorder within the strip first (live), then tear off and press Escape.
     pd(tab(el, "c"), 420, 10);
     pm(310, 10);
@@ -174,7 +174,7 @@ describe("dragging", () => {
     const before = el.model;
     el.dropBetween("d", [], 0);
     expect(el.model).toBe(before);
-    el.addEventListener("pazuru-beforemove", (e) => e.preventDefault(), { once: true });
+    el.addEventListener("dockorama-beforemove", (e) => e.preventDefault(), { once: true });
     el.dropBetween("b", [], 0);
     expect(el.model).toBe(before);
     el.dropBetween("b", [], 0);
@@ -364,9 +364,9 @@ describe("drag and resize events", () => {
   it("fires dragstart, dragover once per spot change, and drop", async () => {
     const el = await mount(createModel(views, row([stack(["a"]), stack(["b", "c"]), stack(["d"])])));
     const log: string[] = [];
-    el.addEventListener("pazuru-dragstart", (e) => log.push(`start ${e.detail.id} ${e.detail.kind}`));
-    el.addEventListener("pazuru-dragover", (e) => log.push(`over ${e.detail.spot}${e.detail.target ? " " + e.detail.target : ""}`));
-    el.addEventListener("pazuru-drop", (e) => log.push(`drop ${e.detail.spot} ${e.detail.moved}`));
+    el.addEventListener("dockorama-dragstart", (e) => log.push(`start ${e.detail.id} ${e.detail.kind}`));
+    el.addEventListener("dockorama-dragover", (e) => log.push(`over ${e.detail.spot}${e.detail.target ? " " + e.detail.target : ""}`));
+    el.addEventListener("dockorama-drop", (e) => log.push(`drop ${e.detail.spot} ${e.detail.moved}`));
     pd(tab(el, "c"), 320, 10);
     pm(330, 10);
     pm(597, 200);
@@ -382,9 +382,9 @@ describe("drag and resize events", () => {
   it("cancels a drag when dragstart is prevented", async () => {
     const el = await mount();
     const before = el.model.root;
-    el.addEventListener("pazuru-dragstart", (e) => e.preventDefault());
+    el.addEventListener("dockorama-dragstart", (e) => e.preventDefault());
     const drop = vi.fn();
-    el.addEventListener("pazuru-drop", drop);
+    el.addEventListener("dockorama-drop", drop);
     await dragTab(el, "c", [597, 300]);
     expect(el.model.root).toEqual(before);
     expect(drop).not.toHaveBeenCalled();
@@ -396,8 +396,8 @@ describe("drag and resize events", () => {
     await el.updateComplete;
     const ends: unknown[] = [];
     const live = vi.fn();
-    el.addEventListener("pazuru-resize", (e) => ends.push(e.detail));
-    el.addEventListener("pazuru-resizing", live);
+    el.addEventListener("dockorama-resize", (e) => ends.push(e.detail));
+    el.addEventListener("dockorama-resizing", live);
     pd(sr(el).querySelector(".grip")!, 300, 250);
     pm(320, 260);
     pm(340, 270);
@@ -410,7 +410,7 @@ describe("drag and resize events", () => {
   it("fires resize when a splitter drag ends", async () => {
     const el = await mount();
     const ends: Array<{ kind: string }> = [];
-    el.addEventListener("pazuru-resize", (e) => ends.push(e.detail));
+    el.addEventListener("dockorama-resize", (e) => ends.push(e.detail));
     const g = sr(el).querySelector(".gutter")!;
     g.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, composed: true, clientX: 297, clientY: 100, button: 0, pointerId: 1 }));
     pm(350, 100);

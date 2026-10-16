@@ -15,20 +15,20 @@ async function put<T extends HTMLElement & { updateComplete: Promise<boolean> }>
 }
 export function requests(): PartRequest[] {
   const out: PartRequest[] = [];
-  document.addEventListener("pazuru-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
+  document.addEventListener("dockorama-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
   return out;
 }
 afterEach(() => { document.body.innerHTML = ""; });
 
 type P = HTMLElement & { updateComplete: Promise<boolean> };
-describe("<pazuru-flyout>", () => {
+describe("<dockorama-flyout>", () => {
   it("shows a stowed view with keep-open and close, and closes on Escape", async () => {
     const got = requests();
-    const el = await put<P>("pazuru-flyout", { view: "a", side: "bottom", ctx: ctx() });
+    const el = await put<P>("dockorama-flyout", { view: "a", side: "bottom", ctx: ctx() });
     expect(el.getAttribute("part")).toBe("drawer");
     expect(el.dataset["side"]).toBe("bottom");
     expect(el.querySelector(".title")!.textContent).toBe("Alpha");
-    expect(el.querySelector("pazuru-view")!.getAttribute("aria-label")).toBe("Alpha");
+    expect(el.querySelector("dockorama-view")!.getAttribute("aria-label")).toBe("Alpha");
     el.querySelector<HTMLButtonElement>('[part~="unstow"]')!.click();
     el.querySelector<HTMLButtonElement>('[part~="close"]')!.click();
     el.dispatchEvent(new KeyboardEvent("keydown", { key: "a" }));
@@ -39,9 +39,9 @@ describe("<pazuru-flyout>", () => {
     expect(got.length).toBe(3);
   });
   it("hides close when the view cannot be closed", async () => {
-    const el = await put<P>("pazuru-flyout", { view: "c", ctx: ctx() });
+    const el = await put<P>("dockorama-flyout", { view: "c", ctx: ctx() });
     expect(el.querySelector('[part~="close"]')).toBeNull();
-    const unknown = await put<P>("pazuru-flyout", { view: "q", ctx: ctx() });
+    const unknown = await put<P>("dockorama-flyout", { view: "q", ctx: ctx() });
     expect(unknown.querySelector(".title")!.textContent).toBe("q");
   });
 });

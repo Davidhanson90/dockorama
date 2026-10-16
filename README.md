@@ -1,12 +1,12 @@
-# pazuru
+# dockorama
 
 A docking layout manager as a framework-agnostic web component, built with [Lit](https://lit.dev).
 Split, tab, float, auto-hide, zoom and rearrange views by drag and drop or keyboard — with undo/redo,
 workspaces, persistence, pop-out windows, a command palette and a layout minimap.
 
-**Docs & live examples:** https://davidhanson90.github.io/pazuru/ ·
-**Trading desk example:** [in the docs](https://davidhanson90.github.io/pazuru/#/examples/trading) or
-[full page](https://davidhanson90.github.io/pazuru/trading.html)
+**Docs & live examples:** https://davidhanson90.github.io/dockorama/ ·
+**Trading desk example:** [in the docs](https://davidhanson90.github.io/dockorama/#/examples/trading) or
+[full page](https://davidhanson90.github.io/dockorama/trading.html)
 
 | Default | Nimbus |
 |---|---|
@@ -17,20 +17,20 @@ workspaces, persistence, pop-out windows, a command palette and a layout minimap
 ## Getting started
 
 ```bash
-npm install pazuru
+npm install dockorama
 ```
 
 ```html
-<pazuru-manager id="dock" style="display: block; height: 600px"></pazuru-manager>
+<dockorama-manager id="dock" style="display: block; height: 600px"></dockorama-manager>
 <script type="module" src="./main.ts"></script>
 ```
 
 ```ts
-import "pazuru";                      // registers <pazuru-manager> and its parts
-import "pazuru/skins/nimbus";         // optional: switch every dock to the Nimbus skin
-import type { PazuruManager, PazuruModel } from "pazuru";
+import "dockorama";                      // registers <dockorama-manager> and its parts
+import "dockorama/skins/nimbus";         // optional: switch every dock to the Nimbus skin
+import type { DockoramaManager, DockoramaModel } from "dockorama";
 
-const dock = document.querySelector<PazuruManager>("#dock")!;
+const dock = document.querySelector<DockoramaManager>("#dock")!;
 
 // Views from an element, a string, or a lazy factory
 const chart = document.createElement("canvas");
@@ -39,38 +39,38 @@ dock.addView("notes", "Plain text is padded for you", { title: "Notes", at: { ne
 dock.addView("log", () => document.createElement("pre"), { title: "Log", at: { near: "notes", zone: "into" } });
 
 // Typed events (via HTMLElementEventMap)
-dock.addEventListener("pazuru-change", (e) => console.log("layout changed:", e.detail.reason));
-dock.addEventListener("pazuru-beforeclose", (e) => {
+dock.addEventListener("dockorama-change", (e) => console.log("layout changed:", e.detail.reason));
+dock.addEventListener("dockorama-beforeclose", (e) => {
   if (e.detail.id === "chart" && !confirm("Close the chart?")) e.preventDefault();
 });
 
 // Save and restore the layout
-const saved: PazuruModel = dock.snapshot();
+const saved: DockoramaModel = dock.snapshot();
 localStorage.setItem("layout", JSON.stringify(saved));
-dock.restore(JSON.parse(localStorage.getItem("layout")!) as PazuruModel);
+dock.restore(JSON.parse(localStorage.getItem("layout")!) as DockoramaModel);
 ```
 
 Notes:
 
-- Import `pazuru` for its side effect (it defines the custom elements). A type-only import is removed by
-  bundlers, so keep the plain `import "pazuru";` line.
-- The default skin is applied automatically. Skins and the skin API live under `pazuru/skins`
-  (`import { defaultSkin, useSkin, overrideSkin } from "pazuru/skins"`); importing `pazuru/skins/<name>`
+- Import `dockorama` for its side effect (it defines the custom elements). A type-only import is removed by
+  bundlers, so keep the plain `import "dockorama";` line.
+- The default skin is applied automatically. Skins and the skin API live under `dockorama/skins`
+  (`import { defaultSkin, useSkin, overrideSkin } from "dockorama/skins"`); importing `dockorama/skins/<name>`
   (`default`, `nimbus`, `ledger`, `phosphor`) makes that skin the page-wide one.
-- String content is rendered as text in a padded `.pazuru-text` box (`--pz-text-padding`); element content is
+- String content is rendered as text in a padded `.dockorama-text` box (`--dk-text-padding`); element content is
   used as-is. A function is called the first time the view is shown.
 - Add `storage-key="my-app"` to the element to save and reload the layout automatically.
 
 You can also declare views in markup with `data-view` children and set a full layout with `createModel`:
 
 ```html
-<pazuru-manager id="dock" style="height: 600px">
+<dockorama-manager id="dock" style="height: 600px">
   <div data-view="files">File tree…</div>
   <div data-view="main">Editor…</div>
   <div data-view="log">Output…</div>
-</pazuru-manager>
+</dockorama-manager>
 <script type="module">
-  import { createModel, row, column, stack, docs } from "pazuru";
+  import { createModel, row, column, stack, docs } from "dockorama";
   document.getElementById("dock").model = createModel(
     { files: { title: "Files" }, main: { title: "main.ts" }, log: { title: "Output" } },
     row([stack(["files"]), column([docs(["main"]), stack(["log"])], [3, 1])], [1, 4])
@@ -86,17 +86,17 @@ React:
 
 ```tsx
 import { useRef } from "react";
-import { PazuruLayout } from "pazuru/react";
-import type { PazuruManager } from "pazuru";
+import { DockoramaLayout } from "dockorama/react";
+import type { DockoramaManager } from "dockorama";
 
 export function App() {
-  const ref = useRef<PazuruManager>(null);
+  const ref = useRef<DockoramaManager>(null);
   return (
-    <PazuruLayout ref={ref} storageKey="my-app" style={{ height: 600 }}
+    <DockoramaLayout ref={ref} storageKey="my-app" style={{ height: 600 }}
       onLayoutChange={({ reason }) => console.log(reason)}
       onBeforeClose={(e) => { if (e.detail.id === "files") e.preventDefault(); }}>
       <div data-view="files">Files</div>
-    </PazuruLayout>
+    </DockoramaLayout>
   );
 }
 ```
@@ -106,13 +106,13 @@ Vue 3:
 ```vue
 <script setup lang="ts">
 import { ref } from "vue";
-import { PazuruLayout } from "pazuru/vue";
+import { DockoramaLayout } from "dockorama/vue";
 const layout = ref();
 </script>
 <template>
-  <PazuruLayout v-model:model="layout" storage-key="my-app" @layout-change="(d) => console.log(d.reason)">
+  <DockoramaLayout v-model:model="layout" storage-key="my-app" @layout-change="(d) => console.log(d.reason)">
     <div data-view="files">Files</div>
-  </PazuruLayout>
+  </DockoramaLayout>
 </template>
 ```
 
@@ -120,29 +120,29 @@ Angular (standalone):
 
 ```ts
 import { Component } from "@angular/core";
-import { PazuruLayoutComponent } from "pazuru/angular";
+import { DockoramaLayoutComponent } from "dockorama/angular";
 
 @Component({
   selector: "app-root",
   standalone: true,
-  imports: [PazuruLayoutComponent],
-  template: `<pazuru-layout [model]="layout" (layoutChange)="layout = $event.model">
+  imports: [DockoramaLayoutComponent],
+  template: `<dockorama-layout [model]="layout" (layoutChange)="layout = $event.model">
     <div data-view="files">Files</div>
-  </pazuru-layout>`,
+  </dockorama-layout>`,
 })
-export class AppComponent { layout?: import("pazuru").PazuruModel; }
+export class AppComponent { layout?: import("dockorama").DockoramaModel; }
 ```
 
 Svelte:
 
 ```svelte
 <script lang="ts">
-  import "pazuru";
-  import { pazuru } from "pazuru/svelte";
+  import "dockorama";
+  import { dockorama } from "dockorama/svelte";
 </script>
-<pazuru-manager use:pazuru={{ storageKey: "my-app", on: { change: (d) => console.log(d.reason) } }}>
+<dockorama-manager use:dockorama={{ storageKey: "my-app", on: { change: (d) => console.log(d.reason) } }}>
   <div data-view="files">Files</div>
-</pazuru-manager>
+</dockorama-manager>
 ```
 
 ## Features
@@ -168,25 +168,25 @@ Svelte:
 | Persistence / workspaces | Snapshot and restore | `snapshot()` / `restore()` the whole layout as plain JSON |
 | Persistence / workspaces | Auto-save | `storage-key` saves to and reloads from local storage |
 | Persistence / workspaces | Workspaces | Named layouts with the `Workspaces` class |
-| Persistence / workspaces | Versioning | Layout versions with migrations, validation and `pazuru-layoutissue` |
+| Persistence / workspaces | Versioning | Layout versions with migrations, validation and `dockorama-layoutissue` |
 | Persistence / workspaces | Retained views | `retain="active"` keeps hidden views alive instead of re-creating them |
 | Events | Typed events | Change, focus, show/hide, close, float, dock, stow, pin, pop-out, collapse, drag, resize and transfer events, typed through `HTMLElementEventMap` |
 | Events | Vetoable events | Cancel `beforeadd`, `beforeclose`, `beforemove`, `dragstart` and menu commands with `preventDefault()` |
-| Skins / theming | Skins | Default, Nimbus, Ledger and Phosphor skins from `pazuru/skins/<name>` |
+| Skins / theming | Skins | Default, Nimbus, Ledger and Phosphor skins from `dockorama/skins/<name>` |
 | Skins / theming | Template overrides | Replace any of the typed part templates or add CSS page-wide (`overrideSkin`) or per dock (`skinPatch`) |
-| Skins / theming | Themes | Light, dark and auto themes, styled through `--pz-*` CSS custom properties |
+| Skins / theming | Themes | Light, dark and auto themes, styled through `--dk-*` CSS custom properties |
 | Wrappers | Frameworks | React, Vue 3, Angular and Svelte wrappers as optional subpath exports |
-| Extras | Minimap | `<pazuru-minimap for="id">`, a live overview of the layout you can click to navigate |
+| Extras | Minimap | `<dockorama-minimap for="id">`, a live overview of the layout you can click to navigate |
 | Extras | Command palette | Find views and run commands from the keyboard (`openPalette()`) |
 | Extras | Undo / redo | `undo()` / `redo()` for every layout change |
 | Extras | One-call views | `addView` with an element, text or lazy factory |
 
 ## Components
 
-`<pazuru-manager>` owns the layout model and renders one Lit custom element per UI piece:
-`<pazuru-split>`, `<pazuru-gutter>`, `<pazuru-stack>`, `<pazuru-docs>`, `<pazuru-tabstrip>`, `<pazuru-tab>`,
-`<pazuru-toolbar>`, `<pazuru-view>`, `<pazuru-window>`, `<pazuru-drop-guide>`, `<pazuru-rail>`, `<pazuru-flyout>`,
-`<pazuru-menu>` and `<pazuru-palette>`, plus the standalone `<pazuru-minimap>`. Source lives in `src/components/`, one
+`<dockorama-manager>` owns the layout model and renders one Lit custom element per UI piece:
+`<dockorama-split>`, `<dockorama-gutter>`, `<dockorama-stack>`, `<dockorama-docs>`, `<dockorama-tabstrip>`, `<dockorama-tab>`,
+`<dockorama-toolbar>`, `<dockorama-view>`, `<dockorama-window>`, `<dockorama-drop-guide>`, `<dockorama-rail>`, `<dockorama-flyout>`,
+`<dockorama-menu>` and `<dockorama-palette>`, plus the standalone `<dockorama-minimap>`. Source lives in `src/components/`, one
 file per element with a colocated `*.spec.ts`. Several managers can share a page; give each its own `storage-key`.
 
 ## Skins
@@ -195,8 +195,8 @@ Every visual part renders through a named, typed template from a skin. The built
 import another to change the look of every dock, or set one per dock:
 
 ```js
-import "pazuru/skins/nimbus";            // or ledger, phosphor
-import { useSkin, overrideSkin, extendSkin } from "pazuru/skins";
+import "dockorama/skins/nimbus";            // or ledger, phosphor
+import { useSkin, overrideSkin, extendSkin } from "dockorama/skins";
 overrideSkin({ templates: { "tab-label": (c) => html`<b>${c.title}</b>` } });   // one part, page-wide
 dock.skinPatch = { css: ".tab { font-style: italic }" };                       // one dock
 ```
@@ -205,8 +205,8 @@ See the Skins guide on the docs site for every template key and its context.
 
 ## Events
 
-All events are typed `CustomEvent`s on `<pazuru-manager>` (bubbling, composed): layout, view lifecycle
-(`pazuru-beforeadd`, `-viewshow`, `-viewhide`, `-close`, `-viewremove`), state (`-float`, `-dock`, `-stow`, `-pin`,
+All events are typed `CustomEvent`s on `<dockorama-manager>` (bubbling, composed): layout, view lifecycle
+(`dockorama-beforeadd`, `-viewshow`, `-viewhide`, `-close`, `-viewremove`), state (`-float`, `-dock`, `-stow`, `-pin`,
 `-popout`, `-collapse` and their pairs), drag (`-dragstart`, `-dragover`, `-drop`), resize (`-resize`, `-resizing`)
 and menu commands (`-command`). See the Events guide on the docs site.
 
@@ -216,10 +216,10 @@ Optional subpath exports; each framework is an optional peer dependency.
 
 | Import | Export |
 |---|---|
-| `pazuru/react` | `<PazuruLayout model onLayoutChange …>` (ref = element) |
-| `pazuru/vue` | `<PazuruLayout v-model:model …>` |
-| `pazuru/angular` | `PazuruLayoutComponent` (`<pazuru-layout [model] (layoutChange)>`), standalone |
-| `pazuru/svelte` | `use:pazuru={{ model, on: { change } }}` action |
+| `dockorama/react` | `<DockoramaLayout model onLayoutChange …>` (ref = element) |
+| `dockorama/vue` | `<DockoramaLayout v-model:model …>` |
+| `dockorama/angular` | `DockoramaLayoutComponent` (`<dockorama-layout [model] (layoutChange)>`), standalone |
+| `dockorama/svelte` | `use:dockorama={{ model, on: { change } }}` action |
 
 ## Development
 

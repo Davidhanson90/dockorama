@@ -1,5 +1,5 @@
 {
-  "name": "pazuru",
+  "name": "dockorama",
   "version": "0.1.0",
   "description": "A Lit-based web component dock manager: dockable, splittable, tabbed and floating panes.",
   "type": "module",
@@ -77,10 +77,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/Davidhanson90/pazuru.git"
+    "url": "https://github.com/Davidhanson90/dockorama.git"
   },
   "bugs": {
-    "url": "https://github.com/Davidhanson90/pazuru/issues"
+    "url": "https://github.com/Davidhanson90/dockorama/issues"
   },
   "author": "David Graville",
   "license": "MIT",

@@ -15,15 +15,15 @@ async function put<T extends HTMLElement & { updateComplete: Promise<boolean> }>
 }
 export function requests(): PartRequest[] {
   const out: PartRequest[] = [];
-  document.addEventListener("pazuru-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
+  document.addEventListener("dockorama-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
   return out;
 }
 afterEach(() => { document.body.innerHTML = ""; });
 
 type P = HTMLElement & { updateComplete: Promise<boolean> };
-describe("<pazuru-drop-guide>", () => {
+describe("<dockorama-drop-guide>", () => {
   it("draws targets, the preview and the ghost", async () => {
-    const el = await put<P>("pazuru-drop-guide", {
+    const el = await put<P>("dockorama-drop-guide", {
       spots: [{ zone: "left", x: 5, y: 6, hot: true }, { zone: "into", x: 1, y: 1, hot: false }, { zone: "edge-below", x: 2, y: 2, hot: false },
         { zone: "between", x: 3, y: 3, hot: true }, { zone: "odd", x: 0, y: 0, hot: false }],
       preview: { left: 1, top: 2, width: 30, height: 40 },
@@ -39,7 +39,7 @@ describe("<pazuru-drop-guide>", () => {
     expect(el.querySelector(".ghost")!.textContent).toBe("Alpha");
   });
   it("can be empty", async () => {
-    const el = await put<P>("pazuru-drop-guide", {});
+    const el = await put<P>("dockorama-drop-guide", {});
     expect(el.querySelector(".preview, .ghost, .target")).toBeNull();
   });
 });

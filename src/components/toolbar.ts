@@ -1,10 +1,10 @@
 import { html, nothing, type TemplateResult } from "lit";
 import type { SkinOutput } from "../skins/core.js";
 import type { DockContext } from "./context.js";
-import { PazuruPart } from "./part.js";
+import { DockoramaPart } from "./part.js";
 
-/** `<pazuru-toolbar>`: the action buttons in a group's header (auto-hide, zoom, more, close). */
-export class PazuruToolbar extends PazuruPart {
+/** `<dockorama-toolbar>`: the action buttons in a group's header (auto-hide, zoom, more, close). */
+export class DockoramaToolbar extends DockoramaPart {
   static override properties = {
     view: {},
     docs: { type: Boolean },

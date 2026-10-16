@@ -15,7 +15,7 @@ async function put<T extends HTMLElement & { updateComplete: Promise<boolean> }>
 }
 export function requests(): PartRequest[] {
   const out: PartRequest[] = [];
-  document.addEventListener("pazuru-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
+  document.addEventListener("dockorama-request", (e) => out.push((e as CustomEvent<PartRequest>).detail));
   return out;
 }
 afterEach(() => { document.body.innerHTML = ""; });
@@ -25,19 +25,19 @@ function overflow(strip: HTMLElement, scrollWidth: number, clientWidth: number) 
   Object.defineProperty(strip, "scrollWidth", { configurable: true, value: scrollWidth });
   Object.defineProperty(strip, "clientWidth", { configurable: true, value: clientWidth });
 }
-describe("<pazuru-tabstrip>", () => {
+describe("<dockorama-tabstrip>", () => {
   it("renders a tablist with one tab per view", async () => {
-    const el = await put<Strip>("pazuru-tabstrip", { views: ["a", "b"], current: "b", ctx: ctx() });
+    const el = await put<Strip>("dockorama-tabstrip", { views: ["a", "b"], current: "b", ctx: ctx() });
     const list = el.querySelector('[role="tablist"]')!;
     expect(list.getAttribute("aria-label")).toBe("Beta");
-    expect(Array.from(list.querySelectorAll("pazuru-tab")).map((t) => t.getAttribute("aria-selected"))).toEqual(["false", "true"]);
+    expect(Array.from(list.querySelectorAll("dockorama-tab")).map((t) => t.getAttribute("aria-selected"))).toEqual(["false", "true"]);
     expect(el.querySelectorAll(".scroll").length).toBe(2);
   });
   it("flags overflow, scrolls by buttons and wheel, and mirrors in RTL", async () => {
     const bar = document.createElement("div");
     bar.className = "bar";
     document.body.append(bar);
-    const el = document.createElement("pazuru-tabstrip") as unknown as Strip;
+    const el = document.createElement("dockorama-tabstrip") as unknown as Strip;
     Object.assign(el, { views: ["a", "b"], current: "a", ctx: ctx() });
     bar.append(el);
     await el.updateComplete;
@@ -59,7 +59,7 @@ describe("<pazuru-tabstrip>", () => {
     expect(wheel.defaultPrevented).toBe(false);
   });
   it("does nothing before rendering and skips scroll-into-view while dragging", async () => {
-    const el = document.createElement("pazuru-tabstrip") as unknown as Strip;
+    const el = document.createElement("dockorama-tabstrip") as unknown as Strip;
     el.scrollTabs(1);
     el.markOverflow();
     expect(el.strip).toBeNull();

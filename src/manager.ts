@@ -1,26 +1,26 @@
 import { LitElement, html, nothing, type PropertyValues, type TemplateResult } from "lit";
-import { DEFAULT_LABELS, type PazuruLabels } from "./labels.js";
+import { DEFAULT_LABELS, type DockoramaLabels } from "./labels.js";
 import { Timeline } from "./history.js";
 import { styles } from "./styles.js";
 import {
   clampBox, compassSpots, edgeSpots, hit, insertionIndex, previewFor, shareSpace, snapBox, type Rect, type Spot
 } from "./geometry.js";
-import { PazuruPart, defineParts, type DockContext, type GuideSpot, type MenuEntry, type PartRequest, type TabMenuItem } from "./components/index.js";
+import { DockoramaPart, defineParts, type DockContext, type GuideSpot, type MenuEntry, type PartRequest, type TabMenuItem } from "./components/index.js";
 import { slotOf } from "./components/context.js";
 import { renderNode } from "./components/tree.js";
-import type { Box, Caps, DropZone, EdgeZone, PazuruModel, LayoutMigrations, LayoutSource, OutsideWindow, Side, SizeLimits, SplitNode, ViewContent, ViewInfo, ViewOptions } from "./model.js";
+import type { Box, Caps, DropZone, EdgeZone, DockoramaModel, LayoutMigrations, LayoutSource, OutsideWindow, Side, SizeLimits, SplitNode, ViewContent, ViewInfo, ViewOptions } from "./model.js";
 import * as ops from "./ops.js";
 import { activeSkin, cssFor, skinNamed, watchSkins, type Skin, type SkinPatch, type SkinScope } from "./skins/core.js";
-import { stateEvents, type BeforeAddDetail, type CommandDetail, type CommandSource, type DragKind, type DragOverDetail, type DropDetail, type PazuruStateEvents, type ResizeDetail } from "./events.js";
+import { stateEvents, type BeforeAddDetail, type CommandDetail, type CommandSource, type DragKind, type DragOverDetail, type DropDetail, type DockoramaStateEvents, type ResizeDetail } from "./events.js";
 
-/** Why the model changed (detail of `pazuru-change`). */
+/** Why the model changed (detail of `dockorama-change`). */
 export type ChangeReason =
   | "set" | "place" | "edge" | "detach" | "window" | "stow" | "unstow" | "dismiss" | "reveal" | "select"
   | "reorder" | "resize" | "zoom" | "add" | "forget" | "undo" | "redo" | "focus" | "restore" | "cancel"
   | "transfer" | "popout" | "popin" | "pin" | "promote";
 
 /** Every connected manager, for drags between managers that share a `drag-group`. */
-const managers = new Set<PazuruManager>();
+const managers = new Set<DockoramaManager>();
 /** Built-in keys of the tab context menu. */
 export type TabCommand =
   | "close" | "close-others" | "close-right" | "close-all" | "pin" | "float" | "popout" | "split-right" | "split-down" | "stow";
@@ -28,29 +28,29 @@ export type TabCommand =
 const SILENT: ChangeReason[] = ["select", "focus", "cancel"];
 /** Changes after which saved outside windows are (re-)opened. */
 const OPEN_ON: ChangeReason[] = ["set", "restore", "undo", "redo"];
-/** Styles of the page pazuru builds inside an outside window. */
+/** Styles of the page dockorama builds inside an outside window. */
 const OUTSIDE_CSS = `
-body.pzo { margin: 0; display: flex; flex-direction: column; height: 100vh; font: 13px system-ui, sans-serif; background: #fff; color: #1d2433; }
-body.pzo[data-theme="dark"] { background: #171b24; color: #e6e9f0; }
-.pzo-tabs { display: flex; gap: 2px; padding: 4px 6px 0; background: rgba(127,127,127,.12); border-bottom: 1px solid rgba(127,127,127,.25); flex: 0 0 auto; }
-.pzo-tab { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 6px 6px 0 0; cursor: grab; user-select: none; touch-action: none; }
-.pzo-tab[aria-selected="true"] { background: inherit; box-shadow: inset 0 2px 0 #4f7cff; }
-body.pzo .pzo-tab[aria-selected="true"] { background: #fff; }
-body.pzo[data-theme="dark"] .pzo-tab[aria-selected="true"] { background: #171b24; }
-.pzo-back { border: 0; background: none; color: inherit; cursor: pointer; padding: 0 2px; opacity: .6; }
-.pzo-back:hover { opacity: 1; }
-.pzo-body { flex: 1 1 auto; min-height: 0; overflow: auto; }
-.pzo-body > [data-view] { height: 100%; box-sizing: border-box; }
-.pzo-body > [data-outside-hidden] { display: none !important; }`;
+body.dko { margin: 0; display: flex; flex-direction: column; height: 100vh; font: 13px system-ui, sans-serif; background: #fff; color: #1d2433; }
+body.dko[data-theme="dark"] { background: #171b24; color: #e6e9f0; }
+.dko-tabs { display: flex; gap: 2px; padding: 4px 6px 0; background: rgba(127,127,127,.12); border-bottom: 1px solid rgba(127,127,127,.25); flex: 0 0 auto; }
+.dko-tab { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 6px 6px 0 0; cursor: grab; user-select: none; touch-action: none; }
+.dko-tab[aria-selected="true"] { background: inherit; box-shadow: inset 0 2px 0 #4f7cff; }
+body.dko .dko-tab[aria-selected="true"] { background: #fff; }
+body.dko[data-theme="dark"] .dko-tab[aria-selected="true"] { background: #171b24; }
+.dko-back { border: 0; background: none; color: inherit; cursor: pointer; padding: 0 2px; opacity: .6; }
+.dko-back:hover { opacity: 1; }
+.dko-body { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.dko-body > [data-view] { height: 100%; box-sizing: border-box; }
+.dko-body > [data-outside-hidden] { display: none !important; }`;
 /** Quote a value for an attribute selector. */
 const attr = (v: string) => JSON.stringify(v);
 const isContent = (v: unknown): v is ViewContent =>
   typeof v === "string" || typeof v === "function" || (typeof Element !== "undefined" && v instanceof Element);
 
-/** Plain-text view body: never HTML, padded via `.pazuru-text` / `--pz-text-padding`. */
+/** Plain-text view body: never HTML, padded via `.dockorama-text` / `--dk-text-padding`. */
 const textNode = (text: string): HTMLElement => {
   const el = document.createElement("div");
-  el.className = "pazuru-text";
+  el.className = "dockorama-text";
   el.textContent = text;
   return el;
 };
@@ -71,16 +71,16 @@ interface DragState {
   /** Drop into an empty document area. */
   fill?: { path: number[]; win?: string; rect: Rect };
   edge?: EdgeZone;
-  /** Last spot reported through `pazuru-dragover`. */
+  /** Last spot reported through `dockorama-dragover`. */
   over?: string;
   /** Model when the drag started (restored by Escape). */
-  origin: PazuruModel;
+  origin: DockoramaModel;
   preview?: Rect;
   pointerId: number;
   /** Capabilities of the dragged view (set when another manager is the drop target). */
   caps?: Caps;
   /** Another manager in the same drag group under the pointer. */
-  peer?: PazuruManager;
+  peer?: DockoramaManager;
   /** The pointer left the browser window (dropping pops the view out). */
   beyond?: boolean;
   sx?: number;
@@ -88,10 +88,10 @@ interface DragState {
 }
 
 /**
- * `<pazuru-manager>`: a docking layout of views (panels and documents) the user can rearrange.
+ * `<dockorama-manager>`: a docking layout of views (panels and documents) the user can rearrange.
  * Content is light DOM: give each child `data-view="<id>"` matching an id in `model.views`.
  */
-export class PazuruManager extends LitElement {
+export class DockoramaManager extends LitElement {
   static {
     defineParts();
   }
@@ -160,7 +160,7 @@ export class PazuruManager extends LitElement {
       this.skinStyle.textContent = cssText;
     }
     this.dataset["skinName"] = (this.skinScope().skin ?? activeSkin()).name;
-    for (const el of Array.from(root.querySelectorAll("*"))) if (el instanceof PazuruPart) el.requestUpdate();
+    for (const el of Array.from(root.querySelectorAll("*"))) if (el instanceof DockoramaPart) el.requestUpdate();
     this.requestUpdate();
   }
 
@@ -173,7 +173,7 @@ export class PazuruManager extends LitElement {
   /** Keep empty groups instead of removing them. */
   keepEmpty = false;
   /** Partial overrides of user-facing strings. */
-  labels: Partial<PazuruLabels> = {};
+  labels: Partial<DockoramaLabels> = {};
   /**
    * Managers with the same non-empty `drag-group` accept views dragged from each other. Unset (default):
    * views stay in this manager.
@@ -186,7 +186,7 @@ export class PazuruManager extends LitElement {
   tabMenu?: (viewId: string, items: TabMenuItem[]) => TabMenuItem[];
   /**
    * Asked before a view with unsaved changes (see `setDirty`) closes. Return or resolve `true` to close.
-   * Unset: pazuru shows its own `<pazuru-confirm>` dialog.
+   * Unset: dockorama shows its own `<dockorama-confirm>` dialog.
    */
   confirmClose?: (viewId: string) => boolean | Promise<boolean>;
   /**
@@ -206,8 +206,8 @@ export class PazuruManager extends LitElement {
   /** Detached content of hidden views (with `retain="active"`). */
   private readonly stash = new Map<string, Element>();
 
-  private _model: PazuruModel = ops.emptyModel();
-  private readonly timeline = new Timeline<PazuruModel>();
+  private _model: DockoramaModel = ops.emptyModel();
+  private readonly timeline = new Timeline<DockoramaModel>();
   private _peek?: string;
   private _drag?: DragState;
   private _menu?: { id: string; x: number; y: number };
@@ -215,7 +215,7 @@ export class PazuruManager extends LitElement {
   private _say = "";
   /** Open outside (browser) windows by key. */
   private readonly outsideWins = new Map<string, Window>();
-  /** Windows pazuru is closing itself (their pagehide is not a user close). */
+  /** Windows dockorama is closing itself (their pagehide is not a user close). */
   private readonly closing = new WeakSet<Window>();
   private unloading = false;
   /** Drag from another manager hovering over this one. */
@@ -228,17 +228,17 @@ export class PazuruManager extends LitElement {
   /** Keyboard docking in progress: the view, the chosen target (index into `moveTargets()`) and side. */
   private _keyMove?: { id: string; index: number; zone: DropZone | EdgeZone };
   private readonly shown = new Set<string>();
-  /** Views whose content slot was on screen after the last render (for `pazuru-viewshow` / `pazuru-viewhide`). */
+  /** Views whose content slot was on screen after the last render (for `dockorama-viewshow` / `dockorama-viewhide`). */
   private visible = new Set<string>();
   private readonly factories = new Map<string, () => Element>();
   private observer?: MutationObserver;
   private restoredFromStorage = false;
 
   /** The current layout model (immutable; assign a new object to change it). */
-  get model(): PazuruModel {
+  get model(): DockoramaModel {
     return this._model;
   }
-  set model(value: PazuruModel) {
+  set model(value: DockoramaModel) {
     const stamped = this.layoutVersion !== undefined && value && value.version === undefined ? { ...value, version: this.layoutVersion } : value;
     const next = this.prepare(stamped, "set") ?? ops.normalize(value);
     const fromStore = this.loadStored(next);
@@ -247,7 +247,7 @@ export class PazuruManager extends LitElement {
     this.commit(fromStore ?? next, "set", false);
   }
 
-  private get t(): PazuruLabels {
+  private get t(): DockoramaLabels {
     return { ...DEFAULT_LABELS, ...this.labels };
   }
 
@@ -263,7 +263,7 @@ export class PazuruManager extends LitElement {
     this.observer.observe(this, { childList: true, attributes: true, attributeFilter: ["data-view"] });
     this.addEventListener("keydown", this.onKey);
     this.addEventListener("input", this.onInput);
-    this.renderRoot.addEventListener("pazuru-request", this.onRequest);
+    this.renderRoot.addEventListener("dockorama-request", this.onRequest);
     document.addEventListener("pointerdown", this.onOutside, true);
     window.addEventListener("pagehide", this.onUnload);
     managers.add(this);
@@ -276,7 +276,7 @@ export class PazuruManager extends LitElement {
     this.observer?.disconnect();
     this.removeEventListener("keydown", this.onKey);
     this.removeEventListener("input", this.onInput);
-    this.renderRoot.removeEventListener("pazuru-request", this.onRequest);
+    this.renderRoot.removeEventListener("dockorama-request", this.onRequest);
     document.removeEventListener("pointerdown", this.onOutside, true);
     window.removeEventListener("pagehide", this.onUnload);
     managers.delete(this);
@@ -300,19 +300,19 @@ export class PazuruManager extends LitElement {
   /** Dock a view at an outer edge of the layout. */
   dockToEdge(id: string, zone: EdgeZone): void {
     if (this.caps(id).docsOnly) return;
-    if (!this.emitBefore("pazuru-beforemove", { id, zone })) return;
+    if (!this.emitBefore("dockorama-beforemove", { id, zone })) return;
     this.commit(ops.placeAtEdge(this._model, id, zone), "edge");
   }
   /** Insert a view as a new group between child `after` and `after + 1` of the split at `path`. */
   dropBetween(id: string, path: number[], after: number, windowKey?: string): void {
     if (this.caps(id).move === false || this.caps(id).docsOnly) return;
-    if (!this.emitBefore("pazuru-beforemove", { id, zone: "between" })) return;
+    if (!this.emitBefore("dockorama-beforemove", { id, zone: "between" })) return;
     this.commit(ops.insertBetween(this._model, id, path, after, windowKey), "place");
   }
   /** Put a view into an empty document area. */
   dropIntoDocs(id: string, path: number[], windowKey?: string): void {
     if (this.caps(id).move === false) return;
-    if (!this.emitBefore("pazuru-beforemove", { id, zone: "into" })) return;
+    if (!this.emitBefore("dockorama-beforemove", { id, zone: "into" })) return;
     this.commit(ops.fillDocs(this._model, id, path, windowKey), "place");
   }
   /** Float a view in its own window. */
@@ -332,12 +332,12 @@ export class PazuruManager extends LitElement {
     this._peek = undefined;
     this.commit(ops.unstow(this._model, id), "unstow");
   }
-  /** Close a view (cancellable through `pazuru-beforeclose`). It stays registered. */
+  /** Close a view (cancellable through `dockorama-beforeclose`). It stays registered. */
   dismiss(id: string): Promise<boolean> {
     if (this.caps(id).dismiss === false) return Promise.resolve(false);
     const place = ops.locate(this._model, id).place;
     if (place === "parked" || place === "nowhere") return Promise.resolve(false);
-    if (!this.emitBefore("pazuru-beforeclose", { id })) return Promise.resolve(false);
+    if (!this.emitBefore("dockorama-beforeclose", { id })) return Promise.resolve(false);
     if (!this.dirtySet.has(id)) {
       this.close(id);
       return Promise.resolve(true);
@@ -353,7 +353,7 @@ export class PazuruManager extends LitElement {
     if (this.dirtySet.has(id)) this.setDirty(id, false);
     const before = this._model;
     this.commit(ops.dismiss(this._model, id), "dismiss");
-    if (before !== this._model) this.emit("pazuru-close", { id });
+    if (before !== this._model) this.emit("dockorama-close", { id });
   }
 
   /** Ask `confirmClose`, or show the built-in dialog, before a dirty view closes. */
@@ -368,17 +368,17 @@ export class PazuruManager extends LitElement {
     this._confirm?.done(false);
     return new Promise<boolean>((done) => {
       this._confirm = { id, done };
-      void this.updateComplete.then(() => this.renderRoot.querySelector<HTMLElement & { focusSafe(): void }>("pazuru-confirm")?.focusSafe());
+      void this.updateComplete.then(() => this.renderRoot.querySelector<HTMLElement & { focusSafe(): void }>("dockorama-confirm")?.focusSafe());
     });
   }
 
-  /** Mark a view as having unsaved changes (or not). A dirty preview tab is promoted. Fires `pazuru-dirty`. */
+  /** Mark a view as having unsaved changes (or not). A dirty preview tab is promoted. Fires `dockorama-dirty`. */
   setDirty(id: string, dirty = true): void {
     if (this.dirtySet.has(id) === dirty) return;
     if (dirty) this.dirtySet.add(id);
     else this.dirtySet.delete(id);
     if (dirty) this.promote(id);
-    this.dispatchEvent(new CustomEvent("pazuru-dirty", { detail: { id, dirty }, bubbles: true, composed: true }));
+    this.dispatchEvent(new CustomEvent("dockorama-dirty", { detail: { id, dirty }, bubbles: true, composed: true }));
     this.requestUpdate();
   }
   /** Whether a view has unsaved changes. */
@@ -404,7 +404,7 @@ export class PazuruManager extends LitElement {
     if (next !== this._model) this.commit(next, "promote");
   }
   /**
-   * Close several views as one undoable change. Each one still asks `pazuru-beforeclose` and respects
+   * Close several views as one undoable change. Each one still asks `dockorama-beforeclose` and respects
    * `caps.dismiss`; vetoed views stay. Returns the ids that were closed.
    */
   dismissMany(ids: string[]): string[] {
@@ -416,13 +416,13 @@ export class PazuruManager extends LitElement {
         later.push(id);
         continue;
       }
-      if (this.caps(id).dismiss === false || !this.emitBefore("pazuru-beforeclose", { id })) continue;
+      if (this.caps(id).dismiss === false || !this.emitBefore("dockorama-beforeclose", { id })) continue;
       m = ops.dismiss(m, id);
       done.push(id);
     }
     if (done.length) {
       this.commit(m, "dismiss");
-      for (const id of done) this.emit("pazuru-close", { id });
+      for (const id of done) this.emit("dockorama-close", { id });
     }
     // Views with unsaved changes ask one at a time.
     void later.reduce((p, id) => p.then(() => this.dismiss(id)), Promise.resolve(true));
@@ -462,9 +462,9 @@ export class PazuruManager extends LitElement {
   }
   /**
    * Add a view in one call: register it, attach its content and place it, as a single undoable change
-   * (`pazuru-change` reason `"add"`).
+   * (`dockorama-change` reason `"add"`).
    *
-   * `content` is an element, a string (wrapped in a padded `.pazuru-text` div), or a factory called the first time the view is
+   * `content` is an element, a string (wrapped in a padded `.dockorama-text` div), or a factory called the first time the view is
    * shown. `options.at` says where it goes (see `ViewSpot`); the default is the document area, else
    * the right edge. Throws if `id` is already registered or the `near` target is not in the layout.
    */
@@ -475,7 +475,7 @@ export class PazuruManager extends LitElement {
     const spot0 = isContent(content) ? ((extra ?? {}) as ViewOptions).at : undefined;
     const title = isContent(content) ? (((extra ?? {}) as ViewOptions).title ?? id) : content.title;
     const ask: BeforeAddDetail = spot0 === undefined ? { id, title } : { id, title, at: spot0 };
-    if (!this.emit("pazuru-beforeadd", ask, true)) return;
+    if (!this.emit("dockorama-beforeadd", ask, true)) return;
     if (!isContent(content)) {
       this.commit(ops.addView(this._model, id, content, extra as { view: string; zone: DropZone } | undefined), "add");
       return;
@@ -511,7 +511,7 @@ export class PazuruManager extends LitElement {
   /** The content element of a view (null if unknown, or lazy and not yet shown). */
   getViewElement(id: string): Element | null {
     for (const win of this.outsideWins.values()) {
-      const el = win.closed ? null : win.document.querySelector(`.pzo-body > [data-view=${attr(id)}]`);
+      const el = win.closed ? null : win.document.querySelector(`.dko-body > [data-view=${attr(id)}]`);
       if (el) return el;
     }
     return this.querySelector(`:scope > [data-view=${attr(id)}]`) ?? this.stash.get(id) ?? null;
@@ -544,13 +544,13 @@ export class PazuruManager extends LitElement {
     return this.timeline.canRedo;
   }
   /** A deep copy of the model, safe to JSON.stringify and store. */
-  snapshot(): PazuruModel {
+  snapshot(): DockoramaModel {
     return ops.copy(this._model);
   }
   /** Restore a snapshot as an undoable change. */
-  restore(model: PazuruModel): void {
+  restore(model: DockoramaModel): void {
     const next = this.prepare(model, "restore");
-    if (!next) throw new TypeError("pazuru: not a usable layout model (see pazuru-layoutissue)");
+    if (!next) throw new TypeError("dockorama: not a usable layout model (see dockorama-layoutissue)");
     this.commit(next, "restore");
   }
   /** Open the "go to view" palette. */
@@ -608,7 +608,7 @@ export class PazuruManager extends LitElement {
     const size = box ? `,width=${Math.round(box.w)},height=${Math.round(box.h)}` : ",width=640,height=480";
     let win: Window | null = null;
     try {
-      win = window.open("", `pazuru-${key}`, `popup${size}${pos}`) ?? null;
+      win = window.open("", `dockorama-${key}`, `popup${size}${pos}`) ?? null;
     } catch {
       win = null;
     }
@@ -627,13 +627,13 @@ export class PazuruManager extends LitElement {
     const style = doc.createElement("style");
     style.textContent = OUTSIDE_CSS;
     doc.head.append(style);
-    doc.body.className = "pzo";
+    doc.body.className = "dko";
     doc.body.dataset["theme"] = this.theme;
     const tabs = doc.createElement("div");
-    tabs.className = "pzo-tabs";
+    tabs.className = "dko-tabs";
     tabs.setAttribute("role", "tablist");
     const body = doc.createElement("div");
-    body.className = "pzo-body";
+    body.className = "dko-body";
     doc.body.append(tabs, body);
     win.addEventListener("pagehide", () => {
       if (this.closing.has(win) || this.unloading) return;
@@ -670,7 +670,7 @@ export class PazuruManager extends LitElement {
   /** Move every content element in an outside window back into the manager. */
   private adoptHome(win: Window): void {
     if (win.closed && !win.document) return;
-    for (const el of Array.from(win.document.querySelectorAll<HTMLElement>(".pzo-body > [data-view]"))) {
+    for (const el of Array.from(win.document.querySelectorAll<HTMLElement>(".dko-body > [data-view]"))) {
       el.removeAttribute("data-outside-hidden");
       this.append(el);
     }
@@ -705,8 +705,8 @@ export class PazuruManager extends LitElement {
   /** Put the right content into an outside window and redraw its tab bar. */
   private paintOutside(o: OutsideWindow, win: Window): void {
     const doc = win.document;
-    const body = doc.querySelector<HTMLElement>(".pzo-body");
-    const tabs = doc.querySelector<HTMLElement>(".pzo-tabs");
+    const body = doc.querySelector<HTMLElement>(".dko-body");
+    const tabs = doc.querySelector<HTMLElement>(".dko-tabs");
     if (!body || !tabs) return;
     for (const el of Array.from(body.querySelectorAll<HTMLElement>(":scope > [data-view]"))) {
       if (!o.views.includes(el.dataset["view"] ?? "")) {
@@ -730,7 +730,7 @@ export class PazuruManager extends LitElement {
     doc.title = o.views.map((v) => this._model.views[v]?.title ?? v).join(" · ");
     tabs.replaceChildren(...o.views.map((id) => {
       const tab = doc.createElement("div");
-      tab.className = "pzo-tab";
+      tab.className = "dko-tab";
       tab.setAttribute("role", "tab");
       tab.dataset["view"] = id;
       tab.tabIndex = 0;
@@ -738,7 +738,7 @@ export class PazuruManager extends LitElement {
       const label = doc.createElement("span");
       label.textContent = this._model.views[id]?.title ?? id;
       const back = doc.createElement("button");
-      back.className = "pzo-back";
+      back.className = "dko-back";
       back.type = "button";
       back.title = this.t.popin;
       back.setAttribute("aria-label", `${this.t.popin} ${label.textContent}`);
@@ -815,7 +815,7 @@ export class PazuruManager extends LitElement {
   }
 
   /** Apply the drop a drag state points at to `model` (pure); undefined when it points nowhere. */
-  private applyDrop(model: PazuruModel, id: string, d: DragState): PazuruModel | undefined {
+  private applyDrop(model: DockoramaModel, id: string, d: DragState): DockoramaModel | undefined {
     if (d.edge) return ops.placeAtEdge(model, id, d.edge);
     if (d.gap) return ops.insertBetween(model, id, d.gap.path, d.gap.after, d.gap.win);
     if (d.fill && d.target?.zone) return ops.fillDocs(model, id, d.fill.path, d.fill.win);
@@ -826,7 +826,7 @@ export class PazuruManager extends LitElement {
   // ------------------------------------------------------------- drag between managers
 
   /** Another manager in the same drag group whose box contains a client point (not this one). */
-  private peerAt(x: number, y: number): PazuruManager | undefined {
+  private peerAt(x: number, y: number): DockoramaManager | undefined {
     if (!this.dragGroup) return undefined;
     const own = this.getBoundingClientRect();
     if (x >= own.left && x <= own.right && y >= own.top && y <= own.bottom) return undefined;
@@ -841,18 +841,18 @@ export class PazuruManager extends LitElement {
   /**
    * Move a view, with its content element, from this manager to another one: `at` is any `ViewSpot`
    * (default `"auto"`). One undoable change in each manager (reason `"transfer"`), and a
-   * `pazuru-transfer` event on both. Throws if the target already has a view with this id.
+   * `dockorama-transfer` event on both. Throws if the target already has a view with this id.
    */
-  transferView(id: string, target: PazuruManager, at: import("./model.js").ViewSpot = "auto"): void {
+  transferView(id: string, target: DockoramaManager, at: import("./model.js").ViewSpot = "auto"): void {
     const info = this._model.views[id];
     if (!info || target === this) return;
-    if (target.hasView(id)) throw new Error(`pazuru: the target already has a view with id "${id}"`);
+    if (target.hasView(id)) throw new Error(`dockorama: the target already has a view with id "${id}"`);
     const spot = typeof at === "object" && "float" in at ? { float: target.fitBox({ ...target.defaultBox(), ...(at.float === true ? {} : at.float) }) } : at;
     const next = ops.enlist(target._model, id, ops.copy(info), spot);
     this.handOver(id, target, next);
   }
 
-  private handOver(id: string, target: PazuruManager, next: PazuruModel): void {
+  private handOver(id: string, target: DockoramaManager, next: DockoramaModel): void {
     const el = this.getViewElement(id);
     this.stash.delete(id);
     const make = this.factories.get(id);
@@ -865,17 +865,17 @@ export class PazuruManager extends LitElement {
     target.shown.delete(id);
     target.commit(next, "transfer");
     const detail = { id, from: this, to: target };
-    this.dispatchEvent(new CustomEvent("pazuru-transfer", { detail: { ...detail, direction: "out" }, bubbles: true, composed: true }));
-    target.dispatchEvent(new CustomEvent("pazuru-transfer", { detail: { ...detail, direction: "in" }, bubbles: true, composed: true }));
+    this.dispatchEvent(new CustomEvent("dockorama-transfer", { detail: { ...detail, direction: "out" }, bubbles: true, composed: true }));
+    target.dispatchEvent(new CustomEvent("dockorama-transfer", { detail: { ...detail, direction: "in" }, bubbles: true, composed: true }));
   }
 
   /** Drop a view dragged from `source` where this manager's guide points. Returns false when it cannot land. */
-  private takeGuest(source: PazuruManager, id: string): boolean {
+  private takeGuest(source: DockoramaManager, id: string): boolean {
     const g = this._guest;
     this._guest = undefined;
     const info = source._model.views[id];
     if (!g || !info || this.hasView(id)) return false;
-    if (!this.emitBefore("pazuru-beforemove", { id, target: g.target?.view, zone: g.edge ?? (g.gap ? "between" : g.target?.zone ?? "into"), from: source })) return false;
+    if (!this.emitBefore("dockorama-beforemove", { id, target: g.target?.view, zone: g.edge ?? (g.gap ? "between" : g.target?.zone ?? "into"), from: source })) return false;
     const base = ops.adopt(this._model, id, info);
     const next = this.applyDrop(base, id, g) ?? (this._model.root ? undefined : ops.reveal(base, id));
     if (!next) return false;
@@ -906,7 +906,7 @@ export class PazuruManager extends LitElement {
       const where = ops.locate(this._model, target);
       if (where.place !== "tree" || !where.stack.docs || zone !== "into") return false;
     }
-    return this.emitBefore("pazuru-beforemove", { id, target, zone });
+    return this.emitBefore("dockorama-beforemove", { id, target, zone });
   }
 
   /** Fire a public event (bubbles, composed). Returns false when a cancellable one was vetoed. */
@@ -925,7 +925,7 @@ export class PazuruManager extends LitElement {
     return Boolean(this.shadowRoot?.activeElement) || (document.activeElement !== this && this.contains(document.activeElement));
   }
 
-  private commit(next: PazuruModel, reason: ChangeReason, record = true): void {
+  private commit(next: DockoramaModel, reason: ChangeReason, record = true): void {
     const prev = this._model;
     this.keepFocus = this.keepFocus || this.hasFocus();
     if (record && next !== prev && !SILENT.includes(reason)) this.timeline.push(prev);
@@ -933,10 +933,10 @@ export class PazuruManager extends LitElement {
     if (reason !== "set") this.persist();
     this.reconcileOutside(OPEN_ON.includes(reason));
     if (prev.focus !== next.focus && next.focus) {
-      this.dispatchEvent(new CustomEvent("pazuru-focus", { detail: { id: next.focus, previous: prev.focus }, bubbles: true, composed: true }));
+      this.dispatchEvent(new CustomEvent("dockorama-focus", { detail: { id: next.focus, previous: prev.focus }, bubbles: true, composed: true }));
     }
     if (reason !== "focus") {
-      this.dispatchEvent(new CustomEvent("pazuru-change", { detail: { model: next, reason }, bubbles: true, composed: true }));
+      this.dispatchEvent(new CustomEvent("dockorama-change", { detail: { model: next, reason }, bubbles: true, composed: true }));
     }
     if (reason !== "set") for (const ev of stateEvents(prev, next)) this.emit(ev.type, ev.detail);
     if (!SILENT.includes(reason) && reason !== "set") this._say = `${reason}`;
@@ -956,7 +956,7 @@ export class PazuruManager extends LitElement {
   /** Stored text already found unusable (reported once). */
   private unusable?: string;
 
-  private loadStored(fallback: PazuruModel): PazuruModel | undefined {
+  private loadStored(fallback: DockoramaModel): DockoramaModel | undefined {
     if (!this.storageKey) return undefined;
     try {
       const raw = localStorage.getItem(this.storageKey);
@@ -973,14 +973,14 @@ export class PazuruManager extends LitElement {
 
   /**
    * Check and upgrade an incoming layout: migrations to `layoutVersion`, then validation. Problems are reported with
-   * `pazuru-layoutissue`; returns the normalised model, or undefined when it cannot be used.
+   * `dockorama-layoutissue`; returns the normalised model, or undefined when it cannot be used.
    */
-  private prepare(input: unknown, source: LayoutSource): PazuruModel | undefined {
+  private prepare(input: unknown, source: LayoutSource): DockoramaModel | undefined {
     if (!ops.isModel(input)) {
       this.issue(source, ops.validate(input), true);
       return undefined;
     }
-    let m: PazuruModel = input;
+    let m: DockoramaModel = input;
     if (this.layoutVersion !== undefined) {
       try {
         m = ops.upgrade(m, this.migrations ?? {}, this.layoutVersion);
@@ -995,7 +995,7 @@ export class PazuruManager extends LitElement {
   }
 
   private issue(source: LayoutSource, problems: string[], fatal: boolean): void {
-    this.dispatchEvent(new CustomEvent("pazuru-layoutissue", { detail: { source, problems, fatal }, bubbles: true, composed: true }));
+    this.dispatchEvent(new CustomEvent("dockorama-layoutissue", { detail: { source, problems, fatal }, bubbles: true, composed: true }));
   }
 
   private fitBox(b: Box): Box {
@@ -1012,7 +1012,7 @@ export class PazuruManager extends LitElement {
     let done = await super.getUpdateComplete();
     await this.settled;
     for (const el of Array.from(this.renderRoot.querySelectorAll("*"))) {
-      if (el instanceof PazuruPart) done = (await el.updateComplete) && done;
+      if (el instanceof DockoramaPart) done = (await el.updateComplete) && done;
     }
     return done;
   }
@@ -1033,7 +1033,7 @@ export class PazuruManager extends LitElement {
   /** Work that needs the parts' DOM: focus restore and first-show events. */
   private async afterParts(): Promise<void> {
     for (const el of Array.from(this.renderRoot.querySelectorAll("*"))) {
-      if (el instanceof PazuruPart) await el.updateComplete;
+      if (el instanceof DockoramaPart) await el.updateComplete;
     }
     if (this.keepFocus) {
       this.keepFocus = false;
@@ -1056,9 +1056,9 @@ export class PazuruManager extends LitElement {
           this.mount(id, make());
         }
       }
-      this.emit("pazuru-viewshow", { id, first });
+      this.emit("dockorama-viewshow", { id, first });
     }
-    for (const id of this.visible) if (!now.has(id)) this.emit("pazuru-viewhide", { id });
+    for (const id of this.visible) if (!now.has(id)) this.emit("dockorama-viewhide", { id });
     this.visible = now;
     this.applyRetain();
   }
@@ -1106,7 +1106,7 @@ export class PazuruManager extends LitElement {
         ? renderNode(m.root, [], undefined, ctx)
         : html`<div class="empty">${this.t.emptyDocs}</div>`;
     const rail = (side: Side) => m.drawers[side].length
-      ? html`<pazuru-rail .side=${side} .views=${m.drawers[side]} .open=${this._peek} .ctx=${ctx}></pazuru-rail>`
+      ? html`<dockorama-rail .side=${side} .views=${m.drawers[side]} .open=${this._peek} .ctx=${ctx}></dockorama-rail>`
       : nothing;
     return html`<div class="frame" part="frame" dir=${getComputedStyle(this).direction || "ltr"}>
       ${rail("top")}
@@ -1116,7 +1116,7 @@ export class PazuruManager extends LitElement {
         ${rail("end")}
       </div>
       ${rail("bottom")}
-      ${m.windows.map((w, i) => html`<pazuru-window .key=${w.key} .box=${w.box} .tree=${w.tree} .layer=${i} .ctx=${ctx}></pazuru-window>`)}
+      ${m.windows.map((w, i) => html`<dockorama-window .key=${w.key} .box=${w.box} .tree=${w.tree} .layer=${i} .ctx=${ctx}></dockorama-window>`)}
       ${this.renderGuide()}
       ${this.renderMenu()}
       ${this.renderTabMenu()}
@@ -1132,7 +1132,7 @@ export class PazuruManager extends LitElement {
     if (!id) return nothing;
     const where = ops.locate(this._model, id);
     if (where.place !== "drawer") return nothing;
-    return html`<pazuru-flyout .view=${id} .side=${where.side} .ctx=${ctx}></pazuru-flyout>`;
+    return html`<dockorama-flyout .view=${id} .side=${where.side} .ctx=${ctx}></dockorama-flyout>`;
   }
 
   private renderConfirm(): TemplateResult | typeof nothing {
@@ -1140,20 +1140,20 @@ export class PazuruManager extends LitElement {
     if (!c) return nothing;
     const t = this.t;
     const title = this._model.views[c.id]?.title ?? c.id;
-    return html`<pazuru-confirm .view=${c.id} .message=${t.confirmClose.replace("{title}", title)} .okLabel=${t.closeAnyway} .cancelLabel=${t.cancel}></pazuru-confirm>`;
+    return html`<dockorama-confirm .view=${c.id} .message=${t.confirmClose.replace("{title}", title)} .okLabel=${t.closeAnyway} .cancelLabel=${t.cancel}></dockorama-confirm>`;
   }
 
   private renderNotice(): TemplateResult | typeof nothing {
     if (!this._blocked.length) return nothing;
     const t = this.t;
-    return html`<pazuru-notice .message=${t.reopenBlocked}
-      .actions=${[{ label: t.reopen, action: "outside-reopen", primary: true }, { label: t.keepDocked, action: "outside-dismiss" }]}></pazuru-notice>`;
+    return html`<dockorama-notice .message=${t.reopenBlocked}
+      .actions=${[{ label: t.reopen, action: "outside-reopen", primary: true }, { label: t.keepDocked, action: "outside-dismiss" }]}></dockorama-notice>`;
   }
 
   private renderTabMenu(): TemplateResult | typeof nothing {
     const m = this._tabMenu;
     if (!m) return nothing;
-    return html`<pazuru-tab-menu .view=${m.id} .items=${m.items} .x=${m.x} .y=${m.y} .label=${this.t.tabMenu}></pazuru-tab-menu>`;
+    return html`<dockorama-tab-menu .view=${m.id} .items=${m.items} .x=${m.x} .y=${m.y} .label=${this.t.tabMenu}></dockorama-tab-menu>`;
   }
 
   /** The built-in tab context menu items for a view (before the `tabMenu` hook). */
@@ -1198,7 +1198,7 @@ export class PazuruManager extends LitElement {
     const items = this.tabMenu ? this.tabMenu(id, base) : base;
     this._menu = undefined;
     this._tabMenu = { id, items, x: Math.max(0, Math.min(x - host.left, host.width - 220)), y: Math.max(0, y - host.top) };
-    void this.updateComplete.then(() => this.renderRoot.querySelector<HTMLElement & { focusFirst(): void }>("pazuru-tab-menu")?.focusFirst());
+    void this.updateComplete.then(() => this.renderRoot.querySelector<HTMLElement & { focusFirst(): void }>("dockorama-tab-menu")?.focusFirst());
   }
 
   /** Run a built-in tab command for a view. */
@@ -1224,10 +1224,10 @@ export class PazuruManager extends LitElement {
     }
   }
 
-  /** Fire the cancellable `pazuru-command` for a menu choice. */
+  /** Fire the cancellable `dockorama-command` for a menu choice. */
   private askCommand(id: string, command: string, source: CommandSource, custom: boolean): boolean {
     const detail: CommandDetail = { id, command, source, custom };
-    return this.emit("pazuru-command", detail, true);
+    return this.emit("dockorama-command", detail, true);
   }
 
   private closeTabMenu(refocus: boolean): void {
@@ -1254,7 +1254,7 @@ export class PazuruManager extends LitElement {
     const p = d.preview;
     const preview = p ? { left: p.left - host.left, top: p.top - host.top, width: p.width, height: p.height } : undefined;
     const ghost = d.mode === "loose" ? { x: d.x - host.left, y: d.y - host.top, label: this._model.views[d.id]?.title ?? d.id } : undefined;
-    return html`<pazuru-drop-guide .spots=${spots} .preview=${preview} .ghost=${ghost}></pazuru-drop-guide>`;
+    return html`<dockorama-drop-guide .spots=${spots} .preview=${preview} .ghost=${ghost}></dockorama-drop-guide>`;
   }
 
   private openMenu(id: string): void {
@@ -1290,7 +1290,7 @@ export class PazuruManager extends LitElement {
   private renderMenu(): TemplateResult | typeof nothing {
     const menu = this._menu;
     if (!menu) return nothing;
-    return html`<pazuru-menu .entries=${this.menuEntries(menu.id)} .x=${menu.x} .y=${menu.y}></pazuru-menu>`;
+    return html`<dockorama-menu .entries=${this.menuEntries(menu.id)} .x=${menu.x} .y=${menu.y}></dockorama-menu>`;
   }
 
   /** Palette entries: views + commands. */
@@ -1310,8 +1310,8 @@ export class PazuruManager extends LitElement {
   private renderPalette(): TemplateResult | typeof nothing {
     const p = this._palette;
     if (!p) return nothing;
-    return html`<pazuru-palette .items=${this.paletteItems(p.query)} .query=${p.query} .index=${p.index}
-      .label=${this.t.palette} .placeholder=${this.t.palettePlaceholder} .empty=${this.t.noMatches}></pazuru-palette>`;
+    return html`<dockorama-palette .items=${this.paletteItems(p.query)} .query=${p.query} .index=${p.index}
+      .label=${this.t.palette} .placeholder=${this.t.palettePlaceholder} .empty=${this.t.noMatches}></dockorama-palette>`;
   }
 
   // ------------------------------------------------------------- part requests
@@ -1457,7 +1457,7 @@ export class PazuruManager extends LitElement {
     d.peer?.clearGuest();
     if (this._model !== d.origin) this.commit(d.origin, "cancel", false);
     else this.requestUpdate();
-    this.dispatchEvent(new CustomEvent("pazuru-dragcancel", { detail: { id: d.id }, bubbles: true, composed: true }));
+    this.dispatchEvent(new CustomEvent("dockorama-dragcancel", { detail: { id: d.id }, bubbles: true, composed: true }));
   }
 
   private onDragMove = (e: PointerEvent): void => {
@@ -1468,7 +1468,7 @@ export class PazuruManager extends LitElement {
       if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < 6) return;
       next.mode = d.windowKey ? "window" : d.strip ? "tab" : "loose";
       this._menu = undefined;
-      if (!this.emit("pazuru-dragstart", { id: d.id, kind: next.mode as DragKind }, true)) {
+      if (!this.emit("dockorama-dragstart", { id: d.id, kind: next.mode as DragKind }, true)) {
         this.endDragListeners();
         this._drag = undefined;
         return;
@@ -1523,13 +1523,13 @@ export class PazuruManager extends LitElement {
     return { id: d.id, spot: "none" };
   }
 
-  /** Fire `pazuru-dragover` only when the drop spot or target changes. */
+  /** Fire `dockorama-dragover` only when the drop spot or target changes. */
   private reportOver(d: DragState): void {
     const s = this.spotOf(d);
     const sig = `${s.spot}|${s.target ?? ""}`;
     if (d.over === sig) return;
     d.over = sig;
-    this.emit("pazuru-dragover", s);
+    this.emit("dockorama-dragover", s);
   }
 
   private findTarget(d: DragState): void {
@@ -1607,7 +1607,7 @@ export class PazuruManager extends LitElement {
     const done = this.finishDrop(d);
     const report = (): void => {
       const detail: DropDetail = { ...spot, moved: this._model !== d.origin || done === true };
-      this.emit("pazuru-drop", detail);
+      this.emit("dockorama-drop", detail);
     };
     if (done instanceof Promise) void done.then(report);
     else report();
@@ -1727,10 +1727,10 @@ export class PazuruManager extends LitElement {
   }
 
   private emitResize(detail: ResizeDetail | undefined): void {
-    if (detail) this.emit("pazuru-resize", detail);
+    if (detail) this.emit("dockorama-resize", detail);
   }
 
-  /** A live-resize reporter: fires `pazuru-resizing` at most once per animation frame. */
+  /** A live-resize reporter: fires `dockorama-resizing` at most once per animation frame. */
   private liveResize(read: () => ResizeDetail | undefined): (() => void) & { stop(): void } {
     let frame = 0;
     const fn = (() => {
@@ -1738,7 +1738,7 @@ export class PazuruManager extends LitElement {
       frame = requestAnimationFrame(() => {
         frame = 0;
         const d = read();
-        if (d) this.emit("pazuru-resizing", d);
+        if (d) this.emit("dockorama-resizing", d);
       });
     }) as (() => void) & { stop(): void };
     fn.stop = () => {
@@ -1842,7 +1842,7 @@ export class PazuruManager extends LitElement {
   private moveTargets(id: string): Array<{ view: string; rect: Rect; label: string; path?: number[]; win?: string; empty?: boolean } | { edge: true; rect: Rect; label: string }> {
     const where = ops.locate(this._model, id);
     const lone = where.place === "tree" && where.stack.views.length === 1 ? where.stack.views[0] : undefined;
-    const out: ReturnType<PazuruManager["moveTargets"]> = [];
+    const out: ReturnType<DockoramaManager["moveTargets"]> = [];
     for (const el of Array.from(this.renderRoot.querySelectorAll<HTMLElement>("[data-stack]"))) {
       if (el.closest(".drawer")) continue;
       const empty = el.hasAttribute("data-empty");
@@ -2025,37 +2025,37 @@ export class PazuruManager extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    "pazuru-manager": PazuruManager;
+    "dockorama-manager": DockoramaManager;
   }
   interface HTMLElementEventMap {
-    "pazuru-change": CustomEvent<{ model: PazuruModel; reason: ChangeReason }>;
-    "pazuru-focus": CustomEvent<{ id: string; previous?: string }>;
-    "pazuru-viewshow": CustomEvent<{ id: string; first: boolean }>;
-    "pazuru-beforeclose": CustomEvent<{ id: string }>;
-    "pazuru-beforemove": CustomEvent<{ id: string; target?: string; zone: DropZone | EdgeZone | "between" }>;
-    "pazuru-dragcancel": CustomEvent<{ id: string }>;
-    "pazuru-dirty": CustomEvent<{ id: string; dirty: boolean }>;
-    "pazuru-layoutissue": CustomEvent<{ source: LayoutSource; problems: string[]; fatal: boolean }>;
-    "pazuru-transfer": CustomEvent<{ id: string; from: PazuruManager; to: PazuruManager; direction: "in" | "out" }>;
-    "pazuru-viewhide": CustomEvent<{ id: string }>;
-    "pazuru-close": CustomEvent<{ id: string }>;
-    "pazuru-beforeadd": CustomEvent<BeforeAddDetail>;
-    "pazuru-command": CustomEvent<CommandDetail>;
-    "pazuru-dragstart": CustomEvent<{ id: string; kind: DragKind }>;
-    "pazuru-dragover": CustomEvent<DragOverDetail>;
-    "pazuru-drop": CustomEvent<DropDetail>;
-    "pazuru-resize": CustomEvent<ResizeDetail>;
-    "pazuru-resizing": CustomEvent<ResizeDetail>;
-    "pazuru-float": CustomEvent<PazuruStateEvents["pazuru-float"]>;
-    "pazuru-dock": CustomEvent<PazuruStateEvents["pazuru-dock"]>;
-    "pazuru-stow": CustomEvent<PazuruStateEvents["pazuru-stow"]>;
-    "pazuru-unstow": CustomEvent<PazuruStateEvents["pazuru-unstow"]>;
-    "pazuru-pin": CustomEvent<PazuruStateEvents["pazuru-pin"]>;
-    "pazuru-unpin": CustomEvent<PazuruStateEvents["pazuru-unpin"]>;
-    "pazuru-popout": CustomEvent<PazuruStateEvents["pazuru-popout"]>;
-    "pazuru-popin": CustomEvent<PazuruStateEvents["pazuru-popin"]>;
-    "pazuru-collapse": CustomEvent<PazuruStateEvents["pazuru-collapse"]>;
-    "pazuru-expand": CustomEvent<PazuruStateEvents["pazuru-expand"]>;
-    "pazuru-viewremove": CustomEvent<PazuruStateEvents["pazuru-viewremove"]>;
+    "dockorama-change": CustomEvent<{ model: DockoramaModel; reason: ChangeReason }>;
+    "dockorama-focus": CustomEvent<{ id: string; previous?: string }>;
+    "dockorama-viewshow": CustomEvent<{ id: string; first: boolean }>;
+    "dockorama-beforeclose": CustomEvent<{ id: string }>;
+    "dockorama-beforemove": CustomEvent<{ id: string; target?: string; zone: DropZone | EdgeZone | "between" }>;
+    "dockorama-dragcancel": CustomEvent<{ id: string }>;
+    "dockorama-dirty": CustomEvent<{ id: string; dirty: boolean }>;
+    "dockorama-layoutissue": CustomEvent<{ source: LayoutSource; problems: string[]; fatal: boolean }>;
+    "dockorama-transfer": CustomEvent<{ id: string; from: DockoramaManager; to: DockoramaManager; direction: "in" | "out" }>;
+    "dockorama-viewhide": CustomEvent<{ id: string }>;
+    "dockorama-close": CustomEvent<{ id: string }>;
+    "dockorama-beforeadd": CustomEvent<BeforeAddDetail>;
+    "dockorama-command": CustomEvent<CommandDetail>;
+    "dockorama-dragstart": CustomEvent<{ id: string; kind: DragKind }>;
+    "dockorama-dragover": CustomEvent<DragOverDetail>;
+    "dockorama-drop": CustomEvent<DropDetail>;
+    "dockorama-resize": CustomEvent<ResizeDetail>;
+    "dockorama-resizing": CustomEvent<ResizeDetail>;
+    "dockorama-float": CustomEvent<DockoramaStateEvents["dockorama-float"]>;
+    "dockorama-dock": CustomEvent<DockoramaStateEvents["dockorama-dock"]>;
+    "dockorama-stow": CustomEvent<DockoramaStateEvents["dockorama-stow"]>;
+    "dockorama-unstow": CustomEvent<DockoramaStateEvents["dockorama-unstow"]>;
+    "dockorama-pin": CustomEvent<DockoramaStateEvents["dockorama-pin"]>;
+    "dockorama-unpin": CustomEvent<DockoramaStateEvents["dockorama-unpin"]>;
+    "dockorama-popout": CustomEvent<DockoramaStateEvents["dockorama-popout"]>;
+    "dockorama-popin": CustomEvent<DockoramaStateEvents["dockorama-popin"]>;
+    "dockorama-collapse": CustomEvent<DockoramaStateEvents["dockorama-collapse"]>;
+    "dockorama-expand": CustomEvent<DockoramaStateEvents["dockorama-expand"]>;
+    "dockorama-viewremove": CustomEvent<DockoramaStateEvents["dockorama-viewremove"]>;
   }
 }

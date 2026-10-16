@@ -1,5 +1,5 @@
 import type { ViewSpot, OutsideWindow, LayoutMigrations, SizeLimits,
-  Box, DockNode, DropZone, EdgeZone, PazuruModel, Side, SplitNode, StackNode, ViewInfo, Whereabouts
+  Box, DockNode, DropZone, EdgeZone, DockoramaModel, Side, SplitNode, StackNode, ViewInfo, Whereabouts
 } from "./model.js";
 
 export const SIDES: Side[] = ["start", "end", "top", "bottom"];
@@ -10,7 +10,7 @@ export function copy<T>(value: T): T {
 }
 
 /** An empty model. */
-export function emptyModel(): PazuruModel {
+export function emptyModel(): DockoramaModel {
   return { v: 1, views: {}, root: null, windows: [], drawers: { start: [], end: [], top: [], bottom: [] }, parked: [] };
 }
 
@@ -24,7 +24,7 @@ export const stack = (views: string[], current?: string): StackNode =>
 export const docs = (views: string[], current?: string): StackNode => ({ ...stack(views, current), docs: true });
 
 /** Create a model from a registry and a tree; fills in defaults and normalises. */
-export function createModel(views: Record<string, ViewInfo>, root: DockNode | null, extra: Partial<PazuruModel> = {}): PazuruModel {
+export function createModel(views: Record<string, ViewInfo>, root: DockNode | null, extra: Partial<DockoramaModel> = {}): DockoramaModel {
   return normalize({ ...emptyModel(), ...extra, views, root });
 }
 
@@ -41,7 +41,7 @@ export function viewsIn(node: DockNode | null): string[] {
 }
 
 /** Find where a view is. */
-export function locate(model: PazuruModel, id: string): Whereabouts {
+export function locate(model: DockoramaModel, id: string): Whereabouts {
   for (const s of stacksOf(model.root)) if (s.stack.views.includes(id)) return { place: "tree", stack: s.stack, path: s.path };
   for (const w of model.windows) {
     for (const s of stacksOf(w.tree)) if (s.stack.views.includes(id)) return { place: "tree", window: w.key, stack: s.stack, path: s.path };
@@ -138,12 +138,12 @@ function tidySplit(node: SplitNode): DockNode | null {
 }
 
 /** Normalise a model: fix weights, drop unknown ids, tidy trees, remove empty windows. */
-export function normalize(input: PazuruModel): PazuruModel {
+export function normalize(input: DockoramaModel): DockoramaModel {
   const m = copy(input);
   m.v = 1;
   m.windows ??= [];
   m.parked ??= [];
-  const d: Partial<PazuruModel["drawers"]> = m.drawers ?? {};
+  const d: Partial<DockoramaModel["drawers"]> = m.drawers ?? {};
   m.drawers = { start: d.start ?? [], end: d.end ?? [], top: d.top ?? [], bottom: d.bottom ?? [] };
   const known = (id: string) => id in m.views;
   const seen = new Set<string>();
@@ -204,7 +204,7 @@ export function normalize(input: PazuruModel): PazuruModel {
 }
 
 /** Take a view out of wherever it is (it stays registered). */
-export function unplace(model: PazuruModel, id: string, keepEmpty = false): PazuruModel {
+export function unplace(model: DockoramaModel, id: string, keepEmpty = false): DockoramaModel {
   const m = copy(model);
   m.root = pluck(m.root, id, keepEmpty);
   m.windows = m.windows
@@ -232,7 +232,7 @@ function insertBeside(target: StackNode, id: string, zone: Exclude<DropZone, "in
 }
 
 /** Move a view next to (or into) the group holding `targetView`. */
-export function place(model: PazuruModel, id: string, targetView: string, zone: DropZone, index?: number): PazuruModel {
+export function place(model: DockoramaModel, id: string, targetView: string, zone: DropZone, index?: number): DockoramaModel {
   if (id === targetView && zone === "into") return model;
   const target = locate(model, targetView);
   if (target.place !== "tree") return model;
@@ -261,7 +261,7 @@ export function place(model: PazuruModel, id: string, targetView: string, zone: 
 }
 
 /** Dock a view at an outer edge of the main layout. */
-export function placeAtEdge(model: PazuruModel, id: string, zone: EdgeZone, weight = 0.33): PazuruModel {
+export function placeAtEdge(model: DockoramaModel, id: string, zone: EdgeZone, weight = 0.33): DockoramaModel {
   const m = unplace(model, id);
   const fresh = stack([id]);
   if (!m.root) {
@@ -282,7 +282,7 @@ export function placeAtEdge(model: PazuruModel, id: string, zone: EdgeZone, weig
 }
 
 /** Float a view in a new window. */
-export function detach(model: PazuruModel, id: string, box: Box): PazuruModel {
+export function detach(model: DockoramaModel, id: string, box: Box): DockoramaModel {
   const m = unplace(model, id);
   m.windows.push({ key: `w-${id}-${Date.now().toString(36)}`, box: { ...box }, tree: stack([id]) });
   m.focus = id;
@@ -290,14 +290,14 @@ export function detach(model: PazuruModel, id: string, box: Box): PazuruModel {
 }
 
 /** Move / resize a floating window. */
-export function moveWindow(model: PazuruModel, key: string, box: Box): PazuruModel {
+export function moveWindow(model: DockoramaModel, key: string, box: Box): DockoramaModel {
   const m = copy(model);
   m.windows = m.windows.map((w) => (w.key === key ? { ...w, box: { ...box } } : w));
   return m;
 }
 
 /** Bring a window to the front (last = topmost). */
-export function raiseWindow(model: PazuruModel, key: string): PazuruModel {
+export function raiseWindow(model: DockoramaModel, key: string): DockoramaModel {
   const w = model.windows.find((x) => x.key === key);
   if (!w || model.windows[model.windows.length - 1] === w) return model;
   const m = copy(model);
@@ -306,7 +306,7 @@ export function raiseWindow(model: PazuruModel, key: string): PazuruModel {
 }
 
 /** Guess which side a docked view should stow to. */
-export function sideFor(model: PazuruModel, id: string): Side {
+export function sideFor(model: DockoramaModel, id: string): Side {
   const where = locate(model, id);
   if (where.place !== "tree" || where.window || !model.root || model.root.kind !== "split" || !where.path.length) return "start";
   const top = where.path[0]!;
@@ -316,7 +316,7 @@ export function sideFor(model: PazuruModel, id: string): Side {
 }
 
 /** Auto-hide a view into an edge drawer. Views in windows or document areas cannot be stowed. */
-export function stow(model: PazuruModel, id: string, side?: Side): PazuruModel {
+export function stow(model: DockoramaModel, id: string, side?: Side): DockoramaModel {
   const where = locate(model, id);
   if (where.place !== "tree" || where.window || where.stack.docs) return model;
   const s = side ?? sideFor(model, id);
@@ -329,14 +329,14 @@ export function stow(model: PazuruModel, id: string, side?: Side): PazuruModel {
 const EDGE_OF: Record<Side, EdgeZone> = { start: "edge-left", end: "edge-right", top: "edge-above", bottom: "edge-below" };
 
 /** Put a stowed view back into the main layout on its side. */
-export function unstow(model: PazuruModel, id: string): PazuruModel {
+export function unstow(model: DockoramaModel, id: string): DockoramaModel {
   const where = locate(model, id);
   if (where.place !== "drawer") return model;
   return placeAtEdge(model, id, EDGE_OF[where.side], 0.25);
 }
 
 /** Close a view, keeping it registered (it can be revealed again). */
-export function dismiss(model: PazuruModel, id: string): PazuruModel {
+export function dismiss(model: DockoramaModel, id: string): DockoramaModel {
   const m = unplace(model, id);
   if (!m.parked.includes(id)) m.parked.push(id);
   if (m.focus === id) delete m.focus;
@@ -344,14 +344,14 @@ export function dismiss(model: PazuruModel, id: string): PazuruModel {
 }
 
 /** Close and forget a view entirely. */
-export function forget(model: PazuruModel, id: string): PazuruModel {
+export function forget(model: DockoramaModel, id: string): DockoramaModel {
   const m = unplace(model, id);
   delete m.views[id];
   return normalize(m);
 }
 
 /** Make a view visible: select its tab, or bring it back from parked/drawer. */
-export function reveal(model: PazuruModel, id: string): PazuruModel {
+export function reveal(model: DockoramaModel, id: string): DockoramaModel {
   const where = locate(model, id);
   if (where.place === "tree") return select(model, id);
   if (where.place === "drawer") return unstow(model, id);
@@ -368,7 +368,7 @@ export function reveal(model: PazuruModel, id: string): PazuruModel {
 }
 
 /** Select a tab (and focus it). */
-export function select(model: PazuruModel, id: string): PazuruModel {
+export function select(model: DockoramaModel, id: string): DockoramaModel {
   const m = copy(model);
   const apply = (s: StackNode): DockNode => (s.views.includes(id) ? { ...s, current: id } : s);
   m.root = mapTree(m.root, apply);
@@ -378,7 +378,7 @@ export function select(model: PazuruModel, id: string): PazuruModel {
 }
 
 /** Reorder a tab inside its own group. */
-export function reorder(model: PazuruModel, id: string, index: number): PazuruModel {
+export function reorder(model: DockoramaModel, id: string, index: number): DockoramaModel {
   const m = copy(model);
   const apply = (s: StackNode): DockNode => {
     if (!s.views.includes(id)) return s;
@@ -392,7 +392,7 @@ export function reorder(model: PazuruModel, id: string, index: number): PazuruMo
 }
 
 /** Set the weights of the split at `path` (in the root, or in a window). */
-export function setWeights(model: PazuruModel, path: number[], weights: number[], windowKey?: string): PazuruModel {
+export function setWeights(model: DockoramaModel, path: number[], weights: number[], windowKey?: string): DockoramaModel {
   const m = copy(model);
   const tree = windowKey ? m.windows.find((w) => w.key === windowKey)?.tree ?? null : m.root;
   const node = nodeAt(tree, path);
@@ -401,7 +401,7 @@ export function setWeights(model: PazuruModel, path: number[], weights: number[]
 }
 
 /** Toggle zoom (maximise) of a view's group. */
-export function toggleZoom(model: PazuruModel, id?: string): PazuruModel {
+export function toggleZoom(model: DockoramaModel, id?: string): DockoramaModel {
   const m = copy(model);
   if (!id || m.zoom) delete m.zoom;
   else if (locate(m, id).place === "tree") m.zoom = id;
@@ -409,7 +409,7 @@ export function toggleZoom(model: PazuruModel, id?: string): PazuruModel {
 }
 
 /** Register a view and place it (next to `near`, in the docs area, or at the right edge). */
-export function addView(model: PazuruModel, id: string, info: ViewInfo, near?: { view: string; zone: DropZone }): PazuruModel {
+export function addView(model: DockoramaModel, id: string, info: ViewInfo, near?: { view: string; zone: DropZone }): DockoramaModel {
   const m = copy(model);
   m.views[id] = { ...info };
   m.parked = m.parked.filter((v) => v !== id);
@@ -422,14 +422,14 @@ export function addView(model: PazuruModel, id: string, info: ViewInfo, near?: {
  * target is not in the layout, or `"docs"` is asked for without a document area.
  * A `float` spot needs a complete box here (the element fills in defaults).
  */
-export function enlist(model: PazuruModel, id: string, info: ViewInfo, spot: Exclude<ViewSpot, { float: Partial<Box> | true }> | { float: Box } = "auto"): PazuruModel {
-  if (!id) throw new TypeError("pazuru: a view needs a non-empty id");
-  if (id in model.views) throw new Error(`pazuru: a view with id "${id}" already exists`);
+export function enlist(model: DockoramaModel, id: string, info: ViewInfo, spot: Exclude<ViewSpot, { float: Partial<Box> | true }> | { float: Box } = "auto"): DockoramaModel {
+  if (!id) throw new TypeError("dockorama: a view needs a non-empty id");
+  if (id in model.views) throw new Error(`dockorama: a view with id "${id}" already exists`);
   if (typeof spot === "object" && "near" in spot && locate(model, spot.near).place !== "tree") {
-    throw new Error(`pazuru: cannot place "${id}" near "${spot.near}": that view is not in the layout`);
+    throw new Error(`dockorama: cannot place "${id}" near "${spot.near}": that view is not in the layout`);
   }
   if (spot === "docs" && !stacksOf(model.root).some((s) => s.stack.docs)) {
-    throw new Error(`pazuru: cannot place "${id}" in the document area: the layout has none`);
+    throw new Error(`dockorama: cannot place "${id}" in the document area: the layout has none`);
   }
   const m = copy(model);
   m.views[id] = { ...info };
@@ -447,18 +447,18 @@ export function enlist(model: PazuruModel, id: string, info: ViewInfo, spot: Exc
 }
 
 /** Every registered view with a short description of its location. */
-export function catalogue(model: PazuruModel): Array<{ id: string; info: ViewInfo; where: Whereabouts["place"] }> {
+export function catalogue(model: DockoramaModel): Array<{ id: string; info: ViewInfo; where: Whereabouts["place"] }> {
   return Object.entries(model.views).map(([id, info]) => ({ id, info, where: locate(model, id).place }));
 }
 
 /** Basic structural validation for untrusted (e.g. persisted) models. */
-export function isModel(value: unknown): value is PazuruModel {
+export function isModel(value: unknown): value is DockoramaModel {
   if (!value || typeof value !== "object") return false;
-  const m = value as Partial<PazuruModel>;
+  const m = value as Partial<DockoramaModel>;
   return m.v === 1 && typeof m.views === "object" && m.views !== null && Array.isArray(m.windows ?? []);
 }
 
-function treeOf(m: PazuruModel, windowKey?: string): DockNode | null {
+function treeOf(m: DockoramaModel, windowKey?: string): DockNode | null {
   return windowKey ? m.windows.find((w) => w.key === windowKey)?.tree ?? null : m.root;
 }
 
@@ -466,7 +466,7 @@ function treeOf(m: PazuruModel, windowKey?: string): DockNode | null {
  * Insert a view as a new group between two siblings of the split at `path`
  * (a drop onto the gutter that follows child `after`).
  */
-export function insertBetween(model: PazuruModel, id: string, path: number[], after: number, windowKey?: string): PazuruModel {
+export function insertBetween(model: DockoramaModel, id: string, path: number[], after: number, windowKey?: string): DockoramaModel {
   const split = nodeAt(treeOf(model, windowKey), path);
   if (split?.kind !== "split" || after < 0 || after >= split.children.length - 1) return model;
   // Mark the split so it can be found again after the view is taken out.
@@ -503,7 +503,7 @@ export function insertBetween(model: PazuruModel, id: string, path: number[], af
 }
 
 /** Put a view into an empty document area at `path` (in the root, or a window). */
-export function fillDocs(model: PazuruModel, id: string, path: number[], windowKey?: string): PazuruModel {
+export function fillDocs(model: DockoramaModel, id: string, path: number[], windowKey?: string): DockoramaModel {
   const area = nodeAt(treeOf(model, windowKey), path);
   if (area?.kind !== "stack" || !area.docs) return model;
   const marked = copy(model);
@@ -525,7 +525,7 @@ export function fillDocs(model: PazuruModel, id: string, path: number[], windowK
 
 
 /** Pin or unpin a view in its group (pinned views sit first, in pin order). */
-export function pin(model: PazuruModel, id: string, on = true): PazuruModel {
+export function pin(model: DockoramaModel, id: string, on = true): DockoramaModel {
   const where = locate(model, id);
   if (where.place !== "tree") return model;
   const has = where.stack.pinned?.includes(id) ?? false;
@@ -542,12 +542,12 @@ export function pin(model: PazuruModel, id: string, on = true): PazuruModel {
 }
 
 /** The outside (browser) window holding a view's content, if any. */
-export function outsideOf(model: PazuruModel, id: string): OutsideWindow | undefined {
+export function outsideOf(model: DockoramaModel, id: string): OutsideWindow | undefined {
   return model.outside?.find((o) => o.views.includes(id));
 }
 
 /** Record that a view's content is in an outside window `key` (created when new). */
-export function goOutside(model: PazuruModel, id: string, key: string, box?: Box): PazuruModel {
+export function goOutside(model: DockoramaModel, id: string, key: string, box?: Box): DockoramaModel {
   if (locate(model, id).place !== "tree") return model;
   const m = copy(model);
   const list = (m.outside ?? []).map((o) => ({ ...o, views: o.views.filter((v) => v !== id) }));
@@ -564,7 +564,7 @@ export function goOutside(model: PazuruModel, id: string, key: string, box?: Box
 }
 
 /** Bring a view's content back from its outside window. */
-export function comeInside(model: PazuruModel, id: string): PazuruModel {
+export function comeInside(model: DockoramaModel, id: string): DockoramaModel {
   if (!outsideOf(model, id)) return model;
   const m = copy(model);
   m.outside = m.outside!.map((o) => ({ ...o, views: o.views.filter((v) => v !== id) }));
@@ -572,7 +572,7 @@ export function comeInside(model: PazuruModel, id: string): PazuruModel {
 }
 
 /** Set the selected view or box of an outside window. */
-export function tuneOutside(model: PazuruModel, key: string, change: { current?: string; box?: Box }): PazuruModel {
+export function tuneOutside(model: DockoramaModel, key: string, change: { current?: string; box?: Box }): DockoramaModel {
   const m = copy(model);
   m.outside = (m.outside ?? []).map((o) => (o.key === key
     ? { ...o, ...(change.current && o.views.includes(change.current) ? { current: change.current } : {}), ...(change.box ? { box: { ...change.box } } : {}) }
@@ -581,8 +581,8 @@ export function tuneOutside(model: PazuruModel, key: string, change: { current?:
 }
 
 /** Register a view coming from another manager as parked (place it afterwards). Throws if the id is taken. */
-export function adopt(model: PazuruModel, id: string, info: ViewInfo): PazuruModel {
-  if (id in model.views) throw new Error(`pazuru: a view with id "${id}" already exists`);
+export function adopt(model: DockoramaModel, id: string, info: ViewInfo): DockoramaModel {
+  if (id in model.views) throw new Error(`dockorama: a view with id "${id}" already exists`);
   const m = copy(model);
   m.views[id] = copy(info);
   m.parked.push(id);
@@ -590,7 +590,7 @@ export function adopt(model: PazuruModel, id: string, info: ViewInfo): PazuruMod
 }
 
 /** Which views a "close …" command covers, relative to `id` in its group. */
-export function closeSet(model: PazuruModel, id: string, which: "others" | "right" | "all"): string[] {
+export function closeSet(model: DockoramaModel, id: string, which: "others" | "right" | "all"): string[] {
   const where = locate(model, id);
   if (where.place !== "tree") return [];
   const views = where.stack.views;
@@ -599,7 +599,7 @@ export function closeSet(model: PazuruModel, id: string, which: "others" | "righ
   return pick.filter((v) => !pinned.includes(v));
 }
 
-function mapStacks(model: PazuruModel, fn: (s: StackNode) => DockNode): PazuruModel {
+function mapStacks(model: DockoramaModel, fn: (s: StackNode) => DockNode): DockoramaModel {
   const m = copy(model);
   m.root = mapTree(m.root, fn);
   m.windows = m.windows.map((w) => ({ ...w, tree: mapTree(w.tree, fn)! }));
@@ -607,7 +607,7 @@ function mapStacks(model: PazuruModel, fn: (s: StackNode) => DockNode): PazuruMo
 }
 
 /** Make a view its group's preview tab; returns the model and the preview it replaced (now closed), if any. */
-export function setPreview(model: PazuruModel, id: string): { model: PazuruModel; replaced?: string } {
+export function setPreview(model: DockoramaModel, id: string): { model: DockoramaModel; replaced?: string } {
   const where = locate(model, id);
   if (where.place !== "tree") return { model };
   const old = where.stack.preview;
@@ -617,7 +617,7 @@ export function setPreview(model: PazuruModel, id: string): { model: PazuruModel
 }
 
 /** Keep a preview tab (it is no longer replaced). */
-export function promote(model: PazuruModel, id: string): PazuruModel {
+export function promote(model: DockoramaModel, id: string): DockoramaModel {
   const where = locate(model, id);
   if (where.place !== "tree" || where.stack.preview !== id) return model;
   return mapStacks(model, (s) => {
@@ -629,7 +629,7 @@ export function promote(model: PazuruModel, id: string): PazuruModel {
 }
 
 /** The preview view of the group holding `id` (or of the first document area), if any. */
-export function previewOf(model: PazuruModel, id?: string): string | undefined {
+export function previewOf(model: DockoramaModel, id?: string): string | undefined {
   if (id) {
     const where = locate(model, id);
     return where.place === "tree" ? where.stack.preview : undefined;
@@ -641,15 +641,15 @@ export function previewOf(model: PazuruModel, id?: string): string | undefined {
  * Upgrade a saved model to `target` with `migrations` (`migrations[n]` upgrades n → n + 1). Throws when a step is
  * missing, a step does not return a model, or the model is newer than `target`.
  */
-export function upgrade(model: PazuruModel, migrations: LayoutMigrations, target: number): PazuruModel {
+export function upgrade(model: DockoramaModel, migrations: LayoutMigrations, target: number): DockoramaModel {
   let m = copy(model);
   let at = m.version ?? 0;
-  if (at > target) throw new Error(`pazuru: saved layout version ${at} is newer than ${target}`);
+  if (at > target) throw new Error(`dockorama: saved layout version ${at} is newer than ${target}`);
   while (at < target) {
     const step = migrations[at];
-    if (!step) throw new Error(`pazuru: no migration from layout version ${at}`);
+    if (!step) throw new Error(`dockorama: no migration from layout version ${at}`);
     const next = step(copy(m));
-    if (!isModel(next)) throw new Error(`pazuru: migration from version ${at} did not return a layout model`);
+    if (!isModel(next)) throw new Error(`dockorama: migration from version ${at} did not return a layout model`);
     at += 1;
     m = { ...next, version: at };
   }
@@ -689,7 +689,7 @@ export function validate(value: unknown): string[] {
 }
 
 /** The split holding the group of view `id` and the group's index in it, or undefined at the top of a tree. */
-export function cellOf(model: PazuruModel, id: string): { path: number[]; index: number; win?: string; split: SplitNode } | undefined {
+export function cellOf(model: DockoramaModel, id: string): { path: number[]; index: number; win?: string; split: SplitNode } | undefined {
   const where = locate(model, id);
   if (where.place !== "tree" || !where.path.length) return undefined;
   const path = where.path.slice(0, -1);
@@ -698,7 +698,7 @@ export function cellOf(model: PazuruModel, id: string): { path: number[]; index:
   return { path, index: where.path[where.path.length - 1]!, win: where.window, split };
 }
 
-function setExtra<K extends Extra>(model: PazuruModel, path: number[], index: number, key: K, value: NonNullable<SplitNode[K]>[number], windowKey?: string): PazuruModel {
+function setExtra<K extends Extra>(model: DockoramaModel, path: number[], index: number, key: K, value: NonNullable<SplitNode[K]>[number], windowKey?: string): DockoramaModel {
   const m = copy(model);
   const node = nodeAt(treeOf(m, windowKey), path);
   if (node?.kind !== "split" || index < 0 || index >= node.children.length) return model;
@@ -710,18 +710,18 @@ function setExtra<K extends Extra>(model: PazuruModel, path: number[], index: nu
 }
 
 /** Give child `index` of the split at `path` a fixed px size (null: share space by weight again). */
-export function fixSize(model: PazuruModel, path: number[], index: number, px: number | null, windowKey?: string): PazuruModel {
+export function fixSize(model: DockoramaModel, path: number[], index: number, px: number | null, windowKey?: string): DockoramaModel {
   return setExtra(model, path, index, "fixed", px !== null && px > 0 ? Math.round(px) : null, windowKey);
 }
 
 /** Set px bounds for child `index` of the split at `path` (null: none). */
-export function limitSize(model: PazuruModel, path: number[], index: number, limits: SizeLimits | null, windowKey?: string): PazuruModel {
+export function limitSize(model: DockoramaModel, path: number[], index: number, limits: SizeLimits | null, windowKey?: string): DockoramaModel {
   const ok = limits && (limits.min !== undefined || limits.max !== undefined) ? { ...limits } : null;
   return setExtra(model, path, index, "limits", ok, windowKey);
 }
 
 /** Collapse (or restore) child `index` of the split at `path`. At least one child always stays open. */
-export function fold(model: PazuruModel, path: number[], index: number, on = true, windowKey?: string): PazuruModel {
+export function fold(model: DockoramaModel, path: number[], index: number, on = true, windowKey?: string): DockoramaModel {
   const node = nodeAt(treeOf(model, windowKey), path);
   if (node?.kind !== "split") return model;
   const open = node.children.filter((_, i) => !node.folded?.[i] && i !== index).length;
@@ -733,7 +733,7 @@ export function fold(model: PazuruModel, path: number[], index: number, on = tru
  * Resize two neighbours of the split at `path` to px sizes (from a gutter drag). Every child's weight becomes its
  * px size, fixed children keep their new px, and both sizes are clamped to their limits first.
  */
-export function resizeCells(model: PazuruModel, path: number[], sizes: number[], windowKey?: string): PazuruModel {
+export function resizeCells(model: DockoramaModel, path: number[], sizes: number[], windowKey?: string): DockoramaModel {
   const m = copy(model);
   const node = nodeAt(treeOf(m, windowKey), path);
   if (node?.kind !== "split" || sizes.length !== node.children.length) return model;

@@ -18,52 +18,52 @@ export interface SkinKit {
  * keep the documented class names on interactive elements (`.btn`, `.tabs`, `.grip`) so keyboard and drag code finds them.
  */
 export interface SkinContexts {
-  /** Inside `<pazuru-tab>` (the element itself is the `role="tab"` host). */
+  /** Inside `<dockorama-tab>` (the element itself is the `role="tab"` host). */
   tab: { view: string; title: string; info?: ViewInfo; selected: boolean; pinned: boolean; preview: boolean; dirty: boolean; closable: boolean; compact: boolean; closeLabel: string; dirtyLabel: string; close(): void };
   "tab-glyph": { icon: string };
   "tab-label": { title: string; selected: boolean; preview: boolean };
   "tab-dirty-dot": { label: string };
   "tab-pin-mark": { title: string };
   "tab-close-button": { title: string; label: string; close(): void };
-  /** Inside `<pazuru-tabstrip>`; `tabs` are the tab elements, which must stay inside an element with class `tabs`. */
+  /** Inside `<dockorama-tabstrip>`; `tabs` are the tab elements, which must stay inside an element with class `tabs`. */
   tabstrip: { tabs: TemplateResult[]; label: string; back: SkinOutput; forward: SkinOutput; wheel(e: WheelEvent): void; scrolled(): void };
   "tab-scroll-button": { dir: -1 | 1; scroll(): void };
-  /** Inside `<pazuru-stack>` / `<pazuru-docs>`: the title bar plus the content area. */
+  /** Inside `<dockorama-stack>` / `<dockorama-docs>`: the title bar plus the content area. */
   group: { bar: SkinOutput; body: TemplateResult; docs: boolean };
   "group-bar": { title: SkinOutput; toolbar: SkinOutput; tabbed: boolean; grab(e: PointerEvent): void; zoom(): void };
   "group-title": { id: string; title: string; icon?: string; dirty: boolean; dirtyLabel: string };
-  /** Inside `<pazuru-toolbar>`. */
+  /** Inside `<dockorama-toolbar>`. */
   toolbar: { buttons: SkinOutput[] };
   "toolbar-button": { action: "stow" | "zoom" | "unzoom" | "menu" | "dismiss"; label: string; part: string; press(): void };
-  /** Inside `<pazuru-view>`. */
+  /** Inside `<dockorama-view>`. */
   "view-content": { slot: string };
   "view-empty": { label: string };
   "view-away": { message: string; label: string; bringBack(): void };
-  /** Inside `<pazuru-gutter>` (the splitter itself is the host; default renders nothing). */
+  /** Inside `<dockorama-gutter>` (the splitter itself is the host; default renders nothing). */
   splitter: { axis: "row" | "column"; folded: "before" | "after" | ""; drop: boolean; value: number };
-  /** Inside `<pazuru-window>`: `content` must stay inside an element with class `content`. */
+  /** Inside `<dockorama-window>`: `content` must stay inside an element with class `content`. */
   "floating-window": { key: string; title: string; content: TemplateResult; grip: SkinOutput };
   "floating-header": { key: string; title: string };
   "floating-grip": { startResize(e: PointerEvent): void };
-  /** Inside `<pazuru-drop-guide>`. */
+  /** Inside `<dockorama-drop-guide>`. */
   "drop-preview": { left: number; top: number; width: number; height: number };
   "drop-target": { zone: string; hot: boolean; x: number; y: number; direction: string };
   "drag-ghost": { label: string; x: number; y: number };
-  /** Inside `<pazuru-flyout>`. */
+  /** Inside `<dockorama-flyout>`. */
   flyout: { id: string; title: string; unstowLabel: string; closeLabel?: string; unstow(): void; close?(): void; body: TemplateResult };
-  /** One button in `<pazuru-rail>`. */
+  /** One button in `<dockorama-rail>`. */
   "rail-item": { id: string; title: string; open: boolean; toggle(): void; hover(e: PointerEvent): void };
-  /** One entry of `<pazuru-menu>`. */
+  /** One entry of `<dockorama-menu>`. */
   "menu-item": { label: string; role: "menuitem" | "menuitemradio"; checked?: boolean; index?: number; style?: string; choose(): void };
   "menu-separator": Record<string, never>;
-  /** One entry of `<pazuru-tab-menu>`. */
+  /** One entry of `<dockorama-tab-menu>`. */
   "tab-menu-item": { label: string; key: string; checked?: boolean; disabled: boolean; choose(): void };
-  /** `<pazuru-palette>` rows. */
+  /** `<dockorama-palette>` rows. */
   "palette-item": { label: string; detail: string; selected: boolean; choose(): void };
   "palette-empty": { label: string };
-  /** Inside `<pazuru-notice>`. */
+  /** Inside `<dockorama-notice>`. */
   notice: { message: string; actions: Array<{ label: string; primary: boolean; run(): void }> };
-  /** Inside `<pazuru-confirm>`; keep `data-cancel` / `data-primary` on the buttons. */
+  /** Inside `<dockorama-confirm>`; keep `data-cancel` / `data-primary` on the buttons. */
   confirm: { message: string; okLabel: string; cancelLabel: string; ok(): void; cancel(): void };
 }
 
@@ -129,7 +129,7 @@ export function skinNames(): string[] {
 /** Make a skin the page-wide default for every dock (one that sets its own `skin` keeps it). */
 export function useSkin(skin: Skin | string): Skin {
   const s = typeof skin === "string" ? named.get(skin) : skin;
-  if (!s) throw new Error(`pazuru: unknown skin "${String(skin)}"`);
+  if (!s) throw new Error(`dockorama: unknown skin "${String(skin)}"`);
   if (s !== current) {
     current = s;
     notify();
@@ -193,7 +193,7 @@ export function templateFor<K extends SkinKey>(key: K, scope: SkinScope = {}): S
     if (t) return t as SkinTemplate<K>;
   }
   const base = fallback?.templates[key];
-  if (!base) throw new Error(`pazuru: no template for "${key}"`);
+  if (!base) throw new Error(`dockorama: no template for "${key}"`);
   return base as SkinTemplate<K>;
 }
 
