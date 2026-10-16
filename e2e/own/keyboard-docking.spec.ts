@@ -82,6 +82,27 @@ test.describe("keyboard docking mode and focus management", () => {
     expect(await page.evaluate(() => document.activeElement?.id)).toBe("main");
   });
 
+  test("closing the focused tab moves model focus and keyboard focus to the tab that took its place", async ({ dock }) => {
+    await dock.tab("notes.md").click();
+    await dock.tabOf("notes").locator('[part~="tab-close"]').click();
+    await expect(dock.tab("notes.md")).toHaveCount(0);
+    await expect.poll(async () => {
+      const m = await dock.model();
+      return ["main", "readme"].includes(m["focus"]) && m["root"].children[1].children[0].current === m["focus"];
+    }).toBe(true);
+    const focused = (await dock.model())["focus"] as string;
+    await expect(dock.tabOf(focused)).toBeFocused();
+  });
+
+  test("closing the last view of a group leaves focus on a view that is still shown", async ({ dock }) => {
+    await dock.content("props").click();
+    await dock.call("dismiss", "props");
+    await expect.poll(async () => (await dock.model())["focus"]).toBeTruthy();
+    const focus = (await dock.model())["focus"] as string;
+    expect(focus).not.toBe("props");
+    await expect(dock.stack(focus)).toBeVisible();
+  });
+
   test("focusing a view's content marks its group active", async ({ dock }) => {
     await dock.content("log").click();
     expect((await dock.model())["focus"]).toBe("log");

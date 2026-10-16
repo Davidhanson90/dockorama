@@ -366,8 +366,18 @@ export class DockoramaManager extends LitElement {
     if (this._peek === id) this._peek = undefined;
     if (this.dirtySet.has(id)) this.setDirty(id, false);
     const before = this._model;
+    const hadFocus = before.focus === id;
     this.commit(ops.dismiss(this._model, id), "dismiss");
     if (before !== this._model) this.emit("dockorama-close", { id });
+    // The focused view closed: keep model focus and DOM focus together on the view that took its place.
+    const next = this._model.focus;
+    if (hadFocus && next && next !== id) {
+      void this.updateComplete.then(() => {
+        const root = this.renderRoot;
+        const el = root.querySelector<HTMLElement>(`[id=${attr(`tab-${next}`)}]`) ?? root.querySelector<HTMLElement>(`[data-stack="${next}"]`);
+        el?.focus({ preventScroll: true });
+      });
+    }
   }
 
   /** Ask `confirmClose`, or show the built-in dialog, before a dirty view closes. */
