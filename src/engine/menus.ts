@@ -1,10 +1,10 @@
 import { html, nothing, type TemplateResult } from "lit";
-import type { MenuEntry, TabMenuItem } from "./components/index.js";
-import { attr, stackEls } from "./dom.js";
-import type { CommandDetail, CommandSource } from "./events.js";
+import type { MenuEntry, TabMenuItem } from "../components/index.js";
+import { attr, stackEls } from "../utils/dom.js";
+import type { CommandDetail, CommandSource } from "../core/events.js";
 import type { DockHost } from "./host.js";
 import type { TabCommand } from "./manager.js";
-import * as ops from "./ops.js";
+import * as ops from "../core/ops.js";
 
 /** The tab context menu, the "more actions" menu and the command palette: their items, opening and rendering. */
 export class MenuController {

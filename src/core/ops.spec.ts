@@ -212,7 +212,7 @@ describe("select / reorder / setWeights / zoom", () => {
 describe("insertBetween / fillDocs", () => {
   const v = { a: { title: "A" }, b: { title: "B" }, c: { title: "C" }, d: { title: "D" } };
   it("inserts between siblings, in windows too, and ignores bad targets", async () => {
-    const { createModel, row, column, stack, docs, insertBetween, fillDocs, detach, viewsIn } = await import("./index.js");
+    const { createModel, row, column, stack, docs, insertBetween, fillDocs, detach, viewsIn } = await import("../index.js");
     const m = createModel(v, row([stack(["a"]), stack(["b"]), column([stack(["c"]), stack(["d"])])]));
     const r = insertBetween(m, "d", [], 0);
     expect(viewsIn(r.root)).toEqual(["a", "d", "b", "c"]);

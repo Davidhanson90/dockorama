@@ -1,5 +1,5 @@
 import { html, nothing, type PropertyValues, type TemplateResult } from "lit";
-import type { Rect } from "../geometry.js";
+import type { Rect } from "../core/geometry.js";
 import { DockoramaPart } from "./part.js";
 
 /** One drop target shown during a drag (coordinates relative to the manager). */

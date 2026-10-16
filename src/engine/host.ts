@@ -1,10 +1,10 @@
-import type { DockoramaLabels } from "./labels.js";
+import type { DockoramaLabels } from "../core/labels.js";
 import type { ChangeReason, DockoramaManager } from "./manager.js";
-import type { Box, Caps, DropZone, EdgeZone, DockoramaModel } from "./model.js";
-import type { Rect } from "./geometry.js";
-import type { TabMenuItem } from "./components/index.js";
+import type { Box, Caps, DropZone, EdgeZone, DockoramaModel } from "../core/model.js";
+import type { Rect } from "../core/geometry.js";
+import type { TabMenuItem } from "../components/index.js";
 import type { ViewRegistry } from "./views.js";
-import type { SkinScope } from "./skins/core.js";
+import type { SkinScope } from "../skins/core.js";
 import type { ClosingController } from "./closing.js";
 import type { SkinSheet } from "./skinsheet.js";
 import type { PartRouter } from "./requests.js";
@@ -12,7 +12,7 @@ import type { MenuController } from "./menus.js";
 import type { ResizeController } from "./resize.js";
 import type { DragEngine } from "./drag.js";
 import type { KeyboardController } from "./keyboard.js";
-import type { Timeline } from "./history.js";
+import type { Timeline } from "../core/history.js";
 import type { OutsideWindows } from "./outside.js";
 
 export interface DragState {
@@ -57,7 +57,7 @@ export interface DockHost extends HTMLElement, Pick<DockoramaManager, "toggleZoo
   theme: string;
   dragGroup: string | undefined;
   _model: DockoramaModel;
-  store: import("./storage.js").LayoutStore;
+  store: import("../core/storage.js").LayoutStore;
   _guest?: DragState;
   _blocked: string[];
   readonly t: DockoramaLabels;

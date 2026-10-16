@@ -1,5 +1,5 @@
-import type { DockoramaLabels } from "../labels.js";
-import type { DockoramaModel } from "../model.js";
+import type { DockoramaLabels } from "../core/labels.js";
+import type { DockoramaModel } from "../core/model.js";
 
 /** Read-only state a manager hands down to its UI parts on every render. */
 export interface DockContext {

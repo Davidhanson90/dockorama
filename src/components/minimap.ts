@@ -1,6 +1,6 @@
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
-import type { DockNode, DockoramaModel } from "./model.js";
-import type { DockoramaManager } from "./manager.js";
+import type { DockNode, DockoramaModel } from "../core/model.js";
+import type { DockoramaManager } from "../engine/manager.js";
 
 /**
  * `<dockorama-minimap for="manager-id">`: a small live overview of a manager's layout.

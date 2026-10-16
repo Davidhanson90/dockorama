@@ -1,7 +1,7 @@
-import type { PartRequest } from "./components/index.js";
+import type { PartRequest } from "../components/index.js";
 import type { DockHost } from "./host.js";
 import type { TabCommand } from "./manager.js";
-import * as ops from "./ops.js";
+import * as ops from "../core/ops.js";
 
 type Handler = (h: DockHost, r: PartRequest, id: string) => void;
 

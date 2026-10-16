@@ -1,5 +1,5 @@
 import { html, nothing, type PropertyValues, type TemplateResult } from "lit";
-import type { StackNode } from "../model.js";
+import type { StackNode } from "../core/model.js";
 import type { DockContext } from "./context.js";
 import { DockoramaPart } from "./part.js";
 

@@ -1,8 +1,8 @@
 import { html, nothing, type TemplateResult } from "lit";
-import type { DockContext, GuideSpot } from "./components/index.js";
-import { compassSpots, edgeSpots, type Spot } from "./geometry.js";
+import type { DockContext, GuideSpot } from "../components/index.js";
+import { compassSpots, edgeSpots, type Spot } from "../core/geometry.js";
 import type { DockHost } from "./host.js";
-import * as ops from "./ops.js";
+import * as ops from "../core/ops.js";
 
 /** Render functions for the manager's overlays: flyout, close confirmation, notice and drop guide. */
 

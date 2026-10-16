@@ -3,7 +3,7 @@ import {
   DockoramaManager, adopt, closeSet, comeInside, createModel, docs, goOutside, locate, normalize, outsideOf, pin, row, stack, tuneOutside,
   type TabMenuItem
 } from "./index.js";
-import type { DockoramaModel } from "./model.js";
+import type { DockoramaModel } from "./core/model.js";
 
 type R = { left: number; top: number; width: number; height: number };
 const rects = new Map<Element, R>();

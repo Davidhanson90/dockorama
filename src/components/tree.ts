@@ -1,5 +1,5 @@
 import { html, type TemplateResult } from "lit";
-import type { DockNode } from "../model.js";
+import type { DockNode } from "../core/model.js";
 import type { DockContext } from "./context.js";
 
 /** Render a layout node as the matching part element. */

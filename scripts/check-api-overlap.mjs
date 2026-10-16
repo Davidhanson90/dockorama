@@ -38,7 +38,7 @@ function walk(dir) {
 walk(join(root, "src"));
 const overlap = [...ids].filter((id) => ref.has(id) && !generic.has(id) && /[A-Z-]/.test(id.slice(1))).sort();
 // Layout-model keys and enum values are checked even when they are single words.
-const modelSrc = readFileSync(join(root, "src/model.ts"), "utf8");
+const modelSrc = readFileSync(join(root, "src/core/model.ts"), "utf8");
 const modelKeys = new Set([
   ...[...modelSrc.matchAll(/^\s+(\w+)\??:/gm)].map((m) => m[1]),
   ...[...modelSrc.matchAll(/"([a-z-]+)"/g)].map((m) => m[1])

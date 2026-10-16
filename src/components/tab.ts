@@ -1,5 +1,5 @@
 import { html, nothing, type PropertyValues, type TemplateResult } from "lit";
-import type { ViewInfo } from "../model.js";
+import type { ViewInfo } from "../core/model.js";
 import { DockoramaPart } from "./part.js";
 
 /**

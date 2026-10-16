@@ -4,7 +4,7 @@ dockorama is covered by three layers.
 
 | Layer | Tool | Where | Command |
 | --- | --- | --- | --- |
-| Unit | Vitest | `src/*.spec.ts` | `npm test` |
+| Unit | Vitest | `src/**/*.spec.ts` | `npm test` |
 | Behaviour (end to end) | Playwright, project `own` | `e2e/own/` | `npm run test:e2e` |
 | Visual regression | Playwright `toHaveScreenshot`, project `visual` | `e2e/visual/` | `npm run test:visual` |
 

@@ -1,8 +1,8 @@
 import type { DockHost } from "./host.js";
-import { shareSpace, snapBox } from "./geometry.js";
-import type { SplitNode } from "./model.js";
-import * as ops from "./ops.js";
-import type { ResizeDetail } from "./events.js";
+import { shareSpace, snapBox } from "../core/geometry.js";
+import type { SplitNode } from "../core/model.js";
+import * as ops from "../core/ops.js";
+import type { ResizeDetail } from "../core/events.js";
 
 /** Resizing: split gutters (pointer and keyboard), folding cells, and floating-window grips, with their resize events. */
 export class ResizeController {

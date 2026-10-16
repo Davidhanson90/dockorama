@@ -1,6 +1,6 @@
 import { html, type PropertyValues, type TemplateResult } from "lit";
-import type { Box, DockNode } from "../model.js";
-import { viewsIn } from "../ops.js";
+import type { Box, DockNode } from "../core/model.js";
+import { viewsIn } from "../core/ops.js";
 import type { DockContext } from "./context.js";
 import { DockoramaPart } from "./part.js";
 import { renderNode } from "./tree.js";

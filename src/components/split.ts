@@ -1,5 +1,5 @@
 import { html, type PropertyValues, type TemplateResult } from "lit";
-import type { SplitNode } from "../model.js";
+import type { SplitNode } from "../core/model.js";
 import type { DockContext } from "./context.js";
 import { DockoramaPart } from "./part.js";
 import { renderNode } from "./tree.js";

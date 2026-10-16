@@ -14,7 +14,7 @@ against a private avoid-list kept outside the repo).
 3. **Off-layout places are top-level lists**, not flags on nodes: `windows` (floating windows, each
    with its own tree and a `box`), `drawers` (auto-hidden views per side: `start`, `end`, `top`,
    `bottom` — logical sides so RTL just works) and `parked` (closed-but-kept views).
-4. **The model is immutable data.** Every operation in `ops.ts` is a pure function `model -> model`.
+4. **The model is immutable data.** Every operation in `src/core/ops.ts` is a pure function `model -> model`.
    The element keeps an undo/redo history of models for free.
 5. **Content is light DOM.** Children declare `data-view="id"`; the element assigns slots itself, so
    app content stays styleable and framework-owned.

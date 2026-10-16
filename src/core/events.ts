@@ -1,7 +1,7 @@
 // Public event names and detail types, plus the pure model diff that derives state events.
 import type { Box, DockNode, DropZone, EdgeZone, DockoramaModel, LayoutSource, Side, ViewSpot } from "./model.js";
 import { stacksOf, viewsIn } from "./ops.js";
-import type { ChangeReason, DockoramaManager } from "./manager.js";
+import type { ChangeReason, DockoramaManager } from "../engine/manager.js";
 
 /** Where a view lived before it was docked into the main layout. */
 export type DockOrigin = "floating" | "drawer" | "closed";

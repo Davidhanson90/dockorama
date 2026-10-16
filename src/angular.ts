@@ -3,11 +3,11 @@ import {
   ViewChild, type AfterViewInit, type OnChanges, type OnDestroy
 } from "@angular/core";
 import "./index.js";
-import type { ChangeReason, DockoramaManager } from "./manager.js";
-import type { DropZone, EdgeZone, DockoramaModel, LayoutMigrations, LayoutSource, ViewContent, ViewOptions } from "./model.js";
-import type { DockoramaLabels } from "./labels.js";
+import type { ChangeReason, DockoramaManager } from "./engine/manager.js";
+import type { DropZone, EdgeZone, DockoramaModel, LayoutMigrations, LayoutSource, ViewContent, ViewOptions } from "./core/model.js";
+import type { DockoramaLabels } from "./core/labels.js";
 import type { TabMenuItem } from "./components/index.js";
-import { applyProps, bindEvents } from "./bridge.js";
+import { applyProps, bindEvents } from "./wrappers/bridge.js";
 
 /**
  * Angular standalone component wrapping `<dockorama-manager>`. Project view content with `data-view`:

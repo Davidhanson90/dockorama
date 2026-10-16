@@ -1,5 +1,5 @@
 import { LitElement } from "lit";
-import { icons } from "../icons.js";
+import { icons } from "../utils/icons.js";
 import { templateFor, type SkinContexts, type SkinKey, type SkinKit, type SkinOutput, type SkinScope } from "../skins/core.js";
 import "../skins/default/skin.js";
 

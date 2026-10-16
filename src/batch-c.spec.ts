@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DockoramaManager, cellOf, clampPair, column, createModel, fixSize, fold, limitSize, resizeCells, row, stack } from "./index.js";
 import { DockoramaMenu, VIRTUAL_AFTER, type MenuEntry } from "./components/menu.js";
-import type { DockoramaModel, SplitNode } from "./model.js";
+import type { DockoramaModel, SplitNode } from "./core/model.js";
 
 type R = { left: number; top: number; width: number; height: number };
 const rects = new Map<Element, R>();

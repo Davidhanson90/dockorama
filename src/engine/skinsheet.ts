@@ -1,6 +1,6 @@
-import { DockoramaPart } from "./components/index.js";
+import { DockoramaPart } from "../components/index.js";
 import type { DockHost } from "./host.js";
-import { activeSkin, cssFor, watchSkins } from "./skins/core.js";
+import { activeSkin, cssFor, watchSkins } from "../skins/core.js";
 
 /** Puts the active skin's CSS into a manager's shadow root (after the built-in styles) and keeps it current. */
 export class SkinSheet {

@@ -1,4 +1,4 @@
-import { slotOf } from "./components/context.js";
+import { slotOf } from "../components/context.js";
 import { managers } from "./drag.js";
 import type { DockHost } from "./host.js";
 

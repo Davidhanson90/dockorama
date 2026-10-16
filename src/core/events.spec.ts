@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { DockoramaManager, column, createModel, row, stack, stateEvents } from "./index.js";
+import { DockoramaManager, column, createModel, row, stack, stateEvents } from "../index.js";
 import * as ops from "./ops.js";
 import type { DockoramaModel } from "./model.js";
 

@@ -2,11 +2,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createElement, createRef, act } from "react";
 import { createRoot } from "react-dom/client";
 import { createApp, h, nextTick, ref } from "vue";
-import { DockoramaLayout as ReactLayout } from "./react.js";
-import { DockoramaLayout as VueLayout } from "./vue.js";
-import { dockorama } from "./svelte.js";
+import { DockoramaLayout as ReactLayout } from "../react.js";
+import { DockoramaLayout as VueLayout } from "../vue.js";
+import { dockorama } from "../svelte.js";
 import { applyProps, bindEvents } from "./bridge.js";
-import { createModel, row, stack, type DockoramaManager } from "./index.js";
+import { createModel, row, stack, type DockoramaManager } from "../index.js";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 const model = () => createModel({ a: { title: "A" }, b: { title: "B" } }, row([stack(["a"]), stack(["b"])]));

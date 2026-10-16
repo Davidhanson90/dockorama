@@ -1,6 +1,6 @@
-import { attr } from "./dom.js";
+import { attr } from "../utils/dom.js";
 import type { DockHost } from "./host.js";
-import * as ops from "./ops.js";
+import * as ops from "../core/ops.js";
 
 /** Closing views: veto and confirmation (`dockorama-beforeclose`, `confirmClose`), and the unsaved-changes ("dirty") set. */
 export class ClosingController {

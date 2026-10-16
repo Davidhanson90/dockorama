@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DockoramaManager, createModel, docs, locate, previewOf, promote, row, setPreview, stack, upgrade, validate } from "./index.js";
-import type { DockoramaModel } from "./model.js";
+import type { DockoramaModel } from "./core/model.js";
 
 type R = { left: number; top: number; width: number; height: number };
 const rects = new Map<Element, R>();

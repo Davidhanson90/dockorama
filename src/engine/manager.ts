@@ -1,12 +1,12 @@
 import { LitElement, type PropertyValues, type TemplateResult } from "lit";
-import { DEFAULT_LABELS, type DockoramaLabels } from "./labels.js";
-import { Timeline } from "./history.js";
+import { DEFAULT_LABELS, type DockoramaLabels } from "../core/labels.js";
+import { Timeline } from "../core/history.js";
 import { styles } from "./styles.js";
-import { clampBox, snapBox, type Rect } from "./geometry.js";
-import { DockoramaPart, defineParts, type TabMenuItem } from "./components/index.js";
-import type { Box, DropZone, EdgeZone, DockoramaModel, LayoutMigrations, Side, SizeLimits, ViewContent, ViewInfo, ViewOptions } from "./model.js";
-import * as ops from "./ops.js";
-import { LayoutStore } from "./storage.js";
+import { clampBox, snapBox, type Rect } from "../core/geometry.js";
+import { DockoramaPart, defineParts, type TabMenuItem } from "../components/index.js";
+import type { Box, DropZone, EdgeZone, DockoramaModel, LayoutMigrations, Side, SizeLimits, ViewContent, ViewInfo, ViewOptions } from "../core/model.js";
+import * as ops from "../core/ops.js";
+import { LayoutStore } from "../core/storage.js";
 import { DragEngine } from "./drag.js";
 import { LayoutActions } from "./actions.js";
 import { Lifecycle } from "./lifecycle.js";
@@ -20,8 +20,8 @@ import { KeyboardController } from "./keyboard.js";
 import { ResizeController } from "./resize.js";
 import { OutsideWindows } from "./outside.js";
 import type { DockHost, DragState } from "./host.js";
-import { skinNamed, type Skin, type SkinPatch, type SkinScope } from "./skins/core.js";
-import { stateEvents } from "./events.js";
+import { skinNamed, type Skin, type SkinPatch, type SkinScope } from "../skins/core.js";
+import { stateEvents } from "../core/events.js";
 
 /** Why the model changed (detail of `dockorama-change`). */
 export type ChangeReason =
@@ -372,7 +372,7 @@ export class DockoramaManager extends LitElement {
    * (default `"auto"`). One undoable change in each manager (reason `"transfer"`), and a
    * `dockorama-transfer` event on both. Throws if the target already has a view with this id.
    */
-  transferView(id: string, target: DockoramaManager, at: import("./model.js").ViewSpot = "auto"): void {
+  transferView(id: string, target: DockoramaManager, at: import("../core/model.js").ViewSpot = "auto"): void {
     const info = this._model.views[id];
     if (!info || target === this) return;
     if (target.hasView(id)) throw new Error(`dockorama: the target already has a view with id "${id}"`);

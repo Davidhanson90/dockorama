@@ -1,9 +1,9 @@
-import { pathOf, stackEls } from "./dom.js";
-import { compassSpots, contains, edgeSpots, hit, insertionIndex, previewFor, rectOf } from "./geometry.js";
+import { pathOf, stackEls } from "../utils/dom.js";
+import { compassSpots, contains, edgeSpots, hit, insertionIndex, previewFor, rectOf } from "../core/geometry.js";
 import type { DockHost, DragState } from "./host.js";
-import type { Caps, DockoramaModel } from "./model.js";
-import * as ops from "./ops.js";
-import type { DragKind, DragOverDetail, DropDetail } from "./events.js";
+import type { Caps, DockoramaModel } from "../core/model.js";
+import * as ops from "../core/ops.js";
+import type { DragKind, DragOverDetail, DropDetail } from "../core/events.js";
 
 /** A drag state pointing at no drop spot. */
 const NO_SPOT = { target: undefined, gap: undefined, fill: undefined, edge: undefined, preview: undefined };

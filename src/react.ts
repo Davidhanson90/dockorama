@@ -1,9 +1,9 @@
 import { createElement, forwardRef, useEffect, useImperativeHandle, useRef, type CSSProperties, type ReactNode } from "react";
 import "./index.js";
-import type { DockoramaManager } from "./manager.js";
-import { applyProps, bindEvents, type DockoramaHandlers, type DockoramaProps } from "./bridge.js";
+import type { DockoramaManager } from "./engine/manager.js";
+import { applyProps, bindEvents, type DockoramaHandlers, type DockoramaProps } from "./wrappers/bridge.js";
 
-export type { DockoramaHandlers, DockoramaProps } from "./bridge.js";
+export type { DockoramaHandlers, DockoramaProps } from "./wrappers/bridge.js";
 
 /** Props of `<DockoramaLayout>`: element properties plus `on*` callbacks. */
 export interface DockoramaLayoutProps extends DockoramaProps {

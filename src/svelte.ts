@@ -1,8 +1,8 @@
 import "./index.js";
-import type { DockoramaManager } from "./manager.js";
-import { applyProps, bindEvents, type DockoramaHandlers, type DockoramaProps } from "./bridge.js";
+import type { DockoramaManager } from "./engine/manager.js";
+import { applyProps, bindEvents, type DockoramaHandlers, type DockoramaProps } from "./wrappers/bridge.js";
 
-export type { DockoramaHandlers, DockoramaProps } from "./bridge.js";
+export type { DockoramaHandlers, DockoramaProps } from "./wrappers/bridge.js";
 
 /** Options for the `use:dockorama` action: element properties plus an `on` map of callbacks. */
 export interface DockoramaActionOptions extends DockoramaProps {

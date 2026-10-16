@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DockoramaManager, createModel, docs, locate, row, column, stack } from "./index.js";
-import type { DockoramaModel } from "./model.js";
+import { DockoramaManager, createModel, docs, locate, row, column, stack } from "../index.js";
+import type { DockoramaModel } from "../core/model.js";
 
 // jsdom has no layout: give elements rectangles from a map (default: zero box).
 type R = { left: number; top: number; width: number; height: number };
