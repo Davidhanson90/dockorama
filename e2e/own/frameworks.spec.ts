@@ -27,11 +27,6 @@ test.describe("framework wrapper demos", () => {
     });
 
     test(`${LABEL[fw]}: rearranging a tab reports the change back to the framework`, async ({ page }) => {
-      // KNOWN BUG (Vue only): with the model held in a Vue `ref` (as in the docs demo), the first drop freezes the page.
-      // A ref hands back a reactive proxy, which differs from the element's own model, so the wrapper's sync re-applies it,
-      // which fires another `change` event, which sets the ref again, forever. Unwrapping with `toRaw` in src/vue.ts would
-      // fix it. Remove this fixme once fixed.
-      test.fixme(fw === "vue", "Vue wrapper: infinite change loop when the model lives in a ref (page freezes on drop)");
       await open(page);
       const host = page.locator(`[data-fw="${fw}"]`);
       await host.scrollIntoViewIfNeeded();
