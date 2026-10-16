@@ -268,12 +268,26 @@ export class DockoramaManager extends LitElement {
     window.addEventListener("pagehide", this.onUnload);
     managers.add(this);
     this.unwatchSkins = watchSkins(() => this.applySkin());
+    // Direction comes from CSS (usually a `dir` attribute on this element or an ancestor): re-render when it changes.
+    this.lastDir = getComputedStyle(this).direction;
+    this.dirObserver = new MutationObserver(() => {
+      const now = getComputedStyle(this).direction;
+      if (now !== this.lastDir) {
+        this.lastDir = now;
+        this.requestUpdate();
+      }
+    });
+    this.dirObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["dir", "lang"], subtree: true });
     this.reconcileOutside(true);
   }
+
+  private dirObserver?: MutationObserver;
+  private lastDir = "ltr";
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     this.observer?.disconnect();
+    this.dirObserver?.disconnect();
     this.removeEventListener("keydown", this.onKey);
     this.removeEventListener("input", this.onInput);
     this.renderRoot.removeEventListener("dockorama-request", this.onRequest);

@@ -69,6 +69,22 @@ test.describe("theming and CSS custom properties", () => {
     await expect(d.el.locator(".frame")).toHaveAttribute("dir", "rtl");
   });
 
+  test("RTL: changing dir after mount re-renders the layout, and back again", async ({ dock, page }) => {
+    await expect(dock.el.locator(".frame")).toHaveAttribute("dir", "ltr");
+    const ltrX = (await dock.stack("files").boundingBox())!.x;
+    await page.evaluate(() => { document.documentElement.dir = "rtl"; });
+    await expect(dock.el.locator(".frame")).toHaveAttribute("dir", "rtl");
+    await expect.poll(async () => (await dock.stack("files").boundingBox())!.x).toBeGreaterThan(ltrX + 500);
+    await page.evaluate(() => { document.documentElement.dir = "ltr"; });
+    await expect(dock.el.locator(".frame")).toHaveAttribute("dir", "ltr");
+    await expect.poll(async () => (await dock.stack("files").boundingBox())!.x).toBe(ltrX);
+  });
+
+  test("RTL: setting dir on the dock element itself re-renders it", async ({ dock, page }) => {
+    await page.evaluate(() => { window.lab.dock().setAttribute("dir", "rtl"); });
+    await expect(dock.el.locator(".frame")).toHaveAttribute("dir", "rtl");
+  });
+
   test("RTL: arrow keys on a focused splitter are mirrored", async ({ page }) => {
     await openLab(page);
     await page.evaluate(() => { document.documentElement.dir = "rtl"; window.lab.mount(); });

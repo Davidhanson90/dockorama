@@ -281,7 +281,7 @@ add({
   slug: "guide/a11y", title: "Accessibility & RTL", section: "Guides",
   body: `<h1>Accessibility &amp; RTL</h1>
   <p class="lead">Groups are labelled regions, tab strips are ARIA tablists, gutters are separators with values, windows are dialogs, and changes are announced through a polite live region.</p>
-  <p>Right-to-left: put <code>dir="rtl"</code> on the element or a parent. Rows mirror, <code>start</code>/<code>end</code> drawers swap sides, and keyboard resizing follows the visual direction.</p>
+  <p>Right-to-left: put <code>dir="rtl"</code> on the element or a parent. Rows mirror, <code>start</code>/<code>end</code> drawers swap sides, and keyboard resizing follows the visual direction. Changing <code>dir</code> after the layout is mounted re-renders it.</p>
   ${ex("rtl")}`,
   examples: [{ id: "rtl", code: `${SETUP}
 dock.dir = "rtl";

@@ -456,3 +456,20 @@ describe("<dockorama-manager>", () => {
   });
 });
 
+
+describe("direction changes after mount", () => {
+  it("re-renders when dir changes on an ancestor", async () => {
+    const el = await mount();
+    expect(q(el, ".frame")!.getAttribute("dir")).toBe("ltr");
+    const spy = vi.spyOn(window, "getComputedStyle").mockImplementation(() => ({ direction: document.documentElement.getAttribute("dir") ?? "ltr" }) as CSSStyleDeclaration);
+    try {
+      document.documentElement.setAttribute("dir", "rtl");
+      await new Promise((r) => setTimeout(r, 0));
+      await el.updateComplete;
+      expect(q(el, ".frame")!.getAttribute("dir")).toBe("rtl");
+    } finally {
+      spy.mockRestore();
+      document.documentElement.removeAttribute("dir");
+    }
+  });
+});
