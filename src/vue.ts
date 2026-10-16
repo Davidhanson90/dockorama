@@ -1,4 +1,4 @@
-import { defineComponent, h, onBeforeUnmount, onMounted, ref, toRaw, watch, type PropType } from "vue";
+import { defineComponent, h, onBeforeUnmount, onMounted, ref, watch, type PropType } from "vue";
 import "./index.js";
 import type { DockoramaManager } from "./manager.js";
 import type { DockoramaModel, LayoutMigrations, ViewContent, ViewOptions } from "./model.js";
@@ -56,9 +56,7 @@ export const DockoramaLayout = defineComponent({
       dirty: (d) => emit("dirty-change", d),
       layoutissue: (d) => emit("layout-issue", d)
     };
-    // A model held in a Vue ref is a reactive proxy. Unwrap it so it compares equal to the element's own model;
-    // otherwise every change event re-applies the "new" proxy, which fires another change event, forever.
-    const sync = () => { if (element.value) applyProps(element.value, { ...props, model: props.model ? toRaw(props.model) : undefined }); };
+    const sync = () => { if (element.value) applyProps(element.value, { ...props }); };
     onMounted(() => {
       sync();
       if (element.value) off = bindEvents(element.value, () => handlers);
