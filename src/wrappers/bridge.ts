@@ -1,8 +1,9 @@
-import type { ChangeReason, DockoramaManager } from "../engine/manager.js";
+import type { DockoramaManager } from "../engine/manager.js";
 import type { TabMenuItem } from "../components/index.js";
-import type { BeforeAddDetail, CommandDetail, DragKind, DragOverDetail, DropDetail, DockoramaStateEvents, ResizeDetail } from "../core/events.js";
-import type { DropZone, EdgeZone, DockoramaModel, LayoutMigrations, LayoutSource } from "../core/model.js";
-import type { DockoramaLabels } from "../core/labels.js";
+import type {
+  BeforeAddDetail, ChangeReason, CommandDetail, DockoramaLabels, DockoramaModel, DockoramaStateEvents, DragKind, DragOverDetail,
+  DropDetail, DropZone, EdgeZone, LayoutMigrations, LayoutSource, ResizeDetail
+} from "../core/contracts.js";
 
 /** Settable element properties shared by every framework wrapper. */
 export interface DockoramaProps {

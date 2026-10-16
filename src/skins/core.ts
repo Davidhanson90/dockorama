@@ -1,8 +1,8 @@
 // The skin registry: every visual part of every UI component renders through a named, typed template
 // looked up here, so a skin (or a single override) can replace any of them without touching the components.
 import type { CSSResult, TemplateResult, nothing } from "lit";
-import type { icons as iconSet } from "../utils/icons.js";
-import type { ViewInfo } from "../core/model.js";
+import type { icons as iconSet } from "../core/constants.js";
+import type { ViewInfo } from "../core/contracts.js";
 
 /** What a template may return. */
 export type SkinOutput = TemplateResult | typeof nothing | string;

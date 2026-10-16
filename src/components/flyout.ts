@@ -1,6 +1,5 @@
 import { html, type PropertyValues, type TemplateResult } from "lit";
-import type { Side } from "../core/model.js";
-import type { DockContext } from "./context.js";
+import type { DockContext, Side } from "../core/contracts.js";
 import { DockoramaPart } from "./part.js";
 
 /** `<dockorama-flyout>`: the sliding panel that shows an auto-hidden view over the layout. Esc closes it. */

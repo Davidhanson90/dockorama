@@ -1,7 +1,7 @@
 import { attr } from "../utils/dom.js";
 import { contains } from "../core/geometry.js";
 import type { DockHost } from "./host.js";
-import type { Box, OutsideWindow } from "../core/model.js";
+import type { Box, OutsideWindow } from "../core/contracts.js";
 import * as ops from "../core/ops.js";
 
 /** Styles of the page dockorama builds inside an outside window. */

@@ -1,14 +1,8 @@
 import { LitElement } from "lit";
-import { icons } from "../utils/icons.js";
+import { icons } from "../core/constants.js";
+import type { PartRequest } from "../core/contracts.js";
 import { templateFor, type SkinContexts, type SkinKey, type SkinKit, type SkinOutput, type SkinScope } from "../skins/core.js";
 import "../skins/default/skin.js";
-
-/** Detail of the internal `dockorama-request` event that UI parts send to their manager. */
-export interface PartRequest {
-  action: string;
-  id?: string;
-  [key: string]: unknown;
-}
 
 /**
  * Base class of dockorama's UI parts. Parts render into their own light DOM so that they live inside the

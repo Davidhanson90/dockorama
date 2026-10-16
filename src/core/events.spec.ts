@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { DockoramaManager, column, createModel, row, stack, stateEvents } from "../index.js";
 import * as ops from "./ops.js";
-import type { DockoramaModel } from "./model.js";
+import type { DockoramaModel } from "./contracts.js";
 
 const views = { a: { title: "A" }, b: { title: "B" }, c: { title: "C" }, d: { title: "D" } };
 const layout = (): DockoramaModel => createModel(views, row([stack(["a"]), column([stack(["b", "c"]), stack(["d"])])]));

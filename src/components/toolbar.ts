@@ -1,6 +1,6 @@
 import { html, nothing, type TemplateResult } from "lit";
 import type { SkinOutput } from "../skins/core.js";
-import type { DockContext } from "./context.js";
+import type { DockContext } from "../core/contracts.js";
 import { DockoramaPart } from "./part.js";
 
 /** `<dockorama-toolbar>`: the action buttons in a group's header (auto-hide, zoom, more, close). */

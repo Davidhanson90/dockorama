@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as o from "./ops.js";
-import type { DockoramaModel, SplitNode } from "./model.js";
+import type { DockoramaModel, SplitNode } from "./contracts.js";
 
 const views = Object.fromEntries(["a", "b", "c", "d", "e"].map((id) => [id, { title: id.toUpperCase() }]));
 const base = (): DockoramaModel =>

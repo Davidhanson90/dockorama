@@ -20,12 +20,8 @@ export {
   DockoramaConfirm, DockoramaDocs, DockoramaDropGuide, DockoramaFlyout, DockoramaGutter, DockoramaMenu, DockoramaNotice, DockoramaPalette, DockoramaRail,
   DockoramaSplit, DockoramaStack, DockoramaTab, DockoramaTabMenu, DockoramaTabstrip, DockoramaToolbar, DockoramaView, DockoramaWindow
 };
-export { DockoramaPart, type PartRequest } from "./part.js";
-export type { DockContext } from "./context.js";
-export type { GuideSpot } from "./drop-guide.js";
-export type { MenuEntry } from "./menu.js";
-export type { TabMenuItem } from "./tab-menu.js";
-export type { NoticeAction } from "./notice.js";
+export { DockoramaPart } from "./part.js";
+export type { DockContext, GuideSpot, MenuEntry, NoticeAction, PartRequest, TabMenuItem } from "../core/contracts.js";
 
 /** Tag name → class of every UI part a manager renders. */
 export const PARTS = {

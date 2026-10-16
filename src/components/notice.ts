@@ -1,12 +1,6 @@
 import { html, type PropertyValues, type TemplateResult } from "lit";
 import { DockoramaPart } from "./part.js";
-
-/** A button of `<dockorama-notice>`: its label and the request action it sends. */
-export interface NoticeAction {
-  label: string;
-  action: string;
-  primary?: boolean;
-}
+import type { NoticeAction } from "../core/contracts.js";
 
 /**
  * `<dockorama-notice>`: a small banner (`role="alertdialog"`) at the top of the layout, used when the

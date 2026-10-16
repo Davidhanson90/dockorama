@@ -1,13 +1,6 @@
 import { html, type PropertyValues, type TemplateResult } from "lit";
 import { DockoramaPart } from "./part.js";
-
-/**
- * One item of a tab's context menu. Built-in items carry a `key` the manager acts on; your own items
- * (added through the manager's `tabMenu` hook) carry a `run` callback. `"separator"` draws a rule.
- */
-export type TabMenuItem =
-  | { key: string; label: string; disabled?: boolean; checked?: boolean; run?: (viewId: string) => void }
-  | "separator";
+import type { TabMenuItem } from "../core/contracts.js";
 
 /**
  * `<dockorama-tab-menu>`: the right-click / Shift+F10 menu of a tab (`role="menu"`). Arrow keys, Home/End

@@ -1,6 +1,6 @@
 import type { ViewSpot, OutsideWindow, LayoutMigrations, SizeLimits,
   Box, DockNode, DropZone, EdgeZone, DockoramaModel, Side, SplitNode, StackNode, ViewInfo, Whereabouts
-} from "./model.js";
+} from "./contracts.js";
 
 const SIDES: Side[] = ["start", "end", "top", "bottom"];
 

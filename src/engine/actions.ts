@@ -1,5 +1,5 @@
 import type { DockHost } from "./host.js";
-import type { Box, DropZone, EdgeZone, Side } from "../core/model.js";
+import type { Box, DropZone, EdgeZone, Side } from "../core/contracts.js";
 import * as ops from "../core/ops.js";
 
 /** The layout operations behind the manager's public methods: each checks `caps`, asks `dockorama-beforemove` where it applies, then commits. */

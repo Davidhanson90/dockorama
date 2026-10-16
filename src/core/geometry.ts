@@ -1,7 +1,6 @@
-import type { Box, DropZone, EdgeZone } from "./model.js";
+import type { Box, DropZone, EdgeZone, Rect, Spot } from "./contracts.js";
 
-export interface Rect { left: number; top: number; width: number; height: number; }
-export interface Spot<Z extends string> { zone: Z; x: number; y: number; }
+export type { Rect, Spot };
 
 /** Five drop targets around the centre of a group. */
 export function compassSpots(r: Rect, gap = 40): Array<Spot<DropZone>> {

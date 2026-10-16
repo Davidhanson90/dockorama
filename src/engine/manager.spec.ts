@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DockoramaManager, DockoramaMinimap, VERSION, column, createModel, docs, locate, row, stack } from "../index.js";
-import type { DockoramaModel } from "../core/model.js";
+import type { DockoramaModel } from "../core/contracts.js";
 import { styles } from "./styles.js";
 
 const views = {

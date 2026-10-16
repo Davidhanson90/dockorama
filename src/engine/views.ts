@@ -1,8 +1,7 @@
 import { slotOf } from "../components/context.js";
 import { attr } from "../utils/dom.js";
-import type { BeforeAddDetail } from "../core/events.js";
+import type { BeforeAddDetail, DropZone, ViewContent, ViewInfo, ViewOptions, ViewSpot } from "../core/contracts.js";
 import type { DockHost } from "./host.js";
-import type { DropZone, ViewContent, ViewInfo, ViewOptions, ViewSpot } from "../core/model.js";
 import * as ops from "../core/ops.js";
 
 const isContent = (v: unknown): v is ViewContent =>

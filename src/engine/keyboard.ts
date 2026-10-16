@@ -1,7 +1,7 @@
 import { pathOf, stackEls } from "../utils/dom.js";
 import { previewFor, rectOf } from "../core/geometry.js";
 import type { DockHost, DragState } from "./host.js";
-import type { DropZone, EdgeZone } from "../core/model.js";
+import type { DropZone, EdgeZone } from "../core/contracts.js";
 import * as ops from "../core/ops.js";
 import type { Rect } from "../core/geometry.js";
 

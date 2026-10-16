@@ -1,4 +1,4 @@
-import type { DockoramaModel } from "./model.js";
+import type { DockoramaModel } from "./contracts.js";
 import { isModel } from "./ops.js";
 
 /**

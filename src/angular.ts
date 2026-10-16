@@ -3,9 +3,8 @@ import {
   ViewChild, type AfterViewInit, type OnChanges, type OnDestroy
 } from "@angular/core";
 import "./index.js";
-import type { ChangeReason, DockoramaManager } from "./engine/manager.js";
-import type { DropZone, EdgeZone, DockoramaModel, LayoutMigrations, LayoutSource, ViewContent, ViewOptions } from "./core/model.js";
-import type { DockoramaLabels } from "./core/labels.js";
+import type { DockoramaManager } from "./engine/manager.js";
+import type { ChangeReason, DockoramaLabels, DockoramaModel, DropZone, EdgeZone, LayoutMigrations, LayoutSource, ViewContent, ViewOptions } from "./core/contracts.js";
 import type { TabMenuItem } from "./components/index.js";
 import { applyProps, bindEvents } from "./wrappers/bridge.js";
 

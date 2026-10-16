@@ -1,6 +1,5 @@
-import type { DockoramaLabels } from "../core/labels.js";
-import type { ChangeReason, DockoramaManager } from "./manager.js";
-import type { Box, Caps, DropZone, EdgeZone, DockoramaModel } from "../core/model.js";
+import type { Box, Caps, ChangeReason, DockoramaLabels, DockoramaModel, DropZone, EdgeZone } from "../core/contracts.js";
+import type { DockoramaManager } from "./manager.js";
 import type { Rect } from "../core/geometry.js";
 import type { TabMenuItem } from "../components/index.js";
 import type { ViewRegistry } from "./views.js";

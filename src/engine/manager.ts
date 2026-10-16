@@ -1,10 +1,11 @@
 import { LitElement, type PropertyValues, type TemplateResult } from "lit";
-import { DEFAULT_LABELS, type DockoramaLabels } from "../core/labels.js";
+import { DEFAULT_LABELS } from "../core/constants.js";
+import type { ChangeReason, DockoramaLabels, TabCommand } from "../core/contracts.js";
 import { Timeline } from "../core/history.js";
 import { styles } from "./styles.js";
 import { clampBox, snapBox, type Rect } from "../core/geometry.js";
 import { DockoramaPart, defineParts, type TabMenuItem } from "../components/index.js";
-import type { Box, DropZone, EdgeZone, DockoramaModel, LayoutMigrations, Side, SizeLimits, ViewContent, ViewInfo, ViewOptions } from "../core/model.js";
+import type { Box, DropZone, EdgeZone, DockoramaModel, LayoutMigrations, Side, SizeLimits, ViewContent, ViewInfo, ViewOptions, ViewSpot } from "../core/contracts.js";
 import * as ops from "../core/ops.js";
 import { LayoutStore } from "../core/storage.js";
 import { DragEngine } from "./drag.js";
@@ -22,16 +23,6 @@ import { OutsideWindows } from "./outside.js";
 import type { DockHost, DragState } from "./host.js";
 import { skinNamed, type Skin, type SkinPatch, type SkinScope } from "../skins/core.js";
 import { stateEvents } from "../core/events.js";
-
-/** Why the model changed (detail of `dockorama-change`). */
-export type ChangeReason =
-  | "set" | "place" | "edge" | "detach" | "window" | "stow" | "unstow" | "dismiss" | "reveal" | "select"
-  | "reorder" | "resize" | "zoom" | "add" | "forget" | "undo" | "redo" | "focus" | "restore" | "cancel"
-  | "transfer" | "popout" | "popin" | "pin" | "promote";
-
-/** Built-in keys of the tab context menu. */
-export type TabCommand =
-  | "close" | "close-others" | "close-right" | "close-all" | "pin" | "float" | "popout" | "split-right" | "split-down" | "stow";
 
 const SILENT: ChangeReason[] = ["select", "focus", "cancel"];
 /** Changes after which saved outside windows are (re-)opened. */
@@ -372,7 +363,7 @@ export class DockoramaManager extends LitElement {
    * (default `"auto"`). One undoable change in each manager (reason `"transfer"`), and a
    * `dockorama-transfer` event on both. Throws if the target already has a view with this id.
    */
-  transferView(id: string, target: DockoramaManager, at: import("../core/model.js").ViewSpot = "auto"): void {
+  transferView(id: string, target: DockoramaManager, at: ViewSpot = "auto"): void {
     const info = this._model.views[id];
     if (!info || target === this) return;
     if (target.hasView(id)) throw new Error(`dockorama: the target already has a view with id "${id}"`);

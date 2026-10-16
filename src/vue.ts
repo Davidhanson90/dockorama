@@ -1,10 +1,8 @@
 import { defineComponent, h, onBeforeUnmount, onMounted, ref, toRaw, watch, type PropType } from "vue";
 import "./index.js";
 import type { DockoramaManager } from "./engine/manager.js";
-import type { DockoramaModel, LayoutMigrations, ViewContent, ViewOptions } from "./core/model.js";
-import type { DockoramaLabels } from "./core/labels.js";
+import type { ChangeReason, DockoramaLabels, DockoramaModel, LayoutMigrations, ViewContent, ViewOptions } from "./core/contracts.js";
 import type { TabMenuItem } from "./components/index.js";
-import type { ChangeReason } from "./engine/manager.js";
 import { applyProps, bindEvents, type DockoramaHandlers } from "./wrappers/bridge.js";
 
 export type { DockoramaHandlers, DockoramaProps } from "./wrappers/bridge.js";

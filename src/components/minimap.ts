@@ -1,5 +1,5 @@
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
-import type { DockNode, DockoramaModel } from "../core/model.js";
+import type { DockNode, DockoramaModel } from "../core/contracts.js";
 import type { DockoramaManager } from "../engine/manager.js";
 
 /**

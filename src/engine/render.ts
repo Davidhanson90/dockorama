@@ -2,7 +2,7 @@ import { html, nothing, type TemplateResult } from "lit";
 import { DockoramaPart, type DockContext } from "../components/index.js";
 import { renderNode } from "../components/tree.js";
 import type { DockHost } from "./host.js";
-import type { Side } from "../core/model.js";
+import type { Side } from "../core/contracts.js";
 import * as ops from "../core/ops.js";
 import { renderConfirm, renderFlyout, renderGuide, renderNotice } from "./overlays.js";
 

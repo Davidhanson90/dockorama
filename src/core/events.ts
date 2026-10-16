@@ -1,71 +1,11 @@
-// Public event names and detail types, plus the pure model diff that derives state events.
-import type { Box, DockNode, DropZone, EdgeZone, DockoramaModel, LayoutSource, Side, ViewSpot } from "./model.js";
+// The pure model diff that derives state events, and the global event-name → detail type map.
+// The event detail types themselves live in ./contracts.js.
+import type {
+  BeforeAddDetail, ChangeReason, CommandDetail, DockNode, DockOrigin, DockoramaModel, DockoramaStateEvents, DragKind,
+  DragOverDetail, DropDetail, DropZone, EdgeZone, FoldDetail, LayoutSource, ResizeDetail, Side, StateEvent
+} from "./contracts.js";
 import { stacksOf, viewsIn } from "./ops.js";
-import type { ChangeReason, DockoramaManager } from "../engine/manager.js";
-
-/** Where a view lived before it was docked into the main layout. */
-export type DockOrigin = "floating" | "drawer" | "closed";
-
-/** What the pointer is over during a drag (detail of `dockorama-dragover` and `dockorama-drop`). */
-export type DragSpot = DropZone | EdgeZone | "between" | "empty" | "tabs" | "outside" | "other-dock" | "none";
-
-/** How a drag started: reordering in a tab strip, a loose view, or moving a whole floating window. */
-export type DragKind = "tab" | "loose" | "window";
-
-/** Detail of `dockorama-dragover`: fired when the drop spot changes. */
-export interface DragOverDetail {
-  id: string;
-  spot: DragSpot;
-  /** View whose group is the target, when there is one. */
-  target?: string;
-}
-
-/** Detail of `dockorama-drop`: the drag ended. `moved` is false when nothing changed (or a listener vetoed it). */
-export interface DropDetail extends DragOverDetail {
-  moved: boolean;
-}
-
-/** Detail of `dockorama-resize` / `dockorama-resizing`. */
-export type ResizeDetail =
-  | { kind: "split"; path: number[]; window?: string; sizes: number[] }
-  | { kind: "window"; window: string; box: Box };
-
-/** Where a menu command came from. */
-export type CommandSource = "tab-menu" | "pane-menu";
-
-/** Detail of the cancellable `dockorama-command`. `custom` is true for app-added tab menu items. */
-export interface CommandDetail {
-  id: string;
-  command: string;
-  source: CommandSource;
-  custom: boolean;
-}
-
-/** Detail of the collapse / expand events: the split cell that changed and the views in it. */
-export interface FoldDetail {
-  views: string[];
-  path: number[];
-  index: number;
-  window?: string;
-}
-
-/** Every public dockorama event detail, keyed by event name (state, drag, resize and command events). */
-export interface DockoramaStateEvents {
-  "dockorama-float": { id: string; window: string };
-  "dockorama-dock": { id: string; from: DockOrigin };
-  "dockorama-stow": { id: string; side: Side };
-  "dockorama-unstow": { id: string };
-  "dockorama-pin": { id: string };
-  "dockorama-unpin": { id: string };
-  "dockorama-popout": { id: string; window: string };
-  "dockorama-popin": { id: string };
-  "dockorama-collapse": FoldDetail;
-  "dockorama-expand": FoldDetail;
-  "dockorama-viewremove": { id: string };
-}
-
-export type StateEventName = keyof DockoramaStateEvents;
-export type StateEvent = { [K in StateEventName]: { type: K; detail: DockoramaStateEvents[K] } }[StateEventName];
+import type { DockoramaManager } from "../engine/manager.js";
 
 type Spot = { kind: "tree"; window?: string } | { kind: "drawer"; side: Side } | { kind: "parked" } | { kind: "gone" };
 
@@ -147,13 +87,6 @@ export function stateEvents(prev: DockoramaModel, next: DockoramaModel): StateEv
   for (const [k, d] of fb) if (!fa.has(k)) out.push({ type: "dockorama-collapse", detail: d });
   for (const [k, d] of fa) if (!fb.has(k)) out.push({ type: "dockorama-expand", detail: d });
   return out;
-}
-
-/** Detail of the cancellable `dockorama-beforeadd`. */
-export interface BeforeAddDetail {
-  id: string;
-  title: string;
-  at?: ViewSpot;
 }
 
 declare global {

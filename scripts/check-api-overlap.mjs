@@ -37,8 +37,18 @@ function walk(dir) {
 }
 walk(join(root, "src"));
 const overlap = [...ids].filter((id) => ref.has(id) && !generic.has(id) && /[A-Z-]/.test(id.slice(1))).sort();
-// Layout-model keys and enum values are checked even when they are single words.
-const modelSrc = readFileSync(join(root, "src/core/model.ts"), "utf8");
+// Layout-model keys and enum values are checked even when they are single words. They live in the
+// model-contracts section of core/contracts.ts, delimited by api-check markers so that the other
+// contracts (whose keys and quoted literals are common words like "tab", "split", "set") stay out
+// of scope and the mined set stays identical to the old core/model.ts mining.
+const contractsSrc = readFileSync(join(root, "src/core/contracts.ts"), "utf8");
+const start = contractsSrc.indexOf("// api-check:start-model-contracts");
+const end = contractsSrc.indexOf("// api-check:end-model-contracts");
+if (start < 0 || end < 0 || end < start) {
+  console.error("check-api-overlap: api-check model-contract markers missing or out of order in src/core/contracts.ts");
+  process.exit(1);
+}
+const modelSrc = contractsSrc.slice(start, end);
 const modelKeys = new Set([
   ...[...modelSrc.matchAll(/^\s+(\w+)\??:/gm)].map((m) => m[1]),
   ...[...modelSrc.matchAll(/"([a-z-]+)"/g)].map((m) => m[1])

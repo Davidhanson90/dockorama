@@ -1,14 +1,9 @@
 import { html, type PropertyValues, type TemplateResult } from "lit";
 import type { SkinOutput } from "../skins/core.js";
 import { DockoramaPart } from "./part.js";
+import { ROW, VIRTUAL_AFTER } from "../core/constants.js";
+import type { MenuEntry } from "../core/contracts.js";
 
-/** An entry of `<dockorama-menu>`: a command, a radio item (`checked` set) or a separator. */
-export type MenuEntry = { label: string; action: string; id: string; checked?: boolean } | "separator";
-
-/** Lists longer than this are virtualised: only the rows in view are rendered. */
-export const VIRTUAL_AFTER = 40;
-/** Row height (px) of a virtualised list. */
-const ROW = 30;
 const SHOW = 12;
 
 /**

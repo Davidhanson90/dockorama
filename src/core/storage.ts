@@ -1,4 +1,4 @@
-import type { DockoramaModel, LayoutMigrations, LayoutSource } from "./model.js";
+import type { DockoramaModel, LayoutMigrations, LayoutSource } from "./contracts.js";
 import * as ops from "./ops.js";
 
 /** The manager properties the layout store reads. */

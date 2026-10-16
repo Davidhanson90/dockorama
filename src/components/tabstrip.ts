@@ -1,5 +1,5 @@
 import { html, type PropertyValues, type TemplateResult } from "lit";
-import type { DockContext } from "./context.js";
+import type { DockContext } from "../core/contracts.js";
 import { DockoramaPart } from "./part.js";
 
 /**

@@ -1,14 +1,6 @@
 import { html, nothing, type PropertyValues, type TemplateResult } from "lit";
-import type { Rect } from "../core/geometry.js";
+import type { GuideSpot, Rect } from "../core/contracts.js";
 import { DockoramaPart } from "./part.js";
-
-/** One drop target shown during a drag (coordinates relative to the manager). */
-export interface GuideSpot {
-  zone: string;
-  x: number;
-  y: number;
-  hot: boolean;
-}
 
 /** `<dockorama-drop-guide>`: drag feedback: drop targets, the landing preview and the dragged-view ghost. */
 export class DockoramaDropGuide extends DockoramaPart {
