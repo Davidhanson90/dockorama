@@ -8,6 +8,7 @@ import type { Box, DropZone, EdgeZone, DockoramaModel, LayoutMigrations, Side, S
 import * as ops from "./ops.js";
 import { LayoutStore } from "./storage.js";
 import { DragEngine } from "./drag.js";
+import { LayoutActions } from "./actions.js";
 import { Lifecycle } from "./lifecycle.js";
 import { PartRouter } from "./requests.js";
 import { SkinSheet } from "./skinsheet.js";
@@ -144,6 +145,7 @@ export class DockoramaManager extends LitElement {
   private readonly skinning = new SkinSheet(this.host);
   private readonly router = new PartRouter(this.host);
   private readonly life = new Lifecycle(this.host);
+  private readonly actions = new LayoutActions(this.host);
   /** Drag from another manager hovering over this one. */
   private _guest?: DragState;
   private _tabMenu?: { id: string; x: number; y: number; items: TabMenuItem[] };
@@ -190,43 +192,31 @@ export class DockoramaManager extends LitElement {
 
   /** Move a view beside / into the group holding `target`. */
   place(id: string, target: string, zone: DropZone, index?: number): void {
-    if (!this.allowMove(id, target, zone)) return;
-    this.commit(ops.place(this._model, id, target, zone, index), "place");
+    this.actions.place(id, target, zone, index);
   }
   /** Dock a view at an outer edge of the layout. */
   dockToEdge(id: string, zone: EdgeZone): void {
-    if (this.caps(id).docsOnly) return;
-    if (!this.emitBefore("dockorama-beforemove", { id, zone })) return;
-    this.commit(ops.placeAtEdge(this._model, id, zone), "edge");
+    this.actions.dockToEdge(id, zone);
   }
   /** Insert a view as a new group between child `after` and `after + 1` of the split at `path`. */
   dropBetween(id: string, path: number[], after: number, windowKey?: string): void {
-    if (this.caps(id).move === false || this.caps(id).docsOnly) return;
-    if (!this.emitBefore("dockorama-beforemove", { id, zone: "between" })) return;
-    this.commit(ops.insertBetween(this._model, id, path, after, windowKey), "place");
+    this.actions.dropBetween(id, path, after, windowKey);
   }
   /** Put a view into an empty document area. */
   dropIntoDocs(id: string, path: number[], windowKey?: string): void {
-    if (this.caps(id).move === false) return;
-    if (!this.emitBefore("dockorama-beforemove", { id, zone: "into" })) return;
-    this.commit(ops.fillDocs(this._model, id, path, windowKey), "place");
+    this.actions.dropIntoDocs(id, path, windowKey);
   }
   /** Float a view in its own window. */
   detach(id: string, box?: Box): void {
-    if (this.caps(id).float === false || this.caps(id).docsOnly) return;
-    const b = box ?? this.defaultBox();
-    this.commit(ops.detach(this._model, id, this.fitBox(b)), "detach");
+    this.actions.detach(id, box);
   }
   /** Auto-hide a view into an edge drawer. */
   stow(id: string, side?: Side): void {
-    if (this.caps(id).hide === false) return;
-    if (this._peek === id) this._peek = undefined;
-    this.commit(ops.stow(this._model, id, side), "stow");
+    this.actions.stow(id, side);
   }
   /** Bring a stowed view back into the layout. */
   unstow(id: string): void {
-    this._peek = undefined;
-    this.commit(ops.unstow(this._model, id), "unstow");
+    this.actions.unstow(id);
   }
   /** Close a view (cancellable through `dockorama-beforeclose`). It stays registered. */
   dismiss(id: string): Promise<boolean> {
@@ -248,11 +238,7 @@ export class DockoramaManager extends LitElement {
 
   /** Show a registered view as its group's preview tab (replacing the current preview there). */
   showPreview(id: string): void {
-    if (!this.hasView(id)) return;
-    const where = ops.locate(this._model, id);
-    if (where.place === "tree" && !where.stack.preview) return this.reveal(id);
-    const shown = where.place === "tree" ? ops.select(this._model, id) : ops.reveal(this._model, id);
-    this.commit(ops.setPreview(shown, id).model, where.place === "tree" ? "select" : "reveal");
+    this.actions.showPreview(id);
   }
   /** Keep a preview tab: it stops being replaced. Also happens on double-click, typing in it, or `setDirty`. */
   promote(id: string): void {
@@ -278,25 +264,15 @@ export class DockoramaManager extends LitElement {
   }
   /** Show a view wherever it is (or bring it back if closed). */
   reveal(id: string): void {
-    const where = ops.locate(this._model, id);
-    if (where.place === "drawer") {
-      this.router.openPeek(id);
-      this.commit(this._model, "focus", false);
-      return;
-    }
-    this.commit(ops.reveal(this._model, id), where.place === "tree" ? "select" : "reveal");
+    this.actions.reveal(id);
   }
   /** Maximise a view's group to fill the layout, or restore. */
   toggleZoom(id?: string): void {
-    if (id && this.caps(id).zoom === false) return;
-    this.commit(ops.toggleZoom(this._model, id ?? this._model.focus), "zoom");
+    this.actions.toggleZoom(id);
   }
   /** Mark a view as active (focused). */
   activate(id: string): void {
-    if (this._model.focus === id) return;
-    const where = ops.locate(this._model, id);
-    const m = where.place === "tree" ? ops.select(this._model, id) : { ...this._model, focus: id };
-    this.commit(m, "focus", false);
+    this.actions.activate(id);
   }
   /**
    * Add a view in one call: register it, attach its content and place it, as a single undoable change
@@ -434,15 +410,6 @@ export class DockoramaManager extends LitElement {
 
   private caps(id: string) {
     return this._model.views[id]?.caps ?? {};
-  }
-
-  private allowMove(id: string, target: string, zone: DropZone): boolean {
-    if (this.caps(id).move === false) return false;
-    if (this.caps(id).docsOnly) {
-      const where = ops.locate(this._model, target);
-      if (where.place !== "tree" || !where.stack.docs || zone !== "into") return false;
-    }
-    return this.emitBefore("dockorama-beforemove", { id, target, zone });
   }
 
   /** Fire a public event (bubbles, composed). Returns false when a cancellable one was vetoed. */
