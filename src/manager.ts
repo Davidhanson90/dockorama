@@ -9,8 +9,9 @@ import { renderNode } from "./components/tree.js";
 import type { Box, DropZone, EdgeZone, DockoramaModel, LayoutMigrations, LayoutSource, Side, SizeLimits, ViewContent, ViewInfo, ViewOptions } from "./model.js";
 import * as ops from "./ops.js";
 import { LayoutStore } from "./storage.js";
-import { attr } from "./dom.js";
 import { DragEngine, managers } from "./drag.js";
+import { ViewRegistry } from "./views.js";
+import { ClosingController } from "./closing.js";
 import { MenuController } from "./menus.js";
 import { renderConfirm, renderFlyout, renderGuide, renderNotice } from "./overlays.js";
 import { KeyboardController } from "./keyboard.js";
@@ -33,17 +34,6 @@ export type TabCommand =
 const SILENT: ChangeReason[] = ["select", "focus", "cancel"];
 /** Changes after which saved outside windows are (re-)opened. */
 const OPEN_ON: ChangeReason[] = ["set", "restore", "undo", "redo"];
-const isContent = (v: unknown): v is ViewContent =>
-  typeof v === "string" || typeof v === "function" || (typeof Element !== "undefined" && v instanceof Element);
-
-/** Plain-text view body: never HTML, padded via `.dockorama-text` / `--dk-text-padding`. */
-const textNode = (text: string): HTMLElement => {
-  const el = document.createElement("div");
-  el.className = "dockorama-text";
-  el.textContent = text;
-  return el;
-};
-
 /**
  * `<dockorama-manager>`: a docking layout of views (panels and documents) the user can rearrange.
  * Content is light DOM: give each child `data-view="<id>"` matching an id in `model.views`.
@@ -160,8 +150,6 @@ export class DockoramaManager extends LitElement {
    * Views added with `keepAlive: true` stay attached either way.
    */
   retain: "all" | "active" = "all";
-  /** Detached content of hidden views (with `retain="active"`). */
-  private readonly stash = new Map<string, Element>();
 
   private _model: DockoramaModel = ops.emptyModel();
   private readonly store = new LayoutStore(this, (source, problems, fatal) =>
@@ -179,19 +167,16 @@ export class DockoramaManager extends LitElement {
   private readonly resize = new ResizeController(this.host);
   private readonly keys = new KeyboardController(this.host);
   private readonly menus = new MenuController(this.host);
+  private readonly closing = new ClosingController(this.host);
+  private readonly views = new ViewRegistry(this.host);
   /** Drag from another manager hovering over this one. */
   private _guest?: DragState;
   private _tabMenu?: { id: string; x: number; y: number; items: TabMenuItem[] };
   /** Outside windows the browser would not re-open. */
   private _blocked: string[] = [];
-  private readonly dirtySet = new Set<string>();
   private _confirm?: { id: string; done: (ok: boolean) => void };
   /** Keyboard docking in progress: the view, the chosen target (index into `moveTargets()`) and side. */
   private _keyMove?: { id: string; index: number; zone: DropZone | EdgeZone };
-  private readonly shown = new Set<string>();
-  /** Views whose content slot was on screen after the last render (for `dockorama-viewshow` / `dockorama-viewhide`). */
-  private visible = new Set<string>();
-  private readonly factories = new Map<string, () => Element>();
   private observer?: MutationObserver;
   private restoredFromStorage = false;
 
@@ -309,70 +294,20 @@ export class DockoramaManager extends LitElement {
   }
   /** Close a view (cancellable through `dockorama-beforeclose`). It stays registered. */
   dismiss(id: string): Promise<boolean> {
-    if (this.caps(id).dismiss === false) return Promise.resolve(false);
-    const place = ops.locate(this._model, id).place;
-    if (place === "parked" || place === "nowhere") return Promise.resolve(false);
-    if (!this.emitBefore("dockorama-beforeclose", { id })) return Promise.resolve(false);
-    if (!this.dirtySet.has(id)) {
-      this.close(id);
-      return Promise.resolve(true);
-    }
-    return this.askClose(id).then((ok) => {
-      if (ok) this.close(id);
-      return ok;
-    });
-  }
-
-  private close(id: string): void {
-    if (this._peek === id) this._peek = undefined;
-    if (this.dirtySet.has(id)) this.setDirty(id, false);
-    const before = this._model;
-    const hadFocus = before.focus === id;
-    this.commit(ops.dismiss(this._model, id), "dismiss");
-    if (before !== this._model) this.emit("dockorama-close", { id });
-    // The focused view closed: keep model focus and DOM focus together on the view that took its place.
-    const next = this._model.focus;
-    if (hadFocus && next && next !== id) {
-      void this.updateComplete.then(() => {
-        const root = this.renderRoot;
-        const el = root.querySelector<HTMLElement>(`[id=${attr(`tab-${next}`)}]`) ?? root.querySelector<HTMLElement>(`[data-stack="${next}"]`);
-        el?.focus({ preventScroll: true });
-      });
-    }
-  }
-
-  /** Ask `confirmClose`, or show the built-in dialog, before a dirty view closes. */
-  private askClose(id: string): Promise<boolean> {
-    if (this.confirmClose) {
-      try {
-        return Promise.resolve(this.confirmClose(id)).then(Boolean, () => false);
-      } catch {
-        return Promise.resolve(false);
-      }
-    }
-    this._confirm?.done(false);
-    return new Promise<boolean>((done) => {
-      this._confirm = { id, done };
-      void this.updateComplete.then(() => this.renderRoot.querySelector<HTMLElement & { focusSafe(): void }>("dockorama-confirm")?.focusSafe());
-    });
+    return this.closing.dismiss(id);
   }
 
   /** Mark a view as having unsaved changes (or not). A dirty preview tab is promoted. Fires `dockorama-dirty`. */
   setDirty(id: string, dirty = true): void {
-    if (this.dirtySet.has(id) === dirty) return;
-    if (dirty) this.dirtySet.add(id);
-    else this.dirtySet.delete(id);
-    if (dirty) this.promote(id);
-    this.dispatchEvent(new CustomEvent("dockorama-dirty", { detail: { id, dirty }, bubbles: true, composed: true }));
-    this.requestUpdate();
+    this.closing.setDirty(id, dirty);
   }
   /** Whether a view has unsaved changes. */
   isDirty(id: string): boolean {
-    return this.dirtySet.has(id);
+    return this.closing.isDirty(id);
   }
   /** Ids of every view with unsaved changes. */
   get dirtyViews(): string[] {
-    return [...this.dirtySet];
+    return this.closing.dirtyViews;
   }
 
   /** Show a registered view as its group's preview tab (replacing the current preview there). */
@@ -393,25 +328,7 @@ export class DockoramaManager extends LitElement {
    * `caps.dismiss`; vetoed views stay. Returns the ids that were closed.
    */
   dismissMany(ids: string[]): string[] {
-    const done: string[] = [];
-    const later: string[] = [];
-    let m = this._model;
-    for (const id of ids) {
-      if (this.dirtySet.has(id)) {
-        later.push(id);
-        continue;
-      }
-      if (this.caps(id).dismiss === false || !this.emitBefore("dockorama-beforeclose", { id })) continue;
-      m = ops.dismiss(m, id);
-      done.push(id);
-    }
-    if (done.length) {
-      this.commit(m, "dismiss");
-      for (const id of done) this.emit("dockorama-close", { id });
-    }
-    // Views with unsaved changes ask one at a time.
-    void later.reduce((p, id) => p.then(() => this.dismiss(id)), Promise.resolve(true));
-    return done;
+    return this.closing.dismissMany(ids);
   }
   /** Pin (default) or unpin a tab: pinned tabs stay first in their group, compact, and survive "close others/all". */
   pin(id: string, on = true): void {
@@ -457,50 +374,23 @@ export class DockoramaManager extends LitElement {
   /** Register a view whose `data-view` content is already (or will be) a child, and show it. */
   addView(id: string, info: ViewInfo, near?: { view: string; zone: DropZone }): void;
   addView(id: string, content: ViewContent | ViewInfo, extra?: ViewOptions | { view: string; zone: DropZone }): void {
-    const spot0 = isContent(content) ? ((extra ?? {}) as ViewOptions).at : undefined;
-    const title = isContent(content) ? (((extra ?? {}) as ViewOptions).title ?? id) : content.title;
-    const ask: BeforeAddDetail = spot0 === undefined ? { id, title } : { id, title, at: spot0 };
-    if (!this.emit("dockorama-beforeadd", ask, true)) return;
-    if (!isContent(content)) {
-      this.commit(ops.addView(this._model, id, content, extra as { view: string; zone: DropZone } | undefined), "add");
-      return;
-    }
-    const { at = "auto", preview, ...rest } = (extra ?? {}) as ViewOptions;
-    const info: ViewInfo = { ...rest, title: rest.title ?? id };
-    if (typeof content === "function") info.lazy = true;
-    const spot = typeof at === "object" && "float" in at ? { float: this.fitBox({ ...this.defaultBox(), ...(at.float === true ? {} : at.float) }) } : at;
-    let next = ops.enlist(this._model, id, info, spot);
-    if (preview) next = ops.setPreview(next, id).model;
-    if (typeof content === "function") {
-      this.factories.set(id, content);
-    } else {
-      const el = typeof content === "string" ? textNode(content) : content;
-      this.mount(id, el);
-    }
-    this.shown.delete(id);
-    this.commit(next, "add");
+    this.views.add(id, content, extra);
   }
   /**
    * Remove a view completely (undoable for the layout). Returns its content element, taken out of
    * the manager unless `keepElement` is true, or null if it never had one (or `id` is unknown).
    */
   removeView(id: string, options: { keepElement?: boolean } = {}): Element | null {
-    const el = this.getViewElement(id);
-    this.factories.delete(id);
-    this.shown.delete(id);
-    if (id in this._model.views) this.commit(ops.forget(this._model, id), "forget");
-    this.stash.delete(id);
-    if (el && !options.keepElement) el.remove();
-    return el;
+    return this.views.remove(id, options);
   }
   /** The content element of a view (null if unknown, or lazy and not yet shown). */
   getViewElement(id: string): Element | null {
-    return this.outside.elementOf(id) ?? this.querySelector(`:scope > [data-view=${attr(id)}]`) ?? this.stash.get(id) ?? null;
+    return this.views.elementOf(id);
   }
 
   /** True when view `id` has content that is currently detached because of `retain="active"`. */
   isRetained(id: string): boolean {
-    return this.stash.has(id);
+    return this.views.stash.has(id);
   }
   /** True when a view with this id is registered (wherever it is, including parked). */
   hasView(id: string): boolean {
@@ -606,12 +496,6 @@ export class DockoramaManager extends LitElement {
     return { x: Math.max(20, r.width / 2 - 180), y: Math.max(20, r.height / 2 - 120), w: 360, h: 240 };
   }
 
-  private mount(id: string, el: Element): void {
-    el.setAttribute("data-view", id);
-    el.setAttribute("slot", slotOf(id));
-    if (el.parentNode !== this) this.append(el);
-  }
-
   private caps(id: string) {
     return this._model.views[id]?.caps ?? {};
   }
@@ -704,44 +588,8 @@ export class DockoramaManager extends LitElement {
         (active?.querySelector<HTMLElement>('.tab[data-selected]') ?? active)?.focus({ preventScroll: true });
       }
     }
-    const now = new Set<string>();
-    for (const slot of Array.from(this.renderRoot.querySelectorAll<HTMLSlotElement>("slot[name]"))) {
-      const id = slot.name.slice(2);
-      now.add(id);
-      if (this.visible.has(id)) continue;
-      const first = !this.shown.has(id);
-      if (first) {
-        this.shown.add(id);
-        const make = this.factories.get(id);
-        if (make) {
-          this.factories.delete(id);
-          this.mount(id, make());
-        }
-      }
-      this.emit("dockorama-viewshow", { id, first });
-    }
-    for (const id of this.visible) if (!now.has(id)) this.emit("dockorama-viewhide", { id });
-    this.visible = now;
-    this.applyRetain();
-  }
-
-  /** Detach hidden contents / re-attach shown ones according to `retain`. */
-  private applyRetain(): void {
-    const visible = new Set(Array.from(this.renderRoot.querySelectorAll<HTMLSlotElement>("slot[name]")).map((s) => s.name.slice(2)));
-    const active = this.retain === "active";
-    for (const [id, el] of Array.from(this.stash)) {
-      if (!active || visible.has(id) || !(id in this._model.views) || this._model.views[id]?.keepAlive) {
-        this.stash.delete(id);
-        this.append(el);
-      }
-    }
-    if (!active) return;
-    for (const el of Array.from(this.querySelectorAll(":scope > [data-view]"))) {
-      const id = el.getAttribute("data-view")!;
-      if (visible.has(id) || this._model.views[id]?.keepAlive || !(id in this._model.views)) continue;
-      this.stash.set(id, el);
-      el.remove();
-    }
+    this.views.syncVisible();
+    this.views.applyRetain();
   }
 
   // ------------------------------------------------------------- rendering
@@ -754,7 +602,7 @@ export class DockoramaManager extends LitElement {
       popped: new Set((this._model.outside ?? []).flatMap((o) => o.views)),
       gap: g ? { path: g.path.join("."), after: g.after, win: g.win ?? "" } : undefined,
       dragging: Boolean(this._drag),
-      dirty: new Set(this.dirtySet)
+      dirty: new Set(this.closing.dirtySet)
     };
   }
 

@@ -295,15 +295,15 @@ export class DragEngine {
 
   handOver(id: string, target: DockHost, next: DockoramaModel): void {
     const el = this.h.getViewElement(id);
-    this.h.stash.delete(id);
-    const make = this.h.factories.get(id);
-    this.h.factories.delete(id);
-    this.h.shown.delete(id);
+    this.h.views.stash.delete(id);
+    const make = this.h.views.factories.get(id);
+    this.h.views.factories.delete(id);
+    this.h.views.shown.delete(id);
     if (this.h._peek === id) this.h._peek = undefined;
     this.h.commit(ops.forget(this.h._model, id), "transfer");
-    if (make) target.factories.set(id, make);
-    if (el) target.mount(id, el);
-    target.shown.delete(id);
+    if (make) target.views.factories.set(id, make);
+    if (el) target.views.mount(id, el);
+    target.views.shown.delete(id);
     target.commit(next, "transfer");
     const detail = { id, from: this.h, to: target };
     this.h.dispatchEvent(new CustomEvent("dockorama-transfer", { detail: { ...detail, direction: "out" }, bubbles: true, composed: true }));

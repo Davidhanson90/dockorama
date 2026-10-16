@@ -46,7 +46,7 @@ export class OutsideWindows {
     if (h.caps(id).popout === false || ops.locate(h._model, id).place !== "tree") return false;
     const cur = ops.outsideOf(h._model, id);
     if (cur && (!options.into || cur.key === options.into)) return false;
-    if (!h.getViewElement(id) && !h.factories.has(id)) return false;
+    if (!h.getViewElement(id) && !h.views.factories.has(id)) return false;
     const live = options.into ? this.wins.get(options.into) : undefined;
     let key = options.into;
     let box: Box | undefined;
@@ -182,14 +182,14 @@ export class OutsideWindows {
     }
     for (const id of o.views) {
       let el = this.h.getViewElement(id) as HTMLElement | null;
-      const make = this.h.factories.get(id);
+      const make = this.h.views.factories.get(id);
       if (!el && make) {
-        this.h.factories.delete(id);
+        this.h.views.factories.delete(id);
         el = make() as HTMLElement;
         el.setAttribute("data-view", id);
       }
       if (!el) continue;
-      this.h.stash.delete(id);
+      this.h.views.stash.delete(id);
       if (el.parentNode !== body) body.append(el);
       el.toggleAttribute("data-outside-hidden", id !== o.current);
     }

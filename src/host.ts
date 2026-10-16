@@ -3,6 +3,7 @@ import type { ChangeReason, DockoramaManager } from "./manager.js";
 import type { Box, Caps, DropZone, EdgeZone, DockoramaModel } from "./model.js";
 import type { Rect } from "./geometry.js";
 import type { TabMenuItem } from "./components/index.js";
+import type { ViewRegistry } from "./views.js";
 import type { DragEngine } from "./drag.js";
 import type { KeyboardController } from "./keyboard.js";
 import type { Timeline } from "./history.js";
@@ -44,24 +45,26 @@ export interface DragState {
  * What the controllers split out of `DockoramaManager` need from it. The manager keeps these members private
  * (so its published typings are unchanged) and hands itself over as a `DockHost`.
  */
-export interface DockHost extends HTMLElement, Pick<DockoramaManager, "toggleZoom" | "hasPin" | "pin" | "dismissMany" | "updateComplete" | "beginMove" | "stow" | "openPalette" | "undo" | "redo" | "dismiss" | "reveal" | "activate"> {
+export interface DockHost extends HTMLElement, Pick<DockoramaManager, "toggleZoom" | "hasPin" | "pin" | "dismissMany" | "updateComplete" | "beginMove" | "stow" | "openPalette" | "undo" | "redo" | "dismiss" | "setDirty" | "promote" | "reveal" | "activate"> {
   _keyMove?: { id: string; index: number; zone: DropZone | EdgeZone };
   _say: string;
   theme: string;
   dragGroup: string | undefined;
   _model: DockoramaModel;
   store: import("./storage.js").LayoutStore;
-  factories: Map<string, () => Element>;
-  stash: Map<string, Element>;
   _guest?: DragState;
   _blocked: string[];
   readonly t: DockoramaLabels;
   caps(id: string): Caps;
   commit(next: DockoramaModel, reason: ChangeReason, record?: boolean): void;
   drag: DragEngine;
+  views: ViewRegistry;
+  retain: "all" | "active";
+  defaultBox(): Box;
   keys: KeyboardController;
+  confirmClose?: (viewId: string) => boolean | Promise<boolean>;
+  openPeek(id: string, byHover?: boolean): void;
   snap: number;
-  shown: Set<string>;
   _drag?: DragState;
   _menu?: { id: string; x: number; y: number };
   _tabMenu?: { id: string; x: number; y: number; items: TabMenuItem[] };
@@ -73,7 +76,6 @@ export interface DockHost extends HTMLElement, Pick<DockoramaManager, "toggleZoo
   outside: OutsideWindows;
   readonly renderRoot: HTMLElement | DocumentFragment;
   hasView(id: string): boolean;
-  mount(id: string, el: Element): void;
   emit(type: string, detail: unknown, cancelable?: boolean): boolean;
   emitBefore(type: string, detail: unknown): boolean;
   requestUpdate(): void;
