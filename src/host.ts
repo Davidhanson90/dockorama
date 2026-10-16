@@ -1,5 +1,5 @@
 import type { DockoramaLabels } from "./labels.js";
-import type { ChangeReason } from "./manager.js";
+import type { ChangeReason, DockoramaManager } from "./manager.js";
 import type { Box, Caps, DropZone, EdgeZone, DockoramaModel } from "./model.js";
 import type { Rect } from "./geometry.js";
 import type { DragEngine } from "./drag.js";
@@ -42,7 +42,9 @@ export interface DragState {
  * What the controllers split out of `DockoramaManager` need from it. The manager keeps these members private
  * (so its published typings are unchanged) and hands itself over as a `DockHost`.
  */
-export interface DockHost extends HTMLElement {
+export interface DockHost extends HTMLElement, Pick<DockoramaManager, "toggleZoom" | "beginMove" | "stow" | "openPalette" | "undo" | "redo" | "dismiss" | "reveal" | "activate"> {
+  _keyMove?: { id: string; index: number; zone: DropZone | EdgeZone };
+  _say: string;
   theme: string;
   dragGroup: string | undefined;
   _model: DockoramaModel;

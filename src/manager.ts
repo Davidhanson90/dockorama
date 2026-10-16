@@ -3,7 +3,7 @@ import { DEFAULT_LABELS, type DockoramaLabels } from "./labels.js";
 import { Timeline } from "./history.js";
 import { styles } from "./styles.js";
 import {
-  clampBox, compassSpots, edgeSpots, previewFor, snapBox, type Rect, type Spot
+  clampBox, compassSpots, edgeSpots, snapBox, type Rect, type Spot
 } from "./geometry.js";
 import { DockoramaPart, defineParts, type DockContext, type GuideSpot, type MenuEntry, type PartRequest, type TabMenuItem } from "./components/index.js";
 import { slotOf } from "./components/context.js";
@@ -12,6 +12,7 @@ import type { Box, DropZone, EdgeZone, DockoramaModel, LayoutMigrations, LayoutS
 import * as ops from "./ops.js";
 import { LayoutStore } from "./storage.js";
 import { DragEngine, managers } from "./drag.js";
+import { KeyboardController } from "./keyboard.js";
 import { ResizeController } from "./resize.js";
 import { OutsideWindows } from "./outside.js";
 import type { DockHost, DragState } from "./host.js";
@@ -178,6 +179,7 @@ export class DockoramaManager extends LitElement {
   private readonly outside = new OutsideWindows(this.host);
   private readonly drag = new DragEngine(this.host);
   private readonly resize = new ResizeController(this.host);
+  private readonly keys = new KeyboardController(this.host);
   /** Drag from another manager hovering over this one. */
   private _guest?: DragState;
   private _tabMenu?: { id: string; x: number; y: number; items: TabMenuItem[] };
@@ -221,7 +223,7 @@ export class DockoramaManager extends LitElement {
     this.assignSlots();
     this.observer = new MutationObserver(() => this.assignSlots());
     this.observer.observe(this, { childList: true, attributes: true, attributeFilter: ["data-view"] });
-    this.addEventListener("keydown", this.onKey);
+    this.addEventListener("keydown", this.keys.onKey);
     this.addEventListener("input", this.onInput);
     this.renderRoot.addEventListener("dockorama-request", this.onRequest);
     document.addEventListener("pointerdown", this.onOutside, true);
@@ -248,7 +250,7 @@ export class DockoramaManager extends LitElement {
     super.disconnectedCallback();
     this.observer?.disconnect();
     this.dirObserver?.disconnect();
-    this.removeEventListener("keydown", this.onKey);
+    this.removeEventListener("keydown", this.keys.onKey);
     this.removeEventListener("input", this.onInput);
     this.renderRoot.removeEventListener("dockorama-request", this.onRequest);
     document.removeEventListener("pointerdown", this.onOutside, true);
@@ -878,7 +880,7 @@ export class DockoramaManager extends LitElement {
   }
 
   private renderGuide(): TemplateResult | typeof nothing {
-    const d = this._drag?.peer || this._drag?.beyond ? undefined : (this._drag ?? this._guest ?? this.keyMoveGuide());
+    const d = this._drag?.peer || this._drag?.beyond ? undefined : (this._drag ?? this._guest ?? this.keys.guide());
     if (!d || d.mode === "pending" || d.mode === "tab") return nothing;
     const host = this.getBoundingClientRect();
     const main = this.mainRect();
@@ -1101,126 +1103,34 @@ export class DockoramaManager extends LitElement {
 
   // ------------------------------------------------------------- keyboard docking
 
-  /** Drop targets for keyboard docking: every visible group except the moving view's own lone group, then the outer edge. */
-  private moveTargets(id: string): Array<{ view: string; rect: Rect; label: string; path?: number[]; win?: string; empty?: boolean } | { edge: true; rect: Rect; label: string }> {
-    const where = ops.locate(this._model, id);
-    const lone = where.place === "tree" && where.stack.views.length === 1 ? where.stack.views[0] : undefined;
-    const out: ReturnType<DockoramaManager["moveTargets"]> = [];
-    for (const el of Array.from(this.renderRoot.querySelectorAll<HTMLElement>("[data-stack]"))) {
-      if (el.closest(".drawer")) continue;
-      const empty = el.hasAttribute("data-empty");
-      const view = empty ? "" : (el.querySelector<HTMLElement>(".tab")?.dataset["view"] ?? el.dataset["stack"]!);
-      if (view && view === lone) continue;
-      const r = el.getBoundingClientRect();
-      const label = empty ? this.t.emptyDocs : (el.getAttribute("aria-label") ?? view);
-      out.push({ view, rect: { left: r.left, top: r.top, width: r.width, height: r.height }, label, empty,
-        path: (el.dataset["path"] ?? "").split(".").filter(Boolean).map(Number), win: el.dataset["win"] || undefined });
-    }
-    const main = this.mainRect();
-    if (main && !this.caps(id).docsOnly) out.push({ edge: true, rect: main, label: this.t.outerEdge });
-    return out;
-  }
-
   /**
    * Start moving a view with the keyboard (default: the focused one; shortcut `Alt+M`). Tab / Shift+Tab choose a
    * group (or the outer edge), arrow keys a side, Enter drops, Escape cancels. Progress is announced in a live region.
    * Returns false when the view cannot move.
    */
   beginMove(id = this._model.focus): boolean {
-    if (!id || this.caps(id).move === false || ops.locate(this._model, id).place !== "tree") return false;
-    const targets = this.moveTargets(id);
-    if (!targets.length) return false;
-    const first = "edge" in targets[0]! ? "edge-left" : "into";
-    this._keyMove = { id, index: 0, zone: first };
-    this._say = `${this.t.moveMode.replace("{title}", this._model.views[id]?.title ?? id)} ${this.describeMove()}`;
-    return true;
+    return this.keys.begin(id);
   }
 
   /** Stop keyboard docking without moving. */
   cancelMove(): void {
-    if (!this._keyMove) return;
-    this._keyMove = undefined;
-    this._say = this.t.moveCancelled;
+    this.keys.cancel();
   }
 
-  private describeMove(): string {
-    const k = this._keyMove;
-    if (!k) return "";
-    const target = this.moveTargets(k.id)[k.index];
-    return target ? this.t.moveTarget.replace("{target}", target.label).replace("{zone}", k.zone) : "";
+  /** Split the focused view off its group to one side (or move it beside its group). */
+  nudge(id: string, zone: DropZone): void {
+    this.keys.nudge(id, zone);
   }
 
-  /** The keyboard move as a drag state, for the drop guide. */
-  private keyMoveGuide(): DragState | undefined {
-    const k = this._keyMove;
-    if (!k) return undefined;
-    const t = this.moveTargets(k.id)[k.index];
-    if (!t) return undefined;
-    const d: DragState = { id: k.id, mode: "window", startX: 0, startY: 0, x: 0, y: 0, origin: this._model, pointerId: -1 };
-    if ("edge" in t) {
-      d.edge = k.zone as EdgeZone;
-      d.preview = previewFor(t.rect, d.edge);
-    } else {
-      d.target = { view: t.view, rect: t.rect, zone: k.zone as DropZone };
-      if (t.empty) d.fill = { path: t.path ?? [], win: t.win, rect: t.rect };
-      d.preview = t.empty ? t.rect : previewFor(t.rect, k.zone as DropZone);
-    }
-    return d;
+  /** Select the next/previous tab in the focused view's group. */
+  cycleTab(id: string, step: number): void {
+    this.keys.cycleTab(id, step);
   }
 
-  private onMoveKey(e: KeyboardEvent): boolean {
-    const k = this._keyMove;
-    if (!k) return false;
-    const targets = this.moveTargets(k.id);
-    const t = targets[k.index];
-    const sides: Record<string, DropZone> = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "above", ArrowDown: "below" };
-    const edges: Record<string, EdgeZone> = { ArrowLeft: "edge-left", ArrowRight: "edge-right", ArrowUp: "edge-above", ArrowDown: "edge-below" };
-    if (e.key === "Escape") this.cancelMove();
-    else if (e.key === "Tab") {
-      const index = (k.index + (e.shiftKey ? targets.length - 1 : 1)) % targets.length;
-      const next = targets[index]!;
-      this._keyMove = { ...k, index, zone: "edge" in next ? "edge-left" : "into" };
-      this._say = this.describeMove();
-    } else if (sides[e.key] && t) {
-      const zone = "edge" in t ? edges[e.key]! : t.empty ? "into" : k.zone === sides[e.key] ? "into" : sides[e.key]!;
-      this._keyMove = { ...k, zone };
-      this._say = this.describeMove();
-    } else if (e.key === "Enter" || e.key === " ") {
-      this._keyMove = undefined;
-      const title = this._model.views[k.id]?.title ?? k.id;
-      if (t && "edge" in t) this.dockToEdge(k.id, k.zone as EdgeZone);
-      else if (t?.empty) this.dropIntoDocs(k.id, t.path ?? [], t.win);
-      else if (t) this.place(k.id, t.view, k.zone as DropZone);
-      this._say = this.t.moveDone.replace("{title}", title);
-    } else return true;
-    e.preventDefault();
-    e.stopPropagation();
-    return true;
+  /** Move focus to the nearest visible group in a direction. */
+  focusNeighbour(zone: DropZone): void {
+    this.keys.focusNeighbour(zone);
   }
-
-  private onKey = (e: KeyboardEvent): void => {
-    if (this._keyMove && this.onMoveKey(e)) return;
-    const focus = this._model.focus;
-    const key = e.key;
-    if ((e.ctrlKey || e.metaKey) && key === ".") return this.handled(e, () => this.openPalette());
-    if ((e.ctrlKey || e.metaKey) && e.altKey && (key === "z" || key === "Z")) return this.handled(e, () => this.undo());
-    if ((e.ctrlKey || e.metaKey) && e.altKey && (key === "y" || key === "Y")) return this.handled(e, () => this.redo());
-    if (key === "Escape") {
-      if (this._peek) return this.handled(e, () => { this._peek = undefined; });
-      if (this._model.zoom) return this.handled(e, () => this.toggleZoom());
-    }
-    if (!e.altKey || !focus) return;
-    const dir: Record<string, DropZone> = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "above", ArrowDown: "below" };
-    if (dir[key] && e.shiftKey) return this.handled(e, () => this.nudge(focus, dir[key]!));
-    if (dir[key]) return this.handled(e, () => this.focusNeighbour(dir[key]!));
-    if (key === "PageDown" || key === "PageUp") return this.handled(e, () => this.cycleTab(focus, key === "PageDown" ? 1 : -1));
-    const k = key.toLowerCase();
-    if (k === "z") return this.handled(e, () => this.toggleZoom(focus));
-    if (k === "m") return this.handled(e, () => void this.beginMove(focus));
-    if (k === "h") return this.handled(e, () => this.stow(focus));
-    if (k === "f") return this.handled(e, () => this.detach(focus));
-    if (key === "Backspace") return this.handled(e, () => this.dismiss(focus));
-  };
 
   /** Typing in a preview view keeps it. */
   private onInput = (e: Event): void => {
@@ -1229,61 +1139,7 @@ export class DockoramaManager extends LitElement {
     if (id) this.promote(id);
   };
 
-  private handled(e: KeyboardEvent, fn: () => void): void {
-    e.preventDefault();
-    e.stopPropagation();
-    fn();
-  }
 
-  /** Split the focused view off its group to one side (or move it beside its group). */
-  nudge(id: string, zone: DropZone): void {
-    const where = ops.locate(this._model, id);
-    if (where.place !== "tree") return;
-    const other = where.stack.views.find((v) => v !== id);
-    if (other) return this.place(id, other, zone);
-    const edge = ({ left: "edge-left", right: "edge-right", above: "edge-above", below: "edge-below" } as const)[zone as "left"];
-    if (edge && !where.window) this.dockToEdge(id, edge);
-  }
-
-  /** Select the next/previous tab in the focused view's group. */
-  cycleTab(id: string, step: number): void {
-    const where = ops.locate(this._model, id);
-    if (where.place !== "tree") return;
-    const v = where.stack.views;
-    const next = v[(v.indexOf(id) + step + v.length) % v.length];
-    if (next) this.reveal(next);
-  }
-
-  /** Move focus to the nearest visible group in a direction. */
-  focusNeighbour(zone: DropZone): void {
-    const els = Array.from(this.renderRoot.querySelectorAll<HTMLElement>("[data-stack]"));
-    const cur = els.find((el) => el.hasAttribute("data-active"));
-    if (!cur) {
-      const first = els[0]?.dataset["stack"];
-      if (first) this.activate(first);
-      return;
-    }
-    const c = cur.getBoundingClientRect();
-    const cx = c.left + c.width / 2;
-    const cy = c.top + c.height / 2;
-    let best: { el: HTMLElement; d: number } | undefined;
-    for (const el of els) {
-      if (el === cur) continue;
-      const r = el.getBoundingClientRect();
-      const x = r.left + r.width / 2;
-      const y = r.top + r.height / 2;
-      const ok = zone === "left" ? x < cx - 1 : zone === "right" ? x > cx + 1 : zone === "above" ? y < cy - 1 : y > cy + 1;
-      if (!ok) continue;
-      const d = Math.hypot(x - cx, y - cy);
-      if (!best || d < best.d) best = { el, d };
-    }
-    if (best) {
-      const tab = best.el.querySelector<HTMLElement>('.tab[data-selected]');
-      const id = tab?.dataset["view"] ?? best.el.dataset["stack"];
-      if (id) this.activate(id);
-      (tab ?? best.el.querySelector<HTMLElement>(".btn"))?.focus();
-    }
-  }
 }
 
 declare global {
