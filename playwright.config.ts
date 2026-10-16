@@ -16,7 +16,7 @@ export default defineConfig({
     ? undefined
     : {
         command: "npm run build:harness && npx vite preview --config harness/vite.config.ts --port 4173",
-        port: 4173,
+        url: "http://localhost:4173",
         reuseExistingServer: true
       }
 });
