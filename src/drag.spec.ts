@@ -354,6 +354,19 @@ describe("pointer resizing, focus navigation and menus", () => {
     expect(sr(el).querySelector(".menu")).toBeNull();
   });
 
+  it("a second click on a rail item closes a flyout that a click opened, even straight away", async () => {
+    const el = await mount(createModel(views, row([stack(["a"]), stack(["b"])])));
+    el.stow("a");
+    await el.updateComplete;
+    const item = sr(el).querySelector<HTMLElement>(".rail-item")!;
+    item.click();
+    await el.updateComplete;
+    expect(sr(el).querySelector(".drawer")).not.toBeNull();
+    item.click();
+    await el.updateComplete;
+    expect(sr(el).querySelector(".drawer")).toBeNull();
+  });
+
   it("peeks drawers on hover and toggles them by click", async () => {
     const el = await mount(createModel(views, row([stack(["a"]), stack(["b"])])));
     el.stow("a");

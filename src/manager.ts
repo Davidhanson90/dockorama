@@ -1345,7 +1345,7 @@ export class DockoramaManager extends LitElement {
       case "popin": return this.popIn(id);
       case "menu": return this.openMenu(id);
       case "menu-close": this._menu = undefined; return;
-      case "peek": return r["toggle"] ? this.togglePeek(id) : this.openPeek(id);
+      case "peek": return r["toggle"] ? this.togglePeek(id) : this.openPeek(id, true);
       case "peek-close": this._peek = undefined; return;
       case "raise": return this.raise(r["key"] as string);
       case "grip": return this.startGrip(r["event"] as PointerEvent, r["key"] as string);
@@ -1389,12 +1389,15 @@ export class DockoramaManager extends LitElement {
   };
 
   private peekAt = 0;
-  private openPeek(id: string): void {
+  private peekByHover = false;
+  private openPeek(id: string, byHover = false): void {
     this._peek = id;
     this.peekAt = Date.now();
+    this.peekByHover = byHover;
   }
+  /** A click on a rail item toggles its flyout. Only a click right after a hover opened it keeps it open (the pointer was already on the item). */
   private togglePeek(id: string): void {
-    if (this._peek === id && Date.now() - this.peekAt > 400) this._peek = undefined;
+    if (this._peek === id && !(this.peekByHover && Date.now() - this.peekAt < 400)) this._peek = undefined;
     else this.openPeek(id);
   }
 

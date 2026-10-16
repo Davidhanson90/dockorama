@@ -36,6 +36,15 @@ test.describe("auto-hide rails and flyouts", () => {
     await expect(dock.drawer()).toBeVisible();
   });
 
+  test("clicking the rail label again closes the flyout", async ({ dock }) => {
+    await dock.call("stow", "props");
+    await dock.rail().first().click();
+    await expect(dock.drawer()).toBeVisible();
+    await dock.rail().first().click();
+    await expect(dock.drawer()).toHaveCount(0);
+    await expect(dock.rail().first()).toHaveAttribute("aria-expanded", "false");
+  });
+
   test("Escape closes the flyout", async ({ dock, page }) => {
     await dock.call("stow", "props");
     await dock.rail().first().click();
