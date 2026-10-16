@@ -230,6 +230,12 @@ npm run build:verify   # naming guard, lint, type checks, unit tests with covera
 npm run test:e2e       # Playwright tests of our own docs site
 ```
 
+Some tests (the Angular wrapper spec, the docs site and e2e) run against the compiled `dist/`. `npm test` and
+`npm run test:coverage` build automatically when `dist/` is missing or older than `src/` (`scripts/ensure-build.mjs`),
+and `npm run test:e2e` builds the docs site first, so a fresh clone needs only `npm ci && npm test`. Run
+`npm run build` yourself after switching branches if a test reports a missing `dist/` file. The naming and API
+guards use the optional private records folder (`DOCKORAMA_RECORDS`) and skip when it is absent.
+
 ## License
 
 MIT
