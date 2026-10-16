@@ -55,6 +55,7 @@ export interface DockHost extends HTMLElement {
   caps(id: string): Caps;
   commit(next: DockoramaModel, reason: ChangeReason, record?: boolean): void;
   drag: DragEngine;
+  snap: number;
   shown: Set<string>;
   _drag?: DragState;
   _menu?: unknown;

@@ -3,15 +3,16 @@ import { DEFAULT_LABELS, type DockoramaLabels } from "./labels.js";
 import { Timeline } from "./history.js";
 import { styles } from "./styles.js";
 import {
-  clampBox, compassSpots, edgeSpots, previewFor, shareSpace, snapBox, type Rect, type Spot
+  clampBox, compassSpots, edgeSpots, previewFor, snapBox, type Rect, type Spot
 } from "./geometry.js";
 import { DockoramaPart, defineParts, type DockContext, type GuideSpot, type MenuEntry, type PartRequest, type TabMenuItem } from "./components/index.js";
 import { slotOf } from "./components/context.js";
 import { renderNode } from "./components/tree.js";
-import type { Box, DropZone, EdgeZone, DockoramaModel, LayoutMigrations, LayoutSource, Side, SizeLimits, SplitNode, ViewContent, ViewInfo, ViewOptions } from "./model.js";
+import type { Box, DropZone, EdgeZone, DockoramaModel, LayoutMigrations, LayoutSource, Side, SizeLimits, ViewContent, ViewInfo, ViewOptions } from "./model.js";
 import * as ops from "./ops.js";
 import { LayoutStore } from "./storage.js";
 import { DragEngine, managers } from "./drag.js";
+import { ResizeController } from "./resize.js";
 import { OutsideWindows } from "./outside.js";
 import type { DockHost, DragState } from "./host.js";
 import { activeSkin, cssFor, skinNamed, watchSkins, type Skin, type SkinPatch, type SkinScope } from "./skins/core.js";
@@ -176,6 +177,7 @@ export class DockoramaManager extends LitElement {
   private readonly host = this as unknown as DockHost;
   private readonly outside = new OutsideWindows(this.host);
   private readonly drag = new DragEngine(this.host);
+  private readonly resize = new ResizeController(this.host);
   /** Drag from another manager hovering over this one. */
   private _guest?: DragState;
   private _tabMenu?: { id: string; x: number; y: number; items: TabMenuItem[] };
@@ -980,13 +982,13 @@ export class DockoramaManager extends LitElement {
       case "peek": return r["toggle"] ? this.togglePeek(id) : this.openPeek(id, true);
       case "peek-close": this._peek = undefined; return;
       case "raise": return this.raise(r["key"] as string);
-      case "grip": return this.startGrip(r["event"] as PointerEvent, r["key"] as string);
+      case "grip": return this.resize.grip(r["event"] as PointerEvent, r["key"] as string);
       case "gutter-grab":
-        return this.startGutter(r["event"] as PointerEvent, r["path"] as number[], r["after"] as number, r["axis"] as "row" | "column",
+        return this.resize.gutter(r["event"] as PointerEvent, r["path"] as number[], r["after"] as number, r["axis"] as "row" | "column",
           r["win"] as string | undefined, r["source"] as HTMLElement);
-      case "gutter-fold": return this.foldAt(r["path"] as number[], r["after"] as number, r["win"] as string | undefined, r["source"] as HTMLElement | undefined);
+      case "gutter-fold": return this.resize.fold(r["path"] as number[], r["after"] as number, r["win"] as string | undefined, r["source"] as HTMLElement | undefined);
       case "gutter-key":
-        return this.keyGutter(r["event"] as KeyboardEvent, r["path"] as number[], r["after"] as number, r["axis"] as "row" | "column",
+        return this.resize.key(r["event"] as KeyboardEvent, r["path"] as number[], r["after"] as number, r["axis"] as "row" | "column",
           r["weights"] as number[], r["win"] as string | undefined, r["source"] as HTMLElement | undefined);
       case "tab-menu": return this.openTabMenu(id, r["keyboard"] ? undefined : { x: Number(r["x"]), y: Number(r["y"]) });
       case "tab-menu-close": return this.closeTabMenu(true);
@@ -1071,126 +1073,6 @@ export class DockoramaManager extends LitElement {
     if (next !== this._model) this.commit(next, "focus", false);
   }
 
-  private startGutter(e: PointerEvent, path: number[], index: number, axis: "row" | "column", win: string | undefined, gutter: HTMLElement): void {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    const cells = Array.from(gutter.parentElement!.children).filter((c) => c.classList.contains("cell")) as HTMLElement[];
-    const sizes = cells.map((c) => (axis === "row" ? c.getBoundingClientRect().width : c.getBoundingClientRect().height));
-    const start = axis === "row" ? e.clientX : e.clientY;
-    const rtl = axis === "row" && getComputedStyle(this).direction === "rtl";
-    const before = this._model;
-    let base = this._model;
-    for (const i of [index, index + 1]) if (this.splitAt(path, win)?.folded?.[i]) base = ops.fold(base, path, i, false, win);
-    const split = this.splitAt(path, win);
-    gutter.toggleAttribute("data-live", true);
-    const live = this.liveResize(() => this.splitResize(path, win));
-    const move = (ev: PointerEvent) => {
-      const delta = ((axis === "row" ? ev.clientX : ev.clientY) - start) * (rtl ? -1 : 1);
-      const next = this.limitPair(split, index, shareSpace(sizes, index, delta));
-      this._model = split?.fixed || split?.limits
-        ? ops.resizeCells(base, path, next, win)
-        : ops.setWeights(base, path, next.map((n) => Math.max(1, n)), win);
-      live();
-      this.requestUpdate();
-    };
-    const up = () => {
-      gutter.removeAttribute("data-live");
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-      live.stop();
-      if (this._model !== before) {
-        this.timeline.push(before);
-        this.commit(this._model, "resize", false);
-        this.emitResize(this.splitResize(path, win));
-      }
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-  }
-
-  private keyGutter(e: KeyboardEvent, path: number[], index: number, axis: "row" | "column", weights: number[], win?: string, source?: HTMLElement): void {
-    const split = this.splitAt(path, win);
-    const gutter = source ?? (e.target as HTMLElement | null)?.closest?.(".gutter") as HTMLElement | null;
-    const px = !!(split?.fixed || split?.limits) && !!gutter;
-    const sizes = px ? this.cellSizes(gutter!, axis) : weights;
-    const grow = axis === "row" ? ["ArrowRight"] : ["ArrowDown"];
-    const shrink = axis === "row" ? ["ArrowLeft"] : ["ArrowUp"];
-    const total = sizes.reduce((a, b) => a + b, 0);
-    let delta = 0;
-    if (grow.includes(e.key)) delta = total * 0.03;
-    else if (shrink.includes(e.key)) delta = -total * 0.03;
-    else if (e.key === "Home") delta = -total;
-    else if (e.key === "End") delta = total;
-    else return;
-    e.preventDefault();
-    e.stopPropagation();
-    if (getComputedStyle(this).direction === "rtl" && axis === "row" && e.key.startsWith("Arrow")) delta = -delta;
-    const next = this.limitPair(split, index, shareSpace(sizes, index, delta, px ? 0 : total * 0.05));
-    this.commit(px ? ops.resizeCells(this._model, path, next, win) : ops.setWeights(this._model, path, next, win), "resize");
-    this.emitResize(this.splitResize(path, win));
-  }
-
-  /** Resize detail for the split at `path`: weights, or px sizes where cells are fixed/limited. */
-  private splitResize(path: number[], win?: string): ResizeDetail | undefined {
-    const split = this.splitAt(path, win);
-    if (!split) return undefined;
-    return { kind: "split", path, ...(win ? { window: win } : {}), sizes: split.weights.slice() };
-  }
-
-  private emitResize(detail: ResizeDetail | undefined): void {
-    if (detail) this.emit("dockorama-resize", detail);
-  }
-
-  /** A live-resize reporter: fires `dockorama-resizing` at most once per animation frame. */
-  private liveResize(read: () => ResizeDetail | undefined): (() => void) & { stop(): void } {
-    let frame = 0;
-    const fn = (() => {
-      if (frame) return;
-      frame = requestAnimationFrame(() => {
-        frame = 0;
-        const d = read();
-        if (d) this.emit("dockorama-resizing", d);
-      });
-    }) as (() => void) & { stop(): void };
-    fn.stop = () => {
-      if (frame) cancelAnimationFrame(frame);
-      frame = 0;
-    };
-    return fn;
-  }
-
-  private splitAt(path: number[], win?: string): SplitNode | undefined {
-    const tree = win ? this._model.windows.find((w) => w.key === win)?.tree ?? null : this._model.root;
-    const node = ops.nodeAt(tree, path);
-    return node?.kind === "split" ? node : undefined;
-  }
-
-  private cellSizes(gutter: HTMLElement, axis: "row" | "column"): number[] {
-    const cells = Array.from(gutter.parentElement?.children ?? []).filter((c) => c.classList.contains("cell")) as HTMLElement[];
-    return cells.map((c) => (axis === "row" ? c.getBoundingClientRect().width : c.getBoundingClientRect().height));
-  }
-
-  private limitPair(split: SplitNode | undefined, index: number, next: number[]): number[] {
-    if (!split?.limits) return next;
-    const out = next.slice();
-    const [a, b] = ops.clampPair(out[index]!, out[index + 1]!, split.limits[index], split.limits[index + 1]);
-    out[index] = a;
-    out[index + 1] = b;
-    return out;
-  }
-
-  /** Double-click / Enter on a gutter: restore a folded neighbour, otherwise fold the smaller one. */
-  private foldAt(path: number[], index: number, win?: string, gutter?: HTMLElement): void {
-    const split = this.splitAt(path, win);
-    if (!split) return;
-    const open = [index, index + 1].find((i) => split.folded?.[i]);
-    if (open !== undefined) return this.commit(ops.fold(this._model, path, open, false, win), "resize");
-    const sizes = gutter ? this.cellSizes(gutter, split.axis) : [];
-    const a = sizes[index] || split.weights[index] || 0;
-    const b = sizes[index + 1] || split.weights[index + 1] || 0;
-    this.commit(ops.fold(this._model, path, b < a ? index + 1 : index, true, win), "resize");
-  }
-
   /** Collapse (`on`, default) or restore the split cell holding view `id`. */
   foldView(id: string, on = true): void {
     const c = ops.cellOf(this._model, id);
@@ -1213,36 +1095,6 @@ export class DockoramaManager extends LitElement {
   limitViewSize(id: string, limits: SizeLimits | null): void {
     const c = ops.cellOf(this._model, id);
     if (c) this.commit(ops.limitSize(this._model, c.path, c.index, limits, c.win), "resize");
-  }
-
-  private startGrip(e: PointerEvent, key: string): void {
-    e.preventDefault();
-    e.stopPropagation();
-    const w = this._model.windows.find((x) => x.key === key);
-    if (!w) return;
-    const start = { ...w.box };
-    const before = this._model;
-    const read = (): ResizeDetail | undefined => {
-      const box = this._model.windows.find((x) => x.key === key)?.box;
-      return box ? { kind: "window", window: key, box: { ...box } } : undefined;
-    };
-    const live = this.liveResize(read);
-    const move = (ev: PointerEvent) => {
-      const box = snapBox({ ...start, w: Math.max(160, start.w + ev.clientX - e.clientX), h: Math.max(90, start.h + ev.clientY - e.clientY) }, this.snap);
-      this._model = ops.moveWindow(this._model, key, box);
-      live();
-      this.requestUpdate();
-    };
-    const up = () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-      live.stop();
-      this.timeline.push(before);
-      this.commit(this._model, "window", false);
-      this.emitResize(read());
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
   }
 
   // ------------------------------------------------------------- keyboard
