@@ -246,24 +246,24 @@ export class OutsideWindows {
       if (!moved && Math.hypot(ev.screenX - sx0, ev.screenY - sy0) < 6) return;
       moved = true;
       if (inside(ev)) {
-        this.h.clearGuest();
+        this.h.drag.clearGuest();
         return;
       }
       const p = this.toClient(ev.screenX, ev.screenY);
-      this.h.hoverAt(id, p.x, p.y);
+      this.h.drag.hoverAt(id, p.x, p.y);
     };
     const up = (ev: PointerEvent) => {
       win.removeEventListener("pointermove", move);
       win.removeEventListener("pointerup", up);
       const g = this.h._guest;
-      this.h.clearGuest();
+      this.h.drag.clearGuest();
       if (!moved || inside(ev)) return;
       const into = this.at(ev.screenX, ev.screenY, key);
       if (into) {
         this.h.popOut(id, { into });
         return;
       }
-      const placed = g ? this.h.applyDrop(ops.comeInside(this.h._model, id), id, g) : undefined;
+      const placed = g ? this.h.drag.applyDrop(ops.comeInside(this.h._model, id), id, g) : undefined;
       this.h.commit(placed ?? ops.comeInside(this.h._model, id), placed ? "place" : "popin");
     };
     win.addEventListener("pointermove", move);

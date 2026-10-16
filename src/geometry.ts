@@ -83,3 +83,10 @@ export function shareSpace(sizes: number[], index: number, delta: number, min = 
   out[index + 1] = b - d;
   return out;
 }
+
+/** Whether a client point lies in a rectangle grown by `pad` on every side. */
+export const contains = (r: Rect, x: number, y: number, pad = 0): boolean =>
+  x >= r.left - pad && x <= r.left + r.width + pad && y >= r.top - pad && y <= r.top + r.height + pad;
+
+/** A plain copy of a rectangle's four measures (drops the extra `DOMRect` members). */
+export const rectOf = ({ left, top, width, height }: Rect): Rect => ({ left, top, width, height });

@@ -3,14 +3,15 @@ import { DEFAULT_LABELS, type DockoramaLabels } from "./labels.js";
 import { Timeline } from "./history.js";
 import { styles } from "./styles.js";
 import {
-  clampBox, compassSpots, edgeSpots, hit, insertionIndex, previewFor, shareSpace, snapBox, type Rect, type Spot
+  clampBox, compassSpots, edgeSpots, previewFor, shareSpace, snapBox, type Rect, type Spot
 } from "./geometry.js";
 import { DockoramaPart, defineParts, type DockContext, type GuideSpot, type MenuEntry, type PartRequest, type TabMenuItem } from "./components/index.js";
 import { slotOf } from "./components/context.js";
 import { renderNode } from "./components/tree.js";
-import type { Box, Caps, DropZone, EdgeZone, DockoramaModel, LayoutMigrations, LayoutSource, Side, SizeLimits, SplitNode, ViewContent, ViewInfo, ViewOptions } from "./model.js";
+import type { Box, DropZone, EdgeZone, DockoramaModel, LayoutMigrations, LayoutSource, Side, SizeLimits, SplitNode, ViewContent, ViewInfo, ViewOptions } from "./model.js";
 import * as ops from "./ops.js";
 import { LayoutStore } from "./storage.js";
+import { DragEngine, managers } from "./drag.js";
 import { OutsideWindows } from "./outside.js";
 import type { DockHost, DragState } from "./host.js";
 import { activeSkin, cssFor, skinNamed, watchSkins, type Skin, type SkinPatch, type SkinScope } from "./skins/core.js";
@@ -22,8 +23,6 @@ export type ChangeReason =
   | "reorder" | "resize" | "zoom" | "add" | "forget" | "undo" | "redo" | "focus" | "restore" | "cancel"
   | "transfer" | "popout" | "popin" | "pin" | "promote";
 
-/** Every connected manager, for drags between managers that share a `drag-group`. */
-const managers = new Set<DockoramaManager>();
 /** Built-in keys of the tab context menu. */
 export type TabCommand =
   | "close" | "close-others" | "close-right" | "close-all" | "pin" | "float" | "popout" | "split-right" | "split-down" | "stow";
@@ -173,7 +172,10 @@ export class DockoramaManager extends LitElement {
   private _palette?: { query: string; index: number };
   private _say = "";
   /** Open outside (browser) windows by key. */
-  private readonly outside = new OutsideWindows(this as unknown as DockHost);
+  /** This element as the controllers see it (they use members the typings keep private). */
+  private readonly host = this as unknown as DockHost;
+  private readonly outside = new OutsideWindows(this.host);
+  private readonly drag = new DragEngine(this.host);
   /** Drag from another manager hovering over this one. */
   private _guest?: DragState;
   private _tabMenu?: { id: string; x: number; y: number; items: TabMenuItem[] };
@@ -222,7 +224,7 @@ export class DockoramaManager extends LitElement {
     this.renderRoot.addEventListener("dockorama-request", this.onRequest);
     document.addEventListener("pointerdown", this.onOutside, true);
     window.addEventListener("pagehide", this.outside.onUnload);
-    managers.add(this);
+    managers.add(this.host);
     this.unwatchSkins = watchSkins(() => this.applySkin());
     // Direction comes from CSS (usually a `dir` attribute on this element or an ancestor): re-render when it changes.
     this.lastDir = getComputedStyle(this).direction;
@@ -249,7 +251,7 @@ export class DockoramaManager extends LitElement {
     this.renderRoot.removeEventListener("dockorama-request", this.onRequest);
     document.removeEventListener("pointerdown", this.onOutside, true);
     window.removeEventListener("pagehide", this.outside.onUnload);
-    managers.delete(this);
+    managers.delete(this.host);
     this.unwatchSkins?.();
   }
 
@@ -560,41 +562,6 @@ export class DockoramaManager extends LitElement {
     this.outside.keepDocked();
   }
 
-  /** Show drop guides for a view at a client point of this manager (used by drags that started elsewhere). */
-  private hoverAt(id: string, x: number, y: number, caps?: Caps): void {
-    const g: DragState = { id, mode: "loose", startX: x, startY: y, x, y, origin: this._model, pointerId: -1, caps };
-    this.findTarget(g);
-    this._guest = g;
-  }
-
-  private clearGuest(): void {
-    if (this._guest) this._guest = undefined;
-  }
-
-  /** Apply the drop a drag state points at to `model` (pure); undefined when it points nowhere. */
-  private applyDrop(model: DockoramaModel, id: string, d: DragState): DockoramaModel | undefined {
-    if (d.edge) return ops.placeAtEdge(model, id, d.edge);
-    if (d.gap) return ops.insertBetween(model, id, d.gap.path, d.gap.after, d.gap.win);
-    if (d.fill && d.target?.zone) return ops.fillDocs(model, id, d.fill.path, d.fill.win);
-    if (d.target?.zone) return ops.place(model, id, d.target.view, d.target.zone);
-    return undefined;
-  }
-
-  // ------------------------------------------------------------- drag between managers
-
-  /** Another manager in the same drag group whose box contains a client point (not this one). */
-  private peerAt(x: number, y: number): DockoramaManager | undefined {
-    if (!this.dragGroup) return undefined;
-    const own = this.getBoundingClientRect();
-    if (x >= own.left && x <= own.right && y >= own.top && y <= own.bottom) return undefined;
-    for (const m of managers) {
-      if (m === this || m.dragGroup !== this.dragGroup || !m.isConnected) continue;
-      const r = m.getBoundingClientRect();
-      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return m;
-    }
-    return undefined;
-  }
-
   /**
    * Move a view, with its content element, from this manager to another one: `at` is any `ViewSpot`
    * (default `"auto"`). One undoable change in each manager (reason `"transfer"`), and a
@@ -606,38 +573,7 @@ export class DockoramaManager extends LitElement {
     if (target.hasView(id)) throw new Error(`dockorama: the target already has a view with id "${id}"`);
     const spot = typeof at === "object" && "float" in at ? { float: target.fitBox({ ...target.defaultBox(), ...(at.float === true ? {} : at.float) }) } : at;
     const next = ops.enlist(target._model, id, ops.copy(info), spot);
-    this.handOver(id, target, next);
-  }
-
-  private handOver(id: string, target: DockoramaManager, next: DockoramaModel): void {
-    const el = this.getViewElement(id);
-    this.stash.delete(id);
-    const make = this.factories.get(id);
-    this.factories.delete(id);
-    this.shown.delete(id);
-    if (this._peek === id) this._peek = undefined;
-    this.commit(ops.forget(this._model, id), "transfer");
-    if (make) target.factories.set(id, make);
-    if (el) target.mount(id, el);
-    target.shown.delete(id);
-    target.commit(next, "transfer");
-    const detail = { id, from: this, to: target };
-    this.dispatchEvent(new CustomEvent("dockorama-transfer", { detail: { ...detail, direction: "out" }, bubbles: true, composed: true }));
-    target.dispatchEvent(new CustomEvent("dockorama-transfer", { detail: { ...detail, direction: "in" }, bubbles: true, composed: true }));
-  }
-
-  /** Drop a view dragged from `source` where this manager's guide points. Returns false when it cannot land. */
-  private takeGuest(source: DockoramaManager, id: string): boolean {
-    const g = this._guest;
-    this._guest = undefined;
-    const info = source._model.views[id];
-    if (!g || !info || this.hasView(id)) return false;
-    if (!this.emitBefore("dockorama-beforemove", { id, target: g.target?.view, zone: g.edge ?? (g.gap ? "between" : g.target?.zone ?? "into"), from: source })) return false;
-    const base = ops.adopt(this._model, id, info);
-    const next = this.applyDrop(base, id, g) ?? (this._model.root ? undefined : ops.reveal(base, id));
-    if (!next) return false;
-    source.handOver(id, this, next);
-    return true;
+    this.drag.handOver(id, target.host, next);
   }
 
   // ------------------------------------------------------------- internals
@@ -1029,7 +965,7 @@ export class DockoramaManager extends LitElement {
     }
     switch (r.action) {
       case "activate": return this.onStackPointer(r["event"] as PointerEvent, id, r["source"] as HTMLElement);
-      case "grab": return this.startDrag(r["event"] as PointerEvent, id, r["win"] as string | undefined, r["source"] as HTMLElement);
+      case "grab": return this.drag.start(r["event"] as PointerEvent, id, r["win"] as string | undefined, r["source"] as HTMLElement);
       case "reveal": return this.reveal(id);
       case "dismiss": void this.dismiss(id); return;
       case "zoom": return this.toggleZoom(id);
@@ -1121,6 +1057,11 @@ export class DockoramaManager extends LitElement {
     })) this._peek = undefined;
   };
 
+  /** Abort the current drag and restore the layout from before it started. */
+  cancelDrag(): void {
+    this.drag.cancel();
+  }
+
   private mainRect(): Rect | undefined {
     return this.renderRoot.querySelector(".main")?.getBoundingClientRect();
   }
@@ -1128,250 +1069,6 @@ export class DockoramaManager extends LitElement {
   private raise(key: string): void {
     const next = ops.raiseWindow(this._model, key);
     if (next !== this._model) this.commit(next, "focus", false);
-  }
-
-  private startDrag(e: PointerEvent, id: string, win: string | undefined, target: HTMLElement): void {
-    if (e.button !== 0 || this.caps(id).move === false) return;
-    const w = win ? this._model.windows.find((x) => x.key === win) : undefined;
-    const soleInWindow = w && ops.viewsIn(w.tree).length === 1;
-    this._drag = {
-      id, mode: "pending", startX: e.clientX, startY: e.clientY, x: e.clientX, y: e.clientY, pointerId: e.pointerId,
-      windowKey: soleInWindow ? win : undefined, windowStart: soleInWindow ? { ...w!.box } : undefined,
-      strip: target.classList.contains("tab") ? (target.closest<HTMLElement>(".tabs") ?? undefined) : undefined,
-      origin: this._model
-    };
-    window.addEventListener("pointermove", this.onDragMove);
-    window.addEventListener("pointerup", this.onDragEnd);
-    window.addEventListener("pointercancel", this.onDragCancel);
-    window.addEventListener("keydown", this.onDragKey, true);
-  }
-
-  /** Escape while dragging: put everything back the way it was. */
-  private onDragKey = (e: KeyboardEvent): void => {
-    if (e.key !== "Escape" || !this._drag) return;
-    e.preventDefault();
-    e.stopPropagation();
-    this.cancelDrag();
-  };
-
-  /** Abort the current drag and restore the layout from before it started. */
-  cancelDrag(): void {
-    const d = this._drag;
-    if (!d) return;
-    this.endDragListeners();
-    this._drag = undefined;
-    d.peer?.clearGuest();
-    if (this._model !== d.origin) this.commit(d.origin, "cancel", false);
-    else this.requestUpdate();
-    this.dispatchEvent(new CustomEvent("dockorama-dragcancel", { detail: { id: d.id }, bubbles: true, composed: true }));
-  }
-
-  private onDragMove = (e: PointerEvent): void => {
-    const d = this._drag;
-    if (!d || e.pointerId !== d.pointerId) return;
-    const next: DragState = { ...d, x: e.clientX, y: e.clientY };
-    if (next.mode === "pending") {
-      if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < 6) return;
-      next.mode = d.windowKey ? "window" : d.strip ? "tab" : "loose";
-      this._menu = undefined;
-      if (!this.emit("dockorama-dragstart", { id: d.id, kind: next.mode as DragKind }, true)) {
-        this.endDragListeners();
-        this._drag = undefined;
-        return;
-      }
-    }
-    if (next.mode === "tab" && next.strip) {
-      const r = next.strip.getBoundingClientRect();
-      if (e.clientY < r.top - 16 || e.clientY > r.bottom + 16) next.mode = "loose";
-      else {
-        const tabs = Array.from(next.strip.querySelectorAll<HTMLElement>(".tab")).filter((t) => t.dataset["view"] !== d.id);
-        const rtl = getComputedStyle(this).direction === "rtl";
-        const idx = insertionIndex(tabs.map((t) => t.getBoundingClientRect()), e.clientX, rtl);
-        const where = ops.locate(this._model, d.id);
-        if (where.place === "tree" && where.stack.views.indexOf(d.id) !== idx) {
-          this.commit(ops.reorder(this._model, d.id, idx), "reorder", false);
-        }
-      }
-    }
-    if (next.mode === "window" && next.windowKey && next.windowStart) {
-      const b = next.windowStart;
-      const box = { ...b, x: b.x + e.clientX - d.startX, y: b.y + e.clientY - d.startY };
-      this._model = ops.moveWindow(this._model, next.windowKey, box);
-    }
-    if (next.mode === "loose" || next.mode === "window") {
-      next.sx = e.screenX;
-      next.sy = e.screenY;
-      next.beyond = next.mode === "loose" && (e.clientX < 0 || e.clientY < 0 || e.clientX > window.innerWidth || e.clientY > window.innerHeight);
-      const peer = next.mode === "loose" && !next.beyond ? this.peerAt(e.clientX, e.clientY) : undefined;
-      if (d.peer && d.peer !== peer) d.peer.clearGuest();
-      next.peer = peer;
-      if (peer) {
-        peer.hoverAt(d.id, e.clientX, e.clientY, this.caps(d.id));
-        for (const k of ["target", "gap", "fill", "edge", "preview"] as const) next[k] = undefined;
-      } else if (next.beyond) {
-        for (const k of ["target", "gap", "fill", "edge", "preview"] as const) next[k] = undefined;
-      } else this.findTarget(next);
-    }
-    this._drag = next;
-    this.reportOver(next);
-    this.requestUpdate();
-  };
-
-  /** Where a drag would drop right now. */
-  private spotOf(d: DragState): DragOverDetail {
-    if (d.mode === "tab") return { id: d.id, spot: "tabs" };
-    if (d.peer) return { id: d.id, spot: "other-dock" };
-    if (d.beyond) return { id: d.id, spot: "outside" };
-    if (d.edge) return { id: d.id, spot: d.edge };
-    if (d.gap) return { id: d.id, spot: "between" };
-    if (d.fill && d.target?.zone) return { id: d.id, spot: "empty" };
-    if (d.target?.zone) return { id: d.id, spot: d.target.zone, target: d.target.view };
-    return { id: d.id, spot: "none" };
-  }
-
-  /** Fire `dockorama-dragover` only when the drop spot or target changes. */
-  private reportOver(d: DragState): void {
-    const s = this.spotOf(d);
-    const sig = `${s.spot}|${s.target ?? ""}`;
-    if (d.over === sig) return;
-    d.over = sig;
-    this.emit("dockorama-dragover", s);
-  }
-
-  private findTarget(d: DragState): void {
-    d.target = undefined;
-    d.gap = undefined;
-    d.fill = undefined;
-    d.edge = undefined;
-    d.preview = undefined;
-    const main = this.mainRect();
-    if (main && !(d.caps ?? this.caps(d.id)).docsOnly) {
-      const edge = hit(edgeSpots(main), d.x, d.y);
-      if (edge) {
-        d.edge = edge;
-        d.preview = previewFor(main, edge);
-        return;
-      }
-    }
-    const inWindow = (el: HTMLElement) => el.closest<HTMLElement>("[data-window]");
-    const overWindow = Array.from(this.renderRoot.querySelectorAll<HTMLElement>("[data-window]")).some((w) => {
-      if (w.dataset["window"] === d.windowKey) return false;
-      const r = w.getBoundingClientRect();
-      return d.x >= r.left && d.x <= r.right && d.y >= r.top && d.y <= r.bottom;
-    });
-    if (!(d.caps ?? this.caps(d.id)).docsOnly) {
-      const gutters = Array.from(this.renderRoot.querySelectorAll<HTMLElement>(".gutter[data-path]"))
-        .filter((g) => (overWindow ? inWindow(g) : !inWindow(g)) && g.dataset["win"] !== d.windowKey);
-      for (const g of gutters.reverse()) {
-        const r = g.getBoundingClientRect();
-        const pad = 6;
-        if (d.x >= r.left - pad && d.x <= r.right + pad && d.y >= r.top - pad && d.y <= r.bottom + pad) {
-          const path = (g.dataset["path"] ?? "").split(".").filter(Boolean).map(Number);
-          const rect = { left: r.left, top: r.top, width: r.width, height: r.height };
-          d.gap = { path, after: Number(g.dataset["after"]), win: g.dataset["win"] || undefined, rect };
-          const vertical = r.height > r.width;
-          const size = 80;
-          d.preview = vertical
-            ? { left: r.left + r.width / 2 - size / 2, top: r.top, width: size, height: r.height }
-            : { left: r.left, top: r.top + r.height / 2 - size / 2, width: r.width, height: size };
-          return;
-        }
-      }
-    }
-    const stacks = Array.from(this.renderRoot.querySelectorAll<HTMLElement>("[data-stack]"))
-      .filter((el) => !el.closest(".drawer") && (!d.windowKey || el.dataset["win"] !== d.windowKey));
-    // Prefer windows (topmost) over docked groups.
-    const under = stacks.reverse().find((el) => {
-      const r = el.getBoundingClientRect();
-      return d.x >= r.left && d.x <= r.right && d.y >= r.top && d.y <= r.bottom;
-    });
-    if (!under) return;
-    if (under.hasAttribute("data-empty")) {
-      const r = under.getBoundingClientRect();
-      const rect = { left: r.left, top: r.top, width: r.width, height: r.height };
-      d.fill = { path: (under.dataset["path"] ?? "").split(".").filter(Boolean).map(Number), win: under.dataset["win"] || undefined, rect };
-      const s = compassSpots(rect)[0]!;
-      d.target = { view: "", rect, zone: hit([s], d.x, d.y) ?? undefined };
-      if (d.target.zone) d.preview = rect;
-      return;
-    }
-    if ((d.caps ?? this.caps(d.id)).docsOnly && !under.hasAttribute("data-docs")) return;
-    const first = under.querySelector<HTMLElement>(".tab")?.dataset["view"] ?? under.dataset["stack"]!;
-    const rect = under.getBoundingClientRect();
-    const zone = hit(compassSpots(rect), d.x, d.y);
-    d.target = { view: first, rect, zone };
-    if (zone) d.preview = previewFor(rect, zone);
-  }
-
-  private onDragEnd = (e: PointerEvent): void => {
-    const d = this._drag;
-    if (!d || e.pointerId !== d.pointerId) return;
-    this.endDragListeners();
-    this._drag = undefined;
-    if (d.mode === "pending") return;
-    const spot = this.spotOf(d);
-    // Reordering inside a strip changes the model during the drag; any other drop is judged against the layout at release,
-    // because the origin can already differ (pressing a tab selects it) and a vetoed drop must report moved: false.
-    const before = d.mode === "tab" ? d.origin : this._model;
-    const done = this.finishDrop(d);
-    const report = (): void => {
-      const detail: DropDetail = { ...spot, moved: this._model !== before || done === true };
-      this.emit("dockorama-drop", detail);
-    };
-    if (done instanceof Promise) void done.then(report);
-    else report();
-  };
-
-  /** Apply a drop. Returns true when it handed the view to another manager, a promise for pop-outs. */
-  private finishDrop(d: DragState): boolean | Promise<unknown> | void {
-    if (d.mode === "tab") {
-      this.timeline.push(this._model);
-      this.commit(this._model, "reorder", false);
-      return;
-    }
-    if (d.peer) {
-      if (d.peer.takeGuest(this, d.id)) return true;
-      this.requestUpdate();
-      return;
-    }
-    if (d.mode === "loose" && d.sx !== undefined && d.sy !== undefined) {
-      const into = this.outside.at(d.sx, d.sy);
-      if (into) return this.popOut(d.id, { into });
-      if (d.beyond) {
-        if (this.caps(d.id).popout !== false) return this.popOut(d.id, { box: { x: d.sx - 60, y: d.sy - 20 } });
-        this.requestUpdate();
-        return;
-      }
-    }
-    if (d.edge) return this.dockToEdge(d.id, d.edge);
-    if (d.gap) return this.dropBetween(d.id, d.gap.path, d.gap.after, d.gap.win);
-    if (d.fill && d.target?.zone) return this.dropIntoDocs(d.id, d.fill.path, d.fill.win);
-    if (d.target?.zone) return this.place(d.id, d.target.view, d.target.zone);
-    if (d.mode === "window" && d.windowKey && d.windowStart) {
-      const w = this._model.windows.find((x) => x.key === d.windowKey);
-      if (w) {
-        const fitted = this.fitBox(w.box);
-        this._model = ops.moveWindow(this._model, d.windowKey, d.windowStart);
-        this.commit(ops.moveWindow(this._model, d.windowKey, fitted), "window");
-      }
-      return;
-    }
-    // A view that may only live in a document area is not floated by dropping it on empty space.
-    if (this.caps(d.id).docsOnly) {
-      this.requestUpdate();
-      return;
-    }
-    const host = this.getBoundingClientRect();
-    this.detach(d.id, { x: d.x - host.left - 40, y: d.y - host.top - 12, w: 360, h: 240 });
-  };
-
-  private onDragCancel = (): void => this.cancelDrag();
-
-  private endDragListeners(): void {
-    window.removeEventListener("pointermove", this.onDragMove);
-    window.removeEventListener("pointerup", this.onDragEnd);
-    window.removeEventListener("pointercancel", this.onDragCancel);
-    window.removeEventListener("keydown", this.onDragKey, true);
   }
 
   private startGutter(e: PointerEvent, path: number[], index: number, axis: "row" | "column", win: string | undefined, gutter: HTMLElement): void {

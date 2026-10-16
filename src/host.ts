@@ -1,7 +1,10 @@
 import type { DockoramaLabels } from "./labels.js";
-import type { ChangeReason, DockoramaManager } from "./manager.js";
+import type { ChangeReason } from "./manager.js";
 import type { Box, Caps, DropZone, EdgeZone, DockoramaModel } from "./model.js";
 import type { Rect } from "./geometry.js";
+import type { DragEngine } from "./drag.js";
+import type { Timeline } from "./history.js";
+import type { OutsideWindows } from "./outside.js";
 
 export interface DragState {
   id: string;
@@ -28,7 +31,7 @@ export interface DragState {
   /** Capabilities of the dragged view (set when another manager is the drop target). */
   caps?: Caps;
   /** Another manager in the same drag group under the pointer. */
-  peer?: DockoramaManager;
+  peer?: DockHost;
   /** The pointer left the browser window (dropping pops the view out). */
   beyond?: boolean;
   sx?: number;
@@ -41,6 +44,7 @@ export interface DragState {
  */
 export interface DockHost extends HTMLElement {
   theme: string;
+  dragGroup: string | undefined;
   _model: DockoramaModel;
   store: import("./storage.js").LayoutStore;
   factories: Map<string, () => Element>;
@@ -50,9 +54,26 @@ export interface DockHost extends HTMLElement {
   readonly t: DockoramaLabels;
   caps(id: string): Caps;
   commit(next: DockoramaModel, reason: ChangeReason, record?: boolean): void;
-  hoverAt(id: string, x: number, y: number, caps?: Caps): void;
-  clearGuest(): void;
-  applyDrop(model: DockoramaModel, id: string, d: DragState): DockoramaModel | undefined;
+  drag: DragEngine;
+  shown: Set<string>;
+  _drag?: DragState;
+  _menu?: unknown;
+  _peek?: string;
+  timeline: Timeline<DockoramaModel>;
+  outside: OutsideWindows;
+  readonly renderRoot: HTMLElement | DocumentFragment;
+  hasView(id: string): boolean;
+  mount(id: string, el: Element): void;
+  emit(type: string, detail: unknown, cancelable?: boolean): boolean;
+  emitBefore(type: string, detail: unknown): boolean;
+  requestUpdate(): void;
+  mainRect(): Rect | undefined;
+  fitBox(b: Box): Box;
+  dockToEdge(id: string, edge: EdgeZone): void;
+  dropBetween(id: string, path: number[], after: number, win?: string): void;
+  dropIntoDocs(id: string, path: number[], win?: string): void;
+  place(id: string, target: string, zone: DropZone): void;
+  detach(id: string, box?: Partial<Box>): void;
   popIn(id: string): void;
   popOut(id: string, options?: { into?: string; box?: Partial<Box> }): boolean;
   getViewElement(id: string): Element | null;
