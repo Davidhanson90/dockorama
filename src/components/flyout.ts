@@ -14,13 +14,8 @@ export class DockoramaFlyout extends DockoramaPart {
   side: Side = "start";
   ctx!: DockContext;
 
-  override connectedCallback(): void {
-    super.connectedCallback();
-    this.addEventListener("keydown", this.onKey);
-  }
-  override disconnectedCallback(): void {
-    super.disconnectedCallback();
-    this.removeEventListener("keydown", this.onKey);
+  protected override get listeners() {
+    return { keydown: this.onKey };
   }
   private readonly onKey = (e: KeyboardEvent): void => {
     if (e.key === "Escape") this.request("peek-close");

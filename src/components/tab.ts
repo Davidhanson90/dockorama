@@ -35,23 +35,15 @@ export class DockoramaTab extends DockoramaPart {
   dirty = false;
   dirtyLabel = "Unsaved changes";
 
-  override connectedCallback(): void {
-    super.connectedCallback();
-    this.addEventListener("contextmenu", this.onContext);
-    this.addEventListener("keydown", this.onKeyDown);
-    this.addEventListener("click", this.onClick);
-    this.addEventListener("dblclick", this.onDouble);
-    this.addEventListener("pointerdown", this.onDown);
-    this.addEventListener("auxclick", this.onAux);
-  }
-  override disconnectedCallback(): void {
-    super.disconnectedCallback();
-    this.removeEventListener("contextmenu", this.onContext);
-    this.removeEventListener("keydown", this.onKeyDown);
-    this.removeEventListener("click", this.onClick);
-    this.removeEventListener("dblclick", this.onDouble);
-    this.removeEventListener("pointerdown", this.onDown);
-    this.removeEventListener("auxclick", this.onAux);
+  protected override get listeners() {
+    return {
+      contextmenu: this.onContext,
+      keydown: this.onKeyDown,
+      click: this.onClick,
+      dblclick: this.onDouble,
+      pointerdown: this.onDown,
+      auxclick: this.onAux
+    };
   }
   private readonly onContext = (e: MouseEvent): void => {
     e.preventDefault();

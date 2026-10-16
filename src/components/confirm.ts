@@ -18,13 +18,8 @@ export class DockoramaConfirm extends DockoramaPart {
   okLabel = "Close";
   cancelLabel = "Cancel";
 
-  override connectedCallback(): void {
-    super.connectedCallback();
-    this.addEventListener("keydown", this.onKey);
-  }
-  override disconnectedCallback(): void {
-    super.disconnectedCallback();
-    this.removeEventListener("keydown", this.onKey);
+  protected override get listeners() {
+    return { keydown: this.onKey };
   }
 
   /** Focus the safe choice (Cancel). */

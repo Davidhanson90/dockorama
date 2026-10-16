@@ -20,6 +20,21 @@ export abstract class DockoramaPart extends LitElement {
     return this;
   }
 
+  /** Listeners on the part's own element, attached while it is connected: event name to handler. */
+  protected get listeners(): Record<string, (e: never) => void> {
+    return {};
+  }
+
+  override connectedCallback(): void {
+    super.connectedCallback();
+    for (const [type, fn] of Object.entries(this.listeners)) this.addEventListener(type, fn as EventListener);
+  }
+
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    for (const [type, fn] of Object.entries(this.listeners)) this.removeEventListener(type, fn as EventListener);
+  }
+
   /** Resolves once this part and every part inside it have rendered. */
   protected override async getUpdateComplete(): Promise<boolean> {
     let done = await super.getUpdateComplete();

@@ -19,13 +19,8 @@ export class DockoramaStack extends DockoramaPart {
   win?: string;
   ctx!: DockContext;
 
-  override connectedCallback(): void {
-    super.connectedCallback();
-    this.addEventListener("pointerdown", this.onDown);
-  }
-  override disconnectedCallback(): void {
-    super.disconnectedCallback();
-    this.removeEventListener("pointerdown", this.onDown);
+  protected override get listeners() {
+    return { pointerdown: this.onDown };
   }
   private readonly onDown = (event: PointerEvent): void => this.request("activate", { id: this.group.current, event, source: this });
 

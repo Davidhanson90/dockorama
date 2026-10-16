@@ -21,13 +21,8 @@ export class DockoramaWindow extends DockoramaPart {
   layer = 0;
   ctx!: DockContext;
 
-  override connectedCallback(): void {
-    super.connectedCallback();
-    this.addEventListener("pointerdown", this.onDown);
-  }
-  override disconnectedCallback(): void {
-    super.disconnectedCallback();
-    this.removeEventListener("pointerdown", this.onDown);
+  protected override get listeners() {
+    return { pointerdown: this.onDown };
   }
   private readonly onDown = (): void => this.request("raise", { key: this.key });
 

@@ -28,13 +28,8 @@ export class DockoramaMenu extends DockoramaPart {
   y = 0;
   private _top = 0;
 
-  override connectedCallback(): void {
-    super.connectedCallback();
-    this.addEventListener("keydown", this.onKey);
-  }
-  override disconnectedCallback(): void {
-    super.disconnectedCallback();
-    this.removeEventListener("keydown", this.onKey);
+  protected override get listeners() {
+    return { keydown: this.onKey };
   }
 
   /** The leading radio items (the tab list) and the rest. */
