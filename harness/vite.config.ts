@@ -19,7 +19,8 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: fileURLToPath(new URL("./index.html", import.meta.url)),
-        trading: fileURLToPath(new URL("./trading.html", import.meta.url))
+        trading: fileURLToPath(new URL("./trading.html", import.meta.url)),
+        lab: fileURLToPath(new URL("./lab.html", import.meta.url))
       }
     }
   }

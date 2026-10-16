@@ -8,13 +8,12 @@ const stop = (e: Event): void => e.stopPropagation();
 export const templates: SkinTemplates = {
   tab: (c, k) => html`${c.info?.icon ? k.paint("tab-glyph", { icon: c.info.icon }) : nothing}${c.compact ? nothing : k.paint("tab-label", { title: c.title, selected: c.selected, preview: c.preview })}
     ${c.dirty ? k.paint("tab-dirty-dot", { label: c.dirtyLabel }) : nothing}
-    ${c.pinned ? k.paint("tab-pin-mark", { title: c.title }) : nothing}
-    ${c.closable && !c.pinned ? k.paint("tab-close-button", { title: c.title, label: c.closeLabel, close: c.close }) : nothing}`,
+    ${c.pinned ? k.paint("tab-pin-mark", { title: c.title }) : nothing}`,
   "tab-glyph": (c) => html`<span class="glyph">${c.icon}</span>`,
   "tab-label": (c) => html`<span class="label">${c.title}</span>`,
   "tab-dirty-dot": (c) => html`<span class="dirty" part="tab-dirty" role="img" aria-label=${c.label}></span>`,
   "tab-pin-mark": (_c, k) => html`<span class="pin" part="tab-pin" aria-hidden="true">${k.icons.pin}</span>`,
-  "tab-close-button": (c, k) => html`<button class="btn" part="tab-close" tabindex="-1" aria-label="${c.label} ${c.title}"
+  "tab-close-button": (c, k) => html`<button class="btn" part="tab-close" tabindex="-1" aria-hidden="true" aria-label="${c.label} ${c.title}"
     @pointerdown=${stop} @click=${(e: Event) => { stop(e); c.close(); }}>${k.icons.close}</button>`,
   tabstrip: (c) => html`${c.back}<div class="tabs" role="tablist" aria-label=${c.label}
     @wheel=${c.wheel} @scroll=${c.scrolled}>${c.tabs}</div>${c.forward}`,

@@ -14,8 +14,8 @@ export const phosphorCss = css`
   .stack[data-active] { border-color: var(--dk-accent); box-shadow: 0 0 12px rgb(57 255 136 / 0.25); }
   .title, .tab, .rail-item { text-shadow: 0 0 6px rgb(57 255 136 / 0.6); }
   .tab { border-radius: 0; }
-  .tab[aria-selected="true"] { background: var(--dk-surface); border-color: var(--dk-line); }
-  .stack[data-active] .tab[aria-selected="true"] { box-shadow: inset 0 -2px 0 var(--dk-accent); }
+  .tab[data-selected] { background: var(--dk-surface); border-color: var(--dk-line); }
+  .stack[data-active] .tab[data-selected] { box-shadow: inset 0 -2px 0 var(--dk-accent); }
   .phos { font: inherit; color: inherit; }
   .btn { border-radius: 0; color: var(--dk-ink-soft); }
   .btn:hover { background: var(--dk-accent); color: var(--dk-accent-ink); }

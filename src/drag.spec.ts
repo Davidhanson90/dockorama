@@ -184,6 +184,31 @@ describe("dragging", () => {
   });
 });
 
+describe("document-only views and floating", () => {
+  const make = () => mount(createModel({ ...views, d: { title: "D", caps: { docsOnly: true } } }, row([stack(["a"]), docs(["d", "e"]), stack(["b"])])));
+  it("detach() leaves a document-only view in its area, and other views still float", async () => {
+    const el = await make();
+    const before = el.model;
+    el.detach("d");
+    expect(el.model).toBe(before);
+    el.detach("e");
+    expect(el.model.windows).toHaveLength(1);
+  });
+  it("dropping a document-only tab on empty space does not float it", async () => {
+    const el = await make();
+    el.addEventListener("dockorama-drop", () => {});
+    pd(tab(el, "d"), 320, 10);
+    pm(330, 10);
+    pm(330, 200);
+    pm(5000, 5000);
+    await el.updateComplete;
+    pu(5000, 5000);
+    await el.updateComplete;
+    expect(el.model.windows).toHaveLength(0);
+    expect(locate(el.model, "d").place).toBe("tree");
+  });
+});
+
 describe("tab overflow", () => {
   function overflow(strip: HTMLElement, scrollWidth: number, clientWidth: number) {
     Object.defineProperty(strip, "scrollWidth", { configurable: true, value: scrollWidth });
@@ -225,14 +250,15 @@ describe("tab overflow", () => {
     const strip = sr(el).querySelector<HTMLElement>(".tabs")!;
     overflow(strip, 600, 200);
     const e = tab(el, "e");
-    Object.defineProperty(e, "offsetLeft", { configurable: true, value: 500 });
-    Object.defineProperty(e, "offsetWidth", { configurable: true, value: 90 });
+    rects.set(strip, { left: 0, top: 0, width: 200, height: 30 });
+    // The tab sits at x=500 inside a 600px-wide scrolled strip; its viewport position follows the scroll.
+    const at = (x: number) => () => ({ left: x - strip.scrollLeft, right: x + 90 - strip.scrollLeft, top: 0, bottom: 30, width: 90, height: 30 }) as DOMRect;
+    e.getBoundingClientRect = at(500);
     el.reveal("e");
     await el.updateComplete;
     expect(strip.scrollLeft).toBe(390);
     const a = tab(el, "a");
-    Object.defineProperty(a, "offsetLeft", { configurable: true, value: 0 });
-    Object.defineProperty(a, "offsetWidth", { configurable: true, value: 90 });
+    a.getBoundingClientRect = at(0);
     el.reveal("a");
     await el.updateComplete;
     expect(strip.scrollLeft).toBe(0);
@@ -329,6 +355,19 @@ describe("pointer resizing, focus navigation and menus", () => {
     expect(sr(el).querySelector(".menu")).toBeNull();
   });
 
+  it("a second click on a rail item closes a flyout that a click opened, even straight away", async () => {
+    const el = await mount(createModel(views, row([stack(["a"]), stack(["b"])])));
+    el.stow("a");
+    await el.updateComplete;
+    const item = sr(el).querySelector<HTMLElement>(".rail-item")!;
+    item.click();
+    await el.updateComplete;
+    expect(sr(el).querySelector(".drawer")).not.toBeNull();
+    item.click();
+    await el.updateComplete;
+    expect(sr(el).querySelector(".drawer")).toBeNull();
+  });
+
   it("peeks drawers on hover and toggles them by click", async () => {
     const el = await mount(createModel(views, row([stack(["a"]), stack(["b"])])));
     el.stow("a");
@@ -377,6 +416,18 @@ describe("drag and resize events", () => {
     expect(log[0]).toBe("start c tab");
     expect(log.filter((l) => l === "over between")).toHaveLength(1);
     expect(log.at(-1)).toBe("drop between true");
+  });
+
+  it("reports moved: false when a beforemove listener vetoes the drop", async () => {
+    const el = await mount(createModel(views, row([stack(["a"]), stack(["b", "c"]), stack(["d"])])));
+    el.addEventListener("dockorama-beforemove", (e) => e.preventDefault());
+    const drops: boolean[] = [];
+    el.addEventListener("dockorama-drop", (e) => drops.push(e.detail.moved));
+    const placement = (): string[][] => (el.model.root as unknown as { children: Array<{ views: string[] }> }).children.map((c) => c.views);
+    const before = placement();
+    await dragTab(el, "b", [597, 300]);
+    expect(placement()).toEqual(before);
+    expect(drops).toEqual([false]);
   });
 
   it("cancels a drag when dragstart is prevented", async () => {

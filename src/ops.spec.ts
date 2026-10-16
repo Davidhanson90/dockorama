@@ -256,3 +256,20 @@ describe("enlist", () => {
     expect(o.locate(o.enlist(plain, "x", { title: "X" }), "x").place).toBe("tree");
   });
 });
+
+describe("dismiss hands focus on", () => {
+  const two = () => o.select(o.createModel({ a: { title: "A" }, b: { title: "B" }, c: { title: "C" } }, o.row([o.stack(["a", "b"]), o.stack(["c"])])), "b");
+  it("moves focus to the group's new current tab", () => {
+    const m = o.dismiss(two(), "b");
+    expect(m.focus).toBe("a");
+  });
+  it("moves focus to another group when the group empties, and keeps focus elsewhere untouched", () => {
+    const m = o.dismiss(o.select(two(), "c"), "c");
+    expect(m.focus).toBe("b");
+    expect(o.dismiss(two(), "c").focus).toBe("b");
+  });
+  it("leaves focus empty when nothing is left", () => {
+    const solo = o.select(o.createModel({ a: { title: "A" } }, o.row([o.stack(["a"])])), "a");
+    expect(o.dismiss(solo, "a").focus).toBeUndefined();
+  });
+});

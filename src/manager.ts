@@ -268,12 +268,26 @@ export class DockoramaManager extends LitElement {
     window.addEventListener("pagehide", this.onUnload);
     managers.add(this);
     this.unwatchSkins = watchSkins(() => this.applySkin());
+    // Direction comes from CSS (usually a `dir` attribute on this element or an ancestor): re-render when it changes.
+    this.lastDir = getComputedStyle(this).direction;
+    this.dirObserver = new MutationObserver(() => {
+      const now = getComputedStyle(this).direction;
+      if (now !== this.lastDir) {
+        this.lastDir = now;
+        this.requestUpdate();
+      }
+    });
+    this.dirObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["dir", "lang"], subtree: true });
     this.reconcileOutside(true);
   }
+
+  private dirObserver?: MutationObserver;
+  private lastDir = "ltr";
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     this.observer?.disconnect();
+    this.dirObserver?.disconnect();
     this.removeEventListener("keydown", this.onKey);
     this.removeEventListener("input", this.onInput);
     this.renderRoot.removeEventListener("dockorama-request", this.onRequest);
@@ -317,7 +331,7 @@ export class DockoramaManager extends LitElement {
   }
   /** Float a view in its own window. */
   detach(id: string, box?: Box): void {
-    if (this.caps(id).float === false) return;
+    if (this.caps(id).float === false || this.caps(id).docsOnly) return;
     const b = box ?? this.defaultBox();
     this.commit(ops.detach(this._model, id, this.fitBox(b)), "detach");
   }
@@ -352,8 +366,18 @@ export class DockoramaManager extends LitElement {
     if (this._peek === id) this._peek = undefined;
     if (this.dirtySet.has(id)) this.setDirty(id, false);
     const before = this._model;
+    const hadFocus = before.focus === id;
     this.commit(ops.dismiss(this._model, id), "dismiss");
     if (before !== this._model) this.emit("dockorama-close", { id });
+    // The focused view closed: keep model focus and DOM focus together on the view that took its place.
+    const next = this._model.focus;
+    if (hadFocus && next && next !== id) {
+      void this.updateComplete.then(() => {
+        const root = this.renderRoot;
+        const el = root.querySelector<HTMLElement>(`[id=${attr(`tab-${next}`)}]`) ?? root.querySelector<HTMLElement>(`[data-stack="${next}"]`);
+        el?.focus({ preventScroll: true });
+      });
+    }
   }
 
   /** Ask `confirmClose`, or show the built-in dialog, before a dirty view closes. */
@@ -961,7 +985,14 @@ export class DockoramaManager extends LitElement {
     try {
       const raw = localStorage.getItem(this.storageKey);
       if (!raw || raw === this.unusable) return undefined;
-      const parsed: unknown = JSON.parse(raw);
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(raw);
+      } catch (err) {
+        this.unusable = raw;
+        this.issue("storage", [`stored layout is not valid JSON: ${(err as Error).message}`], true);
+        return undefined;
+      }
       const ok = ops.isModel(parsed) ? this.prepare({ ...parsed, views: fallback.views }, "storage") : this.prepare(parsed, "storage");
       // Views come from the app (titles may have changed); placement comes from storage.
       if (!ok) this.unusable = raw;
@@ -1018,6 +1049,7 @@ export class DockoramaManager extends LitElement {
   }
 
   protected override updated(changed: PropertyValues): void {
+    this.toggleAttribute("data-moving", Boolean(this._keyMove));
     super.updated(changed);
     if (changed.has("skin") || changed.has("skinPatch") || !this.skinStyle && !this.skinSheet) this.applySkin();
     if (changed.has("storageKey") && this.storageKey && !this.restoredFromStorage) {
@@ -1039,7 +1071,7 @@ export class DockoramaManager extends LitElement {
       this.keepFocus = false;
       if (!this.hasFocus() && !this._palette && !this._menu) {
         const active = this.renderRoot.querySelector<HTMLElement>("[data-stack][data-active]");
-        (active?.querySelector<HTMLElement>('.tab[aria-selected="true"]') ?? active)?.focus({ preventScroll: true });
+        (active?.querySelector<HTMLElement>('.tab[data-selected]') ?? active)?.focus({ preventScroll: true });
       }
     }
     const now = new Set<string>();
@@ -1338,7 +1370,7 @@ export class DockoramaManager extends LitElement {
       case "popin": return this.popIn(id);
       case "menu": return this.openMenu(id);
       case "menu-close": this._menu = undefined; return;
-      case "peek": return r["toggle"] ? this.togglePeek(id) : this.openPeek(id);
+      case "peek": return r["toggle"] ? this.togglePeek(id) : this.openPeek(id, true);
       case "peek-close": this._peek = undefined; return;
       case "raise": return this.raise(r["key"] as string);
       case "grip": return this.startGrip(r["event"] as PointerEvent, r["key"] as string);
@@ -1382,12 +1414,15 @@ export class DockoramaManager extends LitElement {
   };
 
   private peekAt = 0;
-  private openPeek(id: string): void {
+  private peekByHover = false;
+  private openPeek(id: string, byHover = false): void {
     this._peek = id;
     this.peekAt = Date.now();
+    this.peekByHover = byHover;
   }
+  /** A click on a rail item toggles its flyout. Only a click right after a hover opened it keeps it open (the pointer was already on the item). */
   private togglePeek(id: string): void {
-    if (this._peek === id && Date.now() - this.peekAt > 400) this._peek = undefined;
+    if (this._peek === id && !(this.peekByHover && Date.now() - this.peekAt < 400)) this._peek = undefined;
     else this.openPeek(id);
   }
 
@@ -1604,9 +1639,12 @@ export class DockoramaManager extends LitElement {
     this._drag = undefined;
     if (d.mode === "pending") return;
     const spot = this.spotOf(d);
+    // Reordering inside a strip changes the model during the drag; any other drop is judged against the layout at release,
+    // because the origin can already differ (pressing a tab selects it) and a vetoed drop must report moved: false.
+    const before = d.mode === "tab" ? d.origin : this._model;
     const done = this.finishDrop(d);
     const report = (): void => {
-      const detail: DropDetail = { ...spot, moved: this._model !== d.origin || done === true };
+      const detail: DropDetail = { ...spot, moved: this._model !== before || done === true };
       this.emit("dockorama-drop", detail);
     };
     if (done instanceof Promise) void done.then(report);
@@ -1645,6 +1683,11 @@ export class DockoramaManager extends LitElement {
         this._model = ops.moveWindow(this._model, d.windowKey, d.windowStart);
         this.commit(ops.moveWindow(this._model, d.windowKey, fitted), "window");
       }
+      return;
+    }
+    // A view that may only live in a document area is not floated by dropping it on empty space.
+    if (this.caps(d.id).docsOnly) {
+      this.requestUpdate();
       return;
     }
     const host = this.getBoundingClientRect();
@@ -2015,7 +2058,7 @@ export class DockoramaManager extends LitElement {
       if (!best || d < best.d) best = { el, d };
     }
     if (best) {
-      const tab = best.el.querySelector<HTMLElement>('.tab[aria-selected="true"]');
+      const tab = best.el.querySelector<HTMLElement>('.tab[data-selected]');
       const id = tab?.dataset["view"] ?? best.el.dataset["stack"];
       if (id) this.activate(id);
       (tab ?? best.el.querySelector<HTMLElement>(".btn"))?.focus();

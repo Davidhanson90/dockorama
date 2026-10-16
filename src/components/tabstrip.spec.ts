@@ -30,7 +30,7 @@ describe("<dockorama-tabstrip>", () => {
     const el = await put<Strip>("dockorama-tabstrip", { views: ["a", "b"], current: "b", ctx: ctx() });
     const list = el.querySelector('[role="tablist"]')!;
     expect(list.getAttribute("aria-label")).toBe("Beta");
-    expect(Array.from(list.querySelectorAll("dockorama-tab")).map((t) => t.getAttribute("aria-selected"))).toEqual(["false", "true"]);
+    expect(Array.from(list.querySelectorAll("dockorama-tab")).map((t) => t.querySelector(".tab-main")!.getAttribute("aria-selected"))).toEqual(["false", "true"]);
     expect(el.querySelectorAll(".scroll").length).toBe(2);
   });
   it("flags overflow, scrolls by buttons and wheel, and mirrors in RTL", async () => {

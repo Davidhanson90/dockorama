@@ -143,3 +143,23 @@ describe("svelte action", () => {
     dockorama(el).destroy();
   });
 });
+
+describe("vue: model held in a ref", () => {
+  it("does not loop when update:model stores the emitted model in a ref", async () => {
+    const host = document.body.appendChild(document.createElement("div"));
+    const state = ref(model());
+    let updates = 0;
+    createApp({
+      setup: () => () => h(VueLayout, {
+        model: state.value,
+        "onUpdate:model": (m: ReturnType<typeof model>) => { updates++; state.value = m; }
+      }, () => [h("div", { "data-view": "a" }, "A"), h("div", { "data-view": "b" }, "B")])
+    }).mount(host);
+    await nextTick();
+    const el = host.querySelector("dockorama-manager")!;
+    el.place("a", "b", "into");
+    for (let i = 0; i < 5; i++) await nextTick();
+    expect(updates).toBeGreaterThan(0);
+    expect(updates).toBeLessThan(5);
+  });
+});

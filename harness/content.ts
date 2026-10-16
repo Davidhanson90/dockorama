@@ -195,7 +195,7 @@ add({
   slug: "guide/drawers", title: "Auto-hide drawers", section: "Guides",
   body: `<h1>Auto-hide drawers</h1>
   <p class="lead">Stow a view to an edge with the drawer button (or <span class="kbd">Alt</span>+<span class="kbd">H</span>). It becomes a label on the edge rail and slides out when you hover or click it.</p>
-  <ul><li>The side is chosen from the view's position, or pass one to <code>stow(id, side)</code>. Sides are logical: <code>start</code>/<code>end</code> flip in RTL.</li>
+  <ul><li>Click a rail label to open its flyout and click it again to close it (hovering also peeks). The side is chosen from the view's position, or pass one to <code>stow(id, side)</code>. Sides are logical: <code>start</code>/<code>end</code> flip in RTL.</li>
   <li>The flyout closes on <span class="kbd">Esc</span> or when you click elsewhere. The pin button keeps it open in the layout again.</li>
   <li>Views in floating windows and document areas cannot be stowed.</li></ul>
   ${ex("drawers")}`,
@@ -261,6 +261,8 @@ add({
   <tr><td><span class="kbd">Alt</span> + arrows</td><td>Focus the neighbouring group in that direction</td></tr>
   <tr><td><span class="kbd">Alt</span> + <span class="kbd">Shift</span> + arrows</td><td>Split the focused view off to that side</td></tr>
   <tr><td><span class="kbd">Alt</span> + <span class="kbd">PgUp</span>/<span class="kbd">PgDn</span></td><td>Previous / next tab in the group</td></tr>
+  <tr><td><span class="kbd">←</span> <span class="kbd">→</span> <span class="kbd">Home</span> <span class="kbd">End</span> (on a tab)</td><td>Move to and select another tab of the group (mirrored in RTL)</td></tr>
+  <tr><td><span class="kbd">Delete</span> (on a tab)</td><td>Close the tab</td></tr>
   <tr><td><span class="kbd">Alt</span> + <span class="kbd">Z</span></td><td>Zoom / restore</td></tr>
   <tr><td><span class="kbd">Alt</span> + <span class="kbd">H</span></td><td>Stow to an edge drawer</td></tr>
   <tr><td><span class="kbd">Alt</span> + <span class="kbd">F</span></td><td>Float in a window</td></tr>
@@ -280,8 +282,8 @@ button("Focus main.ts", () => { dock.activate("main"); dock.shadowRoot.querySele
 add({
   slug: "guide/a11y", title: "Accessibility & RTL", section: "Guides",
   body: `<h1>Accessibility &amp; RTL</h1>
-  <p class="lead">Groups are labelled regions, tab strips are ARIA tablists, gutters are separators with values, windows are dialogs, and changes are announced through a polite live region.</p>
-  <p>Right-to-left: put <code>dir="rtl"</code> on the element or a parent. Rows mirror, <code>start</code>/<code>end</code> drawers swap sides, and keyboard resizing follows the visual direction.</p>
+  <p class="lead">Groups are labelled regions, tab strips are ARIA tablists, gutters are separators with values, windows are dialogs, and changes are announced through a polite live region. Each tab is one <code>role="tab"</code> named by its title; the close button sits beside it (not inside), is hidden from assistive technology, and is replaced for keyboard users by <kbd>Delete</kbd> and the tab menu. Arrow keys, <kbd>Home</kbd> and <kbd>End</kbd> move between tabs. When the focused view closes, focus moves to the tab that takes its place.</p>
+  <p>Right-to-left: put <code>dir="rtl"</code> on the element or a parent. Rows mirror, <code>start</code>/<code>end</code> drawers swap sides, and keyboard resizing follows the visual direction. Changing <code>dir</code> after the layout is mounted re-renders it.</p>
   ${ex("rtl")}`,
   examples: [{ id: "rtl", code: `${SETUP}
 dock.dir = "rtl";
@@ -309,7 +311,7 @@ add({
   <table><tr><th>Group</th><th>Event</th><th>Detail</th><th>Cancellable</th><th>When</th></tr>
   <tr><td>Layout</td><td><code>dockorama-change</code></td><td><code>{ model, reason }</code></td><td></td><td>After every layout change (also fires alongside every state event below)</td></tr>
   <tr><td>Layout</td><td><code>dockorama-focus</code></td><td><code>{ id, previous? }</code></td><td></td><td>The active view changed</td></tr>
-  <tr><td>Layout</td><td><code>dockorama-layoutissue</code></td><td><code>{ source, problems, fatal }</code></td><td></td><td>An assigned, restored or stored layout had problems; <code>fatal</code>: it was not used</td></tr>
+  <tr><td>Layout</td><td><code>dockorama-layoutissue</code></td><td><code>{ source, problems, fatal }</code></td><td></td><td>An assigned, restored or stored layout had problems; <code>fatal</code>: it was not used (including stored text that is not valid JSON)</td></tr>
   <tr><td>Views</td><td><code>dockorama-beforeadd</code></td><td><code>{ id, title, at? }</code></td><td>✔</td><td>Before <code>addView</code> registers a view</td></tr>
   <tr><td>Views</td><td><code>dockorama-viewshow</code></td><td><code>{ id, first }</code></td><td></td><td>A view's content became visible (<code>first</code>: never shown before — lazy loading)</td></tr>
   <tr><td>Views</td><td><code>dockorama-viewhide</code></td><td><code>{ id }</code></td><td></td><td>A visible view's content was hidden (other tab, closed, stowed, zoomed away)</td></tr>
@@ -330,7 +332,7 @@ add({
   <tr><td>Drag</td><td><code>dockorama-dragstart</code></td><td><code>{ id, kind }</code></td><td>✔</td><td>A drag passed the move threshold; <code>kind</code>: <code>"tab" | "loose" | "window"</code>. Cancel to abort the drag</td></tr>
   <tr><td>Drag</td><td><code>dockorama-dragover</code></td><td><code>{ id, spot, target? }</code></td><td></td><td>The drop spot changed (fires once per change, not per pointer move)</td></tr>
   <tr><td>Drag</td><td><code>dockorama-beforemove</code></td><td><code>{ id, target?, zone }</code></td><td>✔</td><td>Before a dock/move is applied</td></tr>
-  <tr><td>Drag</td><td><code>dockorama-drop</code></td><td><code>{ id, spot, target?, moved }</code></td><td></td><td>The drag ended; <code>moved</code> is false if nothing changed or a move was vetoed</td></tr>
+  <tr><td>Drag</td><td><code>dockorama-drop</code></td><td><code>{ id, spot, target?, moved }</code></td><td></td><td>The drag ended; <code>moved</code> is false if nothing changed or a <code>dockorama-beforemove</code> listener vetoed the move</td></tr>
   <tr><td>Drag</td><td><code>dockorama-dragcancel</code></td><td><code>{ id }</code></td><td></td><td>A drag was cancelled (Esc or pointer cancel); layout restored</td></tr>
   <tr><td>Drag</td><td><code>dockorama-transfer</code></td><td><code>{ id, from, to, direction }</code></td><td></td><td>A view moved between two managers; fired on both</td></tr>
   <tr><td>Resize</td><td><code>dockorama-resizing</code></td><td><code>ResizeDetail</code></td><td></td><td>Live, at most once per animation frame while a splitter or window grip is dragged</td></tr>
@@ -828,7 +830,7 @@ add({
   <tr><td><code>float</code></td><td>Cannot float in a window</td></tr>
   <tr><td><code>move</code></td><td>Cannot be dragged or re-docked</td></tr>
   <tr><td><code>zoom</code> / <code>popout</code></td><td>No zoom / pop-out</td></tr>
-  <tr><td><code>docsOnly: true</code></td><td>May only live in a document area</td></tr>
+  <tr><td><code>docsOnly: true</code></td><td>May only live in a document area: it cannot be dropped on tool groups or outer edges, and it is not floated by dropping it on empty space or by <code>detach()</code></td></tr>
   <tr><td><code>inert: true</code></td><td>Content is shown but not interactive</td></tr></table>
   ${ex("caps")}`,
   examples: [{ id: "caps", code: `${SETUP}
@@ -1242,12 +1244,12 @@ export const sunset = defineSkin("sunset", { templates, css: css\`:host { --dk-a
   ${ex("skins-custom")}
   <h2>Template keys</h2>
   <table><tr><th>Key</th><th>Context</th><th>Part</th></tr>
-  <tr><td><code>tab</code></td><td><code>view, title, info?, selected, pinned, preview, dirty, closable, compact, closeLabel, dirtyLabel, close()</code></td><td>Inside each tab; composes the five tab-* keys</td></tr>
+  <tr><td><code>tab</code></td><td><code>view, title, info?, selected, pinned, preview, dirty, closable, compact, closeLabel, dirtyLabel, close()</code></td><td>The content of the <code>role="tab"</code> element: composes <code>tab-glyph</code>, <code>tab-label</code>, <code>tab-dirty-dot</code> and <code>tab-pin-mark</code>. It does not include the close button</td></tr>
   <tr><td><code>tab-glyph</code></td><td><code>icon</code></td><td>The tab's icon</td></tr>
   <tr><td><code>tab-label</code></td><td><code>title, selected, preview</code></td><td>The tab's title</td></tr>
   <tr><td><code>tab-dirty-dot</code></td><td><code>label</code></td><td>Unsaved-changes mark</td></tr>
   <tr><td><code>tab-pin-mark</code></td><td><code>title</code></td><td>Pinned-tab mark</td></tr>
-  <tr><td><code>tab-close-button</code></td><td><code>title, label, close()</code></td><td>A tab's close button</td></tr>
+  <tr><td><code>tab-close-button</code></td><td><code>title, label, close()</code></td><td>A tab's close button. <code>&lt;dockorama-tab&gt;</code> renders it after the tab element, as its sibling, so no control is nested inside <code>role="tab"</code>. Give it <code>tabindex="-1"</code> and <code>aria-hidden="true"</code>: keyboard users close tabs with <kbd>Delete</kbd> or the tab menu</td></tr>
   <tr><td><code>tabstrip</code></td><td><code>tabs, label, back, forward, wheel(e), scrolled()</code></td><td>The tab list; keep <code>class="tabs"</code> around <code>tabs</code></td></tr>
   <tr><td><code>tab-scroll-button</code></td><td><code>dir, scroll()</code></td><td>Overflow scroll buttons</td></tr>
   <tr><td><code>group</code></td><td><code>bar, body, docs</code></td><td>A pane / document group</td></tr>
@@ -1320,7 +1322,7 @@ button("Patch this dock", () => {
   dock.skinPatch = {
     templates: {
       splitter: (c) => html\`<span class="handle">\${c.axis === "row" ? "⋮" : "⋯"}</span>\`,
-      "tab-close-button": (c) => html\`<button class="btn" aria-label=\${c.label + " " + c.title}
+      "tab-close-button": (c) => html\`<button class="btn" tabindex="-1" aria-hidden="true" aria-label=\${c.label + " " + c.title}
         @pointerdown=\${(e) => e.stopPropagation()} @click=\${(e) => { e.stopPropagation(); c.close(); }}>✖</button>\`
     },
     css: ".handle { position: absolute; inset: 0; display: grid; place-items: center; color: var(--dk-accent); font-weight: 700; }"
@@ -1412,7 +1414,7 @@ add({
   <p>A <code>role="tablist"</code> of <code>&lt;dockorama-tab&gt;</code>s that scrolls when the tabs don't fit: wheel, or the arrow buttons. Keeps the selected tab in view. Methods: <code>scrollTabs(dir)</code>, <code>markOverflow()</code>.</p>
   <table><tr><th>Properties</th><td><code>views</code>, <code>current</code>, <code>docs</code>, <code>win</code>, <code>ctx</code></td></tr><tr><th>Requests</th><td>—</td></tr><tr><th>CSS parts</th><td><code>tab-scroll</code></td></tr><tr><th>State attributes</th><td><code>data-overflow</code>, <code>data-can-back</code>, <code>data-can-fwd</code></td></tr></table>
   <h3 id="dockorama-tab">&lt;dockorama-tab&gt; <small><code>DockoramaTab</code></small></h3>
-  <p>One <code>role="tab"</code>. Click to select, drag to move or reorder, middle-click or the close button to close.</p>
+  <p>One tab. The element is a presentational wrapper holding a <code>.tab-main</code> element with <code>role="tab"</code> (glyph, label and marks) and, as its sibling, the close button. Click to select, drag to move or reorder, middle-click, <kbd>Delete</kbd> or the close button to close. <kbd>←</kbd>/<kbd>→</kbd> (mirrored in RTL), <kbd>Home</kbd> and <kbd>End</kbd> move to another tab of the strip and select it. State attributes on the wrapper: <code>data-selected</code>, <code>data-pinned</code>, <code>data-preview</code>, <code>data-dirty</code>, <code>data-closable</code>.</p>
   <table><tr><th>Properties</th><td><code>view</code>, <code>info</code>, <code>selected</code>, <code>closable</code>, <code>closeLabel</code>, <code>win</code>, <code>pinned</code>, <code>preview</code>, <code>dirty</code>, <code>dirtyLabel</code></td></tr><tr><th>Requests</th><td><code>reveal</code>, <code>grab</code>, <code>dismiss</code>, <code>tab-menu</code>, <code>promote</code></td></tr><tr><th>CSS parts</th><td><code>tab</code>, <code>tab-current</code>, <code>tab-close</code>, <code>tab-pin</code>, <code>tab-dirty</code></td></tr><tr><th>State attributes</th><td><code>data-view</code>, <code>aria-selected</code>, <code>data-pinned</code>, <code>data-preview</code>, <code>data-dirty</code></td></tr></table>
   <h3 id="dockorama-toolbar">&lt;dockorama-toolbar&gt; <small><code>DockoramaToolbar</code></small></h3>
   <p>The action buttons in a group header: auto-hide, zoom, more actions and close. Buttons follow the view's <code>caps</code>.</p>

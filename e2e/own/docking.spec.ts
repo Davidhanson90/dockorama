@@ -131,7 +131,7 @@ test("keyboard: palette, tab cycling, nudge, undo", async ({ page }) => {
 
 test("tab reorder by dragging along the strip", async ({ page }) => {
   await open(page, "guide/tabs");
-  const tabs = dock(page).locator('[part~="docs"] [role="tab"]');
+  const tabs = dock(page).locator('[part~="docs"] dockorama-tab');
   const first = (await tabs.nth(0).boundingBox())!;
   const third = (await tabs.nth(2).boundingBox())!;
   await drag(page, { x: first.x + 10, y: first.y + first.height / 2 }, { x: third.x + third.width - 4, y: third.y + third.height / 2 });

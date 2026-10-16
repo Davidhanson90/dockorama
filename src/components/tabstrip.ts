@@ -78,10 +78,11 @@ export class DockoramaTabstrip extends DockoramaPart {
     // Tabs reflect their own attributes later, so find the selected one by property.
     const sel = Array.from(strip?.children ?? []).find((t) => (t as HTMLElement & { view?: string }).view === this.current) as HTMLElement | undefined;
     if (strip && sel && strip.scrollWidth > strip.clientWidth && !this.ctx.dragging) {
-      const a = sel.offsetLeft;
-      const b = a + sel.offsetWidth;
-      if (a < strip.scrollLeft) strip.scrollLeft = a;
-      else if (b > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = b - strip.clientWidth;
+      // Measure against the strip itself: a tab's offsetParent is not always the strip (skins may position other ancestors).
+      const box = strip.getBoundingClientRect();
+      const tab = sel.getBoundingClientRect();
+      if (tab.left < box.left) strip.scrollLeft -= box.left - tab.left;
+      else if (tab.right > box.right) strip.scrollLeft += tab.right - box.right;
     }
     this.markOverflow();
     this.stickPins();

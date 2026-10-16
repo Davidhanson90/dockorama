@@ -95,7 +95,7 @@ through `dockorama-layoutissue` `{ source: "set" | "restore" | "storage", proble
 
 ## Keyboard (dockorama's own scheme)
 `Ctrl+.` palette · `Alt+ArrowKeys` focus neighbouring view · `Alt+Shift+ArrowKeys` move focused view
-to that side of its group · `Alt+PageUp/PageDown` cycle tabs · `Alt+Z` zoom · `Alt+H` stow ·
+to that side of its group · `Alt+PageUp/PageDown` cycle tabs · on a tab: `ArrowLeft/ArrowRight` (mirrored in RTL), `Home`, `End` move to and select another tab, `Delete` closes it · `Alt+Z` zoom · `Alt+H` stow ·
 `Alt+F` float · `Alt+Backspace` dismiss · `Ctrl+Alt+Z/Y` undo/redo · `Shift+F10` / menu key: tab menu · `Alt+M` keyboard docking. Splitters: arrow keys, Home/End.
 
 ## Extras

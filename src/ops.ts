@@ -337,10 +337,21 @@ export function unstow(model: DockoramaModel, id: string): DockoramaModel {
 
 /** Close a view, keeping it registered (it can be revealed again). */
 export function dismiss(model: DockoramaModel, id: string): DockoramaModel {
+  const where = locate(model, id);
+  const siblings = where.place === "tree" ? where.stack.views.filter((v) => v !== id) : [];
   const m = unplace(model, id);
   if (!m.parked.includes(id)) m.parked.push(id);
-  if (m.focus === id) delete m.focus;
-  return normalize(m);
+  const wasFocused = m.focus === id;
+  if (wasFocused) delete m.focus;
+  const out = normalize(m);
+  if (wasFocused) {
+    // Hand focus to what the user now sees: the group's new current tab, else the first group left on screen.
+    const trees = [out.root, ...out.windows.map((w) => w.tree)];
+    const groups = trees.flatMap((t) => stacksOf(t)).map((x) => x.stack);
+    const next = groups.find((g) => g.views.some((v) => siblings.includes(v))) ?? groups.find((g) => g.views.length);
+    if (next?.current) out.focus = next.current;
+  }
+  return out;
 }
 
 /** Close and forget a view entirely. */

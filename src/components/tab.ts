@@ -1,10 +1,12 @@
-import { html, type PropertyValues, type TemplateResult } from "lit";
+import { html, nothing, type PropertyValues, type TemplateResult } from "lit";
 import type { ViewInfo } from "../model.js";
 import { DockoramaPart } from "./part.js";
 
 /**
- * `<dockorama-tab>`: one tab (`role="tab"`). Click reveals, pointer-drag moves, middle-click or the
- * close button (when `closable`) closes.
+ * `<dockorama-tab>`: one tab. The element is a presentational wrapper; inside it a `.tab-main` element carries
+ * `role="tab"` (and holds the glyph, label and marks), followed by the close button as its sibling, so no control is
+ * nested inside the tab. Click reveals, pointer-drag moves, middle-click, Delete or the close button (when `closable`) closes.
+ * Left/Right (mirrored in RTL), Home and End move to another tab of the strip and select it.
  */
 export class DockoramaTab extends DockoramaPart {
   static override properties = {
@@ -55,13 +57,45 @@ export class DockoramaTab extends DockoramaPart {
     e.preventDefault();
     this.request("tab-menu", { id: this.view, x: e.clientX, y: e.clientY });
   };
-  /** Shift+F10 or the menu key open the tab menu from the keyboard. */
+  /** Moves keyboard focus to the tab element (the wrapper itself is not focusable). */
+  override focus(options?: FocusOptions): void {
+    const main = this.querySelector<HTMLElement>(".tab-main");
+    if (main) main.focus(options);
+    else super.focus(options);
+  }
+
+  /**
+   * Shift+F10 or the menu key open the tab menu. Left/Right (mirrored in RTL), Home and End move to another tab of the
+   * strip and select it; Delete closes it (when it can be closed).
+   */
   private readonly onKeyDown = (e: KeyboardEvent): void => {
-    if (!(e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey))) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const r = this.getBoundingClientRect();
-    this.request("tab-menu", { id: this.view, x: r.left, y: r.bottom, keyboard: true });
+    if (e.target !== this && e.target !== this.querySelector(".tab-main")) return;
+    if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
+      e.preventDefault();
+      e.stopPropagation();
+      const r = this.getBoundingClientRect();
+      this.request("tab-menu", { id: this.view, x: r.left, y: r.bottom, keyboard: true });
+      return;
+    }
+    if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    // While the manager is in keyboard move mode (Alt+M) it owns the arrow, Enter and Space keys.
+    if ((this.getRootNode() as ShadowRoot).host?.hasAttribute("data-moving")) return;
+    const rtl = getComputedStyle(this).direction === "rtl";
+    const step = e.key === "ArrowRight" ? (rtl ? -1 : 1) : e.key === "ArrowLeft" ? (rtl ? 1 : -1) : 0;
+    if (step || e.key === "Home" || e.key === "End") {
+      const tabs = Array.from(this.closest(".tabs")?.querySelectorAll<HTMLElement & { view: string }>("dockorama-tab") ?? []);
+      const at = tabs.indexOf(this as unknown as HTMLElement & { view: string });
+      const next = e.key === "Home" ? tabs[0] : e.key === "End" ? tabs.at(-1) : tabs[(at + step + tabs.length) % tabs.length];
+      if (!next || next === (this as unknown)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      next.focus();
+      this.request("reveal", { id: next.view });
+    } else if (e.key === "Delete" && this.closable && !this.pinned) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.request("dismiss", { id: this.view });
+    }
   };
   private readonly onDouble = (e: MouseEvent): void => {
     if (!this.preview) return;
@@ -78,25 +112,24 @@ export class DockoramaTab extends DockoramaPart {
     super.willUpdate(changed);
     this.classList.add("tab");
     this.mark("part", this.selected ? "tab tab-current" : "tab");
-    this.mark("role", "tab");
-    this.id = `tab-${this.view}`;
+    this.mark("role", "presentation");
     this.mark("data-view", this.view);
-    this.mark("aria-selected", this.selected ? "true" : "false");
-    this.mark("tabindex", this.selected ? "0" : "-1");
+    this.mark("data-selected", this.selected);
+    this.mark("data-closable", this.closable && !this.pinned);
     this.mark("data-pinned", this.pinned);
     this.mark("data-preview", this.preview);
     this.mark("data-dirty", this.dirty);
-    this.mark("aria-haspopup", "menu");
   }
 
   override render(): TemplateResult {
     const title = this.info?.title ?? this.view;
     const compact = this.pinned && Boolean(this.info?.icon);
     if (this.pinned) this.title = title;
-    return html`${this.paint("tab", {
+    const close = (): void => this.request("dismiss", { id: this.view });
+    return html`<span class="tab-main" part="tab-main" role="tab" id="tab-${this.view}" aria-selected=${this.selected ? "true" : "false"}
+      tabindex=${this.selected ? "0" : "-1"} aria-haspopup="menu">${this.paint("tab", {
       view: this.view, title, ...(this.info ? { info: this.info } : {}), selected: this.selected, pinned: this.pinned, preview: this.preview,
-      dirty: this.dirty, closable: this.closable, compact, closeLabel: this.closeLabel, dirtyLabel: this.dirtyLabel,
-      close: () => this.request("dismiss", { id: this.view })
-    })}`;
+      dirty: this.dirty, closable: this.closable, compact, closeLabel: this.closeLabel, dirtyLabel: this.dirtyLabel, close
+    })}</span>${this.closable && !this.pinned ? this.paint("tab-close-button", { title, label: this.closeLabel, close }) : nothing}`;
   }
 }
