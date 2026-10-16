@@ -2,7 +2,9 @@ import type { DockoramaLabels } from "./labels.js";
 import type { ChangeReason, DockoramaManager } from "./manager.js";
 import type { Box, Caps, DropZone, EdgeZone, DockoramaModel } from "./model.js";
 import type { Rect } from "./geometry.js";
+import type { TabMenuItem } from "./components/index.js";
 import type { DragEngine } from "./drag.js";
+import type { KeyboardController } from "./keyboard.js";
 import type { Timeline } from "./history.js";
 import type { OutsideWindows } from "./outside.js";
 
@@ -42,7 +44,7 @@ export interface DragState {
  * What the controllers split out of `DockoramaManager` need from it. The manager keeps these members private
  * (so its published typings are unchanged) and hands itself over as a `DockHost`.
  */
-export interface DockHost extends HTMLElement, Pick<DockoramaManager, "toggleZoom" | "beginMove" | "stow" | "openPalette" | "undo" | "redo" | "dismiss" | "reveal" | "activate"> {
+export interface DockHost extends HTMLElement, Pick<DockoramaManager, "toggleZoom" | "hasPin" | "pin" | "dismissMany" | "updateComplete" | "beginMove" | "stow" | "openPalette" | "undo" | "redo" | "dismiss" | "reveal" | "activate"> {
   _keyMove?: { id: string; index: number; zone: DropZone | EdgeZone };
   _say: string;
   theme: string;
@@ -57,10 +59,15 @@ export interface DockHost extends HTMLElement, Pick<DockoramaManager, "toggleZoo
   caps(id: string): Caps;
   commit(next: DockoramaModel, reason: ChangeReason, record?: boolean): void;
   drag: DragEngine;
+  keys: KeyboardController;
   snap: number;
   shown: Set<string>;
   _drag?: DragState;
-  _menu?: unknown;
+  _menu?: { id: string; x: number; y: number };
+  _tabMenu?: { id: string; x: number; y: number; items: TabMenuItem[] };
+  _palette?: { query: string; index: number };
+  _confirm?: { id: string; done: (ok: boolean) => void };
+  tabMenu?: (viewId: string, items: TabMenuItem[]) => TabMenuItem[];
   _peek?: string;
   timeline: Timeline<DockoramaModel>;
   outside: OutsideWindows;

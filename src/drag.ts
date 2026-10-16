@@ -1,3 +1,4 @@
+import { pathOf } from "./dom.js";
 import { compassSpots, contains, edgeSpots, hit, insertionIndex, previewFor, rectOf } from "./geometry.js";
 import type { DockHost, DragState } from "./host.js";
 import type { Caps, DockoramaModel } from "./model.js";
@@ -6,9 +7,6 @@ import type { DragKind, DragOverDetail, DropDetail } from "./events.js";
 
 /** Every connected manager, for drags between managers that share a `drag-group`. */
 export const managers = new Set<DockHost>();
-
-/** The `data-path` of a gutter or stack as a node path. */
-const pathOf = (el: HTMLElement): number[] => (el.dataset["path"] ?? "").split(".").filter(Boolean).map(Number);
 
 /** Pointer drags of tabs, loose views and floating windows, and drops between docks of one drag group. */
 export class DragEngine {

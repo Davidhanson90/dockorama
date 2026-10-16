@@ -2,22 +2,23 @@ import { LitElement, html, nothing, type PropertyValues, type TemplateResult } f
 import { DEFAULT_LABELS, type DockoramaLabels } from "./labels.js";
 import { Timeline } from "./history.js";
 import { styles } from "./styles.js";
-import {
-  clampBox, compassSpots, edgeSpots, snapBox, type Rect, type Spot
-} from "./geometry.js";
-import { DockoramaPart, defineParts, type DockContext, type GuideSpot, type MenuEntry, type PartRequest, type TabMenuItem } from "./components/index.js";
+import { clampBox, snapBox, type Rect } from "./geometry.js";
+import { DockoramaPart, defineParts, type DockContext, type PartRequest, type TabMenuItem } from "./components/index.js";
 import { slotOf } from "./components/context.js";
 import { renderNode } from "./components/tree.js";
 import type { Box, DropZone, EdgeZone, DockoramaModel, LayoutMigrations, LayoutSource, Side, SizeLimits, ViewContent, ViewInfo, ViewOptions } from "./model.js";
 import * as ops from "./ops.js";
 import { LayoutStore } from "./storage.js";
+import { attr } from "./dom.js";
 import { DragEngine, managers } from "./drag.js";
+import { MenuController } from "./menus.js";
+import { renderConfirm, renderFlyout, renderGuide, renderNotice } from "./overlays.js";
 import { KeyboardController } from "./keyboard.js";
 import { ResizeController } from "./resize.js";
 import { OutsideWindows } from "./outside.js";
 import type { DockHost, DragState } from "./host.js";
 import { activeSkin, cssFor, skinNamed, watchSkins, type Skin, type SkinPatch, type SkinScope } from "./skins/core.js";
-import { stateEvents, type BeforeAddDetail, type CommandDetail, type CommandSource, type DragKind, type DragOverDetail, type DropDetail, type DockoramaStateEvents, type ResizeDetail } from "./events.js";
+import { stateEvents, type BeforeAddDetail, type CommandDetail, type DragKind, type DragOverDetail, type DropDetail, type DockoramaStateEvents, type ResizeDetail } from "./events.js";
 
 /** Why the model changed (detail of `dockorama-change`). */
 export type ChangeReason =
@@ -32,8 +33,6 @@ export type TabCommand =
 const SILENT: ChangeReason[] = ["select", "focus", "cancel"];
 /** Changes after which saved outside windows are (re-)opened. */
 const OPEN_ON: ChangeReason[] = ["set", "restore", "undo", "redo"];
-/** Quote a value for an attribute selector. */
-const attr = (v: string) => JSON.stringify(v);
 const isContent = (v: unknown): v is ViewContent =>
   typeof v === "string" || typeof v === "function" || (typeof Element !== "undefined" && v instanceof Element);
 
@@ -173,13 +172,13 @@ export class DockoramaManager extends LitElement {
   private _menu?: { id: string; x: number; y: number };
   private _palette?: { query: string; index: number };
   private _say = "";
-  /** Open outside (browser) windows by key. */
   /** This element as the controllers see it (they use members the typings keep private). */
   private readonly host = this as unknown as DockHost;
   private readonly outside = new OutsideWindows(this.host);
   private readonly drag = new DragEngine(this.host);
   private readonly resize = new ResizeController(this.host);
   private readonly keys = new KeyboardController(this.host);
+  private readonly menus = new MenuController(this.host);
   /** Drag from another manager hovering over this one. */
   private _guest?: DragState;
   private _tabMenu?: { id: string; x: number; y: number; items: TabMenuItem[] };
@@ -580,6 +579,26 @@ export class DockoramaManager extends LitElement {
     this.drag.handOver(id, target.host, next);
   }
 
+  /** The built-in tab context menu items for a view (before the `tabMenu` hook). */
+  tabMenuItems(id: string): TabMenuItem[] {
+    return this.menus.tabMenuItems(id);
+  }
+
+  /** Open the tab context menu of a view (at a client point, default: under its tab). */
+  openTabMenu(id: string, at?: { x: number; y: number }): void {
+    this.menus.openTabMenu(id, at);
+  }
+
+  /** Run a built-in tab command for a view. */
+  runTabCommand(key: TabCommand, id: string): void {
+    this.menus.runTabCommand(key, id);
+  }
+
+  /** Palette entries: views + commands. */
+  paletteItems(query = ""): Array<{ label: string; detail: string; run: () => void }> {
+    return this.menus.paletteItems(query);
+  }
+
   // ------------------------------------------------------------- internals
 
   private defaultBox(): Box {
@@ -755,206 +774,19 @@ export class DockoramaManager extends LitElement {
       ${rail("top")}
       <div class="middle">
         ${rail("start")}
-        <div class="main" part="main">${body}${this.renderFlyout(ctx)}</div>
+        <div class="main" part="main">${body}${renderFlyout(this.host, ctx)}</div>
         ${rail("end")}
       </div>
       ${rail("bottom")}
       ${m.windows.map((w, i) => html`<dockorama-window .key=${w.key} .box=${w.box} .tree=${w.tree} .layer=${i} .ctx=${ctx}></dockorama-window>`)}
-      ${this.renderGuide()}
-      ${this.renderMenu()}
-      ${this.renderTabMenu()}
-      ${this.renderPalette()}
-      ${this.renderNotice()}
-      ${this.renderConfirm()}
+      ${renderGuide(this.host)}
+      ${this.menus.renderMenu()}
+      ${this.menus.renderTabMenu()}
+      ${this.menus.renderPalette()}
+      ${renderNotice(this.host)}
+      ${renderConfirm(this.host)}
       <div class="sr" role="status" aria-live="polite">${this._say}</div>
     </div>`;
-  }
-
-  private renderFlyout(ctx: DockContext): TemplateResult | typeof nothing {
-    const id = this._peek;
-    if (!id) return nothing;
-    const where = ops.locate(this._model, id);
-    if (where.place !== "drawer") return nothing;
-    return html`<dockorama-flyout .view=${id} .side=${where.side} .ctx=${ctx}></dockorama-flyout>`;
-  }
-
-  private renderConfirm(): TemplateResult | typeof nothing {
-    const c = this._confirm;
-    if (!c) return nothing;
-    const t = this.t;
-    const title = this._model.views[c.id]?.title ?? c.id;
-    return html`<dockorama-confirm .view=${c.id} .message=${t.confirmClose.replace("{title}", title)} .okLabel=${t.closeAnyway} .cancelLabel=${t.cancel}></dockorama-confirm>`;
-  }
-
-  private renderNotice(): TemplateResult | typeof nothing {
-    if (!this._blocked.length) return nothing;
-    const t = this.t;
-    return html`<dockorama-notice .message=${t.reopenBlocked}
-      .actions=${[{ label: t.reopen, action: "outside-reopen", primary: true }, { label: t.keepDocked, action: "outside-dismiss" }]}></dockorama-notice>`;
-  }
-
-  private renderTabMenu(): TemplateResult | typeof nothing {
-    const m = this._tabMenu;
-    if (!m) return nothing;
-    return html`<dockorama-tab-menu .view=${m.id} .items=${m.items} .x=${m.x} .y=${m.y} .label=${this.t.tabMenu}></dockorama-tab-menu>`;
-  }
-
-  /** The built-in tab context menu items for a view (before the `tabMenu` hook). */
-  tabMenuItems(id: string): TabMenuItem[] {
-    const c = this.caps(id);
-    const t = this.t;
-    const where = ops.locate(this._model, id);
-    const s = where.place === "tree" ? where.stack : undefined;
-    const views = s?.views ?? [];
-    const pinned = this.hasPin(id);
-    const others = ops.closeSet(this._model, id, "others");
-    const right = ops.closeSet(this._model, id, "right");
-    const floating = where.place === "tree" && Boolean(where.window);
-    const out: TabMenuItem[] = [
-      { key: "close", label: t.dismiss, disabled: c.dismiss === false },
-      { key: "close-others", label: t.closeOthers, disabled: !others.length },
-      { key: "close-right", label: t.closeRight, disabled: !right.length },
-      { key: "close-all", label: t.closeAll, disabled: !ops.closeSet(this._model, id, "all").length },
-      "separator",
-      { key: "pin", label: pinned ? t.unpin : t.pin, checked: pinned },
-      { key: "float", label: floating ? t.dock : t.float, disabled: c.float === false && !floating },
-      { key: "popout", label: t.popout, disabled: c.popout === false || Boolean(ops.outsideOf(this._model, id)) },
-      { key: "split-right", label: t.splitRight, disabled: views.length < 2 || c.move === false },
-      { key: "split-down", label: t.splitDown, disabled: views.length < 2 || c.move === false }
-    ];
-    if (s && !s.docs && !floating) out.push({ key: "stow", label: t.stow, disabled: c.hide === false });
-    return out;
-  }
-
-  /** Open the tab context menu of a view (at a client point, default: under its tab). */
-  openTabMenu(id: string, at?: { x: number; y: number }): void {
-    if (ops.locate(this._model, id).place !== "tree") return;
-    const host = this.getBoundingClientRect();
-    let x = at?.x;
-    let y = at?.y;
-    if (x === undefined || y === undefined) {
-      const r = this.renderRoot.querySelector(`[id=${attr(`tab-${id}`)}], [id=${attr(`t-${id}`)}]`)?.getBoundingClientRect();
-      x = r?.left ?? host.left + 20;
-      y = r?.bottom ?? host.top + 20;
-    }
-    const base = this.tabMenuItems(id);
-    const items = this.tabMenu ? this.tabMenu(id, base) : base;
-    this._menu = undefined;
-    this._tabMenu = { id, items, x: Math.max(0, Math.min(x - host.left, host.width - 220)), y: Math.max(0, y - host.top) };
-    void this.updateComplete.then(() => this.renderRoot.querySelector<HTMLElement & { focusFirst(): void }>("dockorama-tab-menu")?.focusFirst());
-  }
-
-  /** Run a built-in tab command for a view. */
-  runTabCommand(key: TabCommand, id: string): void {
-    const where = ops.locate(this._model, id);
-    switch (key) {
-      case "close": void this.dismiss(id); return;
-      case "close-others": void this.dismissMany(ops.closeSet(this._model, id, "others")); return;
-      case "close-right": void this.dismissMany(ops.closeSet(this._model, id, "right")); return;
-      case "close-all": void this.dismissMany(ops.closeSet(this._model, id, "all")); return;
-      case "pin": return this.pin(id, !this.hasPin(id));
-      case "float":
-        if (where.place === "tree" && where.window) return this.dockToEdge(id, "edge-right");
-        return this.detach(id);
-      case "popout": void this.popOut(id); return;
-      case "stow": return this.stow(id);
-      case "split-right":
-      case "split-down": {
-        const other = where.place === "tree" ? where.stack.views.find((v) => v !== id) : undefined;
-        if (other) this.place(id, other, key === "split-right" ? "right" : "below");
-        return;
-      }
-    }
-  }
-
-  /** Fire the cancellable `dockorama-command` for a menu choice. */
-  private askCommand(id: string, command: string, source: CommandSource, custom: boolean): boolean {
-    const detail: CommandDetail = { id, command, source, custom };
-    return this.emit("dockorama-command", detail, true);
-  }
-
-  private closeTabMenu(refocus: boolean): void {
-    const id = this._tabMenu?.id;
-    this._tabMenu = undefined;
-    if (refocus && id) void this.updateComplete.then(() => this.renderRoot.querySelector<HTMLElement>(`[id=${attr(`tab-${id}`)}]`)?.focus());
-  }
-
-  private renderGuide(): TemplateResult | typeof nothing {
-    const d = this._drag?.peer || this._drag?.beyond ? undefined : (this._drag ?? this._guest ?? this.keys.guide());
-    if (!d || d.mode === "pending" || d.mode === "tab") return nothing;
-    const host = this.getBoundingClientRect();
-    const main = this.mainRect();
-    const rel = (s: Spot<string>, hot: boolean): GuideSpot => ({ zone: s.zone, x: s.x - host.left, y: s.y - host.top, hot });
-    const compass = d.target ? compassSpots(d.target.rect).filter((c) => !d.fill || c.zone === "into") : [];
-    const spots = [
-      ...compass.map((s) => rel(s, s.zone === d.target?.zone)),
-      ...(main ? edgeSpots(main) : []).map((s) => rel(s, s.zone === d.edge))
-    ];
-    if (d.gap) {
-      const r = d.gap.rect;
-      spots.push(rel({ zone: "between", x: r.left + r.width / 2, y: r.top + r.height / 2 }, true));
-    }
-    const p = d.preview;
-    const preview = p ? { left: p.left - host.left, top: p.top - host.top, width: p.width, height: p.height } : undefined;
-    const ghost = d.mode === "loose" ? { x: d.x - host.left, y: d.y - host.top, label: this._model.views[d.id]?.title ?? d.id } : undefined;
-    return html`<dockorama-drop-guide .spots=${spots} .preview=${preview} .ghost=${ghost}></dockorama-drop-guide>`;
-  }
-
-  private openMenu(id: string): void {
-    const host = this.getBoundingClientRect();
-    const stackEl = Array.from(this.renderRoot.querySelectorAll<HTMLElement>("[data-stack]")).find((el) =>
-      el.querySelector(`[id=${attr(`t-${id}`)}], [id=${attr(`tab-${id}`)}]`));
-    const anchor = stackEl?.querySelector<HTMLElement>('[part~="more"]') ?? this.renderRoot.querySelector<HTMLElement>(`[data-stack] [part~="more"]`);
-    const r = anchor?.getBoundingClientRect();
-    this._menu = { id, x: r ? Math.min(r.left - host.left, host.width - 200) : 20, y: r ? r.bottom - host.top + 4 : 20 };
-    void this.updateComplete.then(() => this.renderRoot.querySelector<HTMLButtonElement>(".menu button")?.focus());
-  }
-
-  /** Entries of the "more actions" menu for a view. */
-  private menuEntries(id: string): MenuEntry[] {
-    const c = this.caps(id);
-    const t = this.t;
-    const where = ops.locate(this._model, id);
-    const s = where.place === "tree" ? where.stack : undefined;
-    const floating = where.place === "tree" && Boolean(where.window);
-    const out: MenuEntry[] = [];
-    if (s && s.views.length > 1) {
-      for (const v of s.views) out.push({ label: this._model.views[v]?.title ?? v, action: "reveal", id: v, checked: v === s.current });
-      out.push("separator");
-    }
-    if (floating) out.push({ label: t.dock, action: "dock", id });
-    else if (c.float !== false) out.push({ label: t.float, action: "float", id });
-    if (c.popout !== false) out.push({ label: t.popout, action: "popout", id });
-    if (s && !s.docs && !floating && c.hide !== false) out.push({ label: t.stow, action: "stow", id });
-    if (c.dismiss !== false) out.push({ label: t.dismiss, action: "dismiss", id });
-    return out;
-  }
-
-  private renderMenu(): TemplateResult | typeof nothing {
-    const menu = this._menu;
-    if (!menu) return nothing;
-    return html`<dockorama-menu .entries=${this.menuEntries(menu.id)} .x=${menu.x} .y=${menu.y}></dockorama-menu>`;
-  }
-
-  /** Palette entries: views + commands. */
-  paletteItems(query = ""): Array<{ label: string; detail: string; run: () => void }> {
-    const q = query.trim().toLowerCase();
-    const views = ops.catalogue(this._model).map(({ id, info, where }) => ({
-      label: info.title, detail: where === "tree" ? "" : where, run: () => this.reveal(id)
-    }));
-    const cmds = [
-      { label: "Undo layout change", detail: "command", run: () => this.undo() },
-      { label: "Redo layout change", detail: "command", run: () => this.redo() },
-      { label: "Toggle fill layout", detail: "command", run: () => this.toggleZoom() }
-    ];
-    return [...views, ...cmds].filter((it) => !q || it.label.toLowerCase().includes(q));
-  }
-
-  private renderPalette(): TemplateResult | typeof nothing {
-    const p = this._palette;
-    if (!p) return nothing;
-    return html`<dockorama-palette .items=${this.paletteItems(p.query)} .query=${p.query} .index=${p.index}
-      .label=${this.t.palette} .placeholder=${this.t.palettePlaceholder} .empty=${this.t.noMatches}></dockorama-palette>`;
   }
 
   // ------------------------------------------------------------- part requests
@@ -965,7 +797,7 @@ export class DockoramaManager extends LitElement {
     const id = r.id ?? "";
     if (r.fromMenu) {
       this._menu = undefined;
-      if (!this.askCommand(id, r.action, "pane-menu", false)) return;
+      if (!this.menus.askCommand(id, r.action, "pane-menu", false)) return;
     }
     switch (r.action) {
       case "activate": return this.onStackPointer(r["event"] as PointerEvent, id, r["source"] as HTMLElement);
@@ -979,7 +811,7 @@ export class DockoramaManager extends LitElement {
       case "dock": return this.dockToEdge(id, "edge-right");
       case "popout": void this.popOut(id); return;
       case "popin": return this.popIn(id);
-      case "menu": return this.openMenu(id);
+      case "menu": return this.menus.openMenu(id);
       case "menu-close": this._menu = undefined; return;
       case "peek": return r["toggle"] ? this.togglePeek(id) : this.openPeek(id, true);
       case "peek-close": this._peek = undefined; return;
@@ -992,15 +824,15 @@ export class DockoramaManager extends LitElement {
       case "gutter-key":
         return this.resize.key(r["event"] as KeyboardEvent, r["path"] as number[], r["after"] as number, r["axis"] as "row" | "column",
           r["weights"] as number[], r["win"] as string | undefined, r["source"] as HTMLElement | undefined);
-      case "tab-menu": return this.openTabMenu(id, r["keyboard"] ? undefined : { x: Number(r["x"]), y: Number(r["y"]) });
-      case "tab-menu-close": return this.closeTabMenu(true);
+      case "tab-menu": return this.menus.openTabMenu(id, r["keyboard"] ? undefined : { x: Number(r["x"]), y: Number(r["y"]) });
+      case "tab-menu-close": return this.menus.closeTabMenu(true);
       case "tab-menu-choose": {
         const item = this._tabMenu?.items[Number(r["index"])];
-        this.closeTabMenu(true);
+        this.menus.closeTabMenu(true);
         if (!item || item === "separator" || item.disabled) return;
-        if (!this.askCommand(id, item.key, "tab-menu", Boolean(item.run))) return;
+        if (!this.menus.askCommand(id, item.key, "tab-menu", Boolean(item.run))) return;
         if (item.run) item.run(id);
-        else this.runTabCommand(item.key as TabCommand, id);
+        else this.menus.runTabCommand(item.key as TabCommand, id);
         return;
       }
       case "promote": return this.promote(id);
@@ -1016,7 +848,7 @@ export class DockoramaManager extends LitElement {
       case "palette-index": if (this._palette) this._palette = { ...this._palette, index: Number(r["index"]) }; return;
       case "palette-close": this._palette = undefined; return;
       case "palette-choose": {
-        const it = this.paletteItems(this._palette?.query)[Number(r["index"])];
+        const it = this.menus.paletteItems(this._palette?.query)[Number(r["index"])];
         this._palette = undefined;
         it?.run();
         return;

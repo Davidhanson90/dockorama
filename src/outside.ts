@@ -1,8 +1,7 @@
+import { attr } from "./dom.js";
 import type { DockHost } from "./host.js";
 import type { Box, OutsideWindow } from "./model.js";
 import * as ops from "./ops.js";
-
-const attr = (v: string) => JSON.stringify(v);
 
 /** Styles of the page dockorama builds inside an outside window. */
 const OUTSIDE_CSS = `

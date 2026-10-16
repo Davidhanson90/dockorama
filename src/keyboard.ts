@@ -1,3 +1,4 @@
+import { pathOf } from "./dom.js";
 import { previewFor, rectOf } from "./geometry.js";
 import type { DockHost, DragState } from "./host.js";
 import type { DropZone, EdgeZone } from "./model.js";
@@ -8,7 +9,6 @@ type MoveTarget = { view: string; rect: Rect; label: string; path?: number[]; wi
 
 const SIDES: Record<string, DropZone> = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "above", ArrowDown: "below" };
 const EDGES: Record<string, EdgeZone> = { ArrowLeft: "edge-left", ArrowRight: "edge-right", ArrowUp: "edge-above", ArrowDown: "edge-below" };
-const pathOf = (el: HTMLElement): number[] => (el.dataset["path"] ?? "").split(".").filter(Boolean).map(Number);
 
 /** `Alt+<letter>` shortcuts on the focused view. */
 const ALT_SHORTCUTS: Record<string, (h: DockHost, id: string) => void> = {
