@@ -2,7 +2,7 @@ import type { DockoramaModel, LayoutMigrations, LayoutSource } from "./model.js"
 import * as ops from "./ops.js";
 
 /** The manager properties the layout store reads. */
-export interface StoreOptions {
+interface StoreOptions {
   storageKey?: string;
   layoutVersion?: number;
   migrations?: LayoutMigrations;

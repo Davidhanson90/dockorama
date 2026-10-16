@@ -2,7 +2,7 @@ import type { ViewSpot, OutsideWindow, LayoutMigrations, SizeLimits,
   Box, DockNode, DropZone, EdgeZone, DockoramaModel, Side, SplitNode, StackNode, ViewInfo, Whereabouts
 } from "./model.js";
 
-export const SIDES: Side[] = ["start", "end", "top", "bottom"];
+const SIDES: Side[] = ["start", "end", "top", "bottom"];
 
 /** Deep copy (models are plain JSON). */
 export function copy<T>(value: T): T {
@@ -306,7 +306,7 @@ export function raiseWindow(model: DockoramaModel, key: string): DockoramaModel 
 }
 
 /** Guess which side a docked view should stow to. */
-export function sideFor(model: DockoramaModel, id: string): Side {
+function sideFor(model: DockoramaModel, id: string): Side {
   const where = locate(model, id);
   if (where.place !== "tree" || where.window || !model.root || model.root.kind !== "split" || !where.path.length) return "start";
   const top = where.path[0]!;

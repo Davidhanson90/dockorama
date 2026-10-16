@@ -8,7 +8,7 @@ export type MenuEntry = { label: string; action: string; id: string; checked?: b
 /** Lists longer than this are virtualised: only the rows in view are rendered. */
 export const VIRTUAL_AFTER = 40;
 /** Row height (px) of a virtualised list. */
-export const ROW = 30;
+const ROW = 30;
 const SHOW = 12;
 
 /**
