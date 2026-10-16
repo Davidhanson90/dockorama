@@ -1,9 +1,12 @@
-import { pathOf } from "./dom.js";
+import { pathOf, stackEls } from "./dom.js";
 import { compassSpots, contains, edgeSpots, hit, insertionIndex, previewFor, rectOf } from "./geometry.js";
 import type { DockHost, DragState } from "./host.js";
 import type { Caps, DockoramaModel } from "./model.js";
 import * as ops from "./ops.js";
 import type { DragKind, DragOverDetail, DropDetail } from "./events.js";
+
+/** A drag state pointing at no drop spot. */
+const NO_SPOT = { target: undefined, gap: undefined, fill: undefined, edge: undefined, preview: undefined };
 
 /** Every connected manager, for drags between managers that share a `drag-group`. */
 export const managers = new Set<DockHost>();
@@ -12,7 +15,6 @@ export const managers = new Set<DockHost>();
 export class DragEngine {
   constructor(private readonly h: DockHost) {}
 
-  /** Show drop guides for a view at a client point of this manager (used by drags that started elsewhere). */
   /** Another manager in the same drag group whose box contains a client point (not this one). */
   private peerAt(x: number, y: number): DockHost | undefined {
     const { h } = this;
@@ -23,6 +25,7 @@ export class DragEngine {
     return undefined;
   }
 
+  /** Show drop guides for a view at a client point of this manager (used by drags that started elsewhere). */
   hoverAt(id: string, x: number, y: number, caps?: Caps): void {
     const g: DragState = { id, mode: "loose", startX: x, startY: y, x, y, origin: this.h._model, pointerId: -1, caps };
     this.findTarget(g);
@@ -42,7 +45,7 @@ export class DragEngine {
     return undefined;
   }
 
-
+  /** Begin tracking a pointer press on a tab, pane header or floating-window title as a drag. */
   start(e: PointerEvent, id: string, win: string | undefined, target: HTMLElement): void {
     if (e.button !== 0 || this.h.caps(id).move === false) return;
     const w = win ? this.h._model.windows.find((x) => x.key === win) : undefined;
@@ -76,7 +79,7 @@ export class DragEngine {
     d.peer?.drag.clearGuest();
     if (this.h._model !== d.origin) this.h.commit(d.origin, "cancel", false);
     else this.h.requestUpdate();
-    this.h.dispatchEvent(new CustomEvent("dockorama-dragcancel", { detail: { id: d.id }, bubbles: true, composed: true }));
+    this.h.emit("dockorama-dragcancel", { id: d.id });
   }
 
   private onMove = (e: PointerEvent): void => {
@@ -118,12 +121,9 @@ export class DragEngine {
       const peer = next.mode === "loose" && !next.beyond ? this.peerAt(e.clientX, e.clientY) : undefined;
       if (d.peer && d.peer !== peer) d.peer.drag.clearGuest();
       next.peer = peer;
-      if (peer) {
-        peer.drag.hoverAt(d.id, e.clientX, e.clientY, this.h.caps(d.id));
-        for (const k of ["target", "gap", "fill", "edge", "preview"] as const) next[k] = undefined;
-      } else if (next.beyond) {
-        for (const k of ["target", "gap", "fill", "edge", "preview"] as const) next[k] = undefined;
-      } else this.findTarget(next);
+      if (peer) peer.drag.hoverAt(d.id, e.clientX, e.clientY, this.h.caps(d.id));
+      if (peer || next.beyond) Object.assign(next, NO_SPOT);
+      else this.findTarget(next);
     }
     this.h._drag = next;
     this.reportOver(next);
@@ -152,11 +152,7 @@ export class DragEngine {
   }
 
   private findTarget(d: DragState): void {
-    d.target = undefined;
-    d.gap = undefined;
-    d.fill = undefined;
-    d.edge = undefined;
-    d.preview = undefined;
+    Object.assign(d, NO_SPOT);
     const main = this.h.mainRect();
     if (main && !(d.caps ?? this.h.caps(d.id)).docsOnly) {
       const edge = hit(edgeSpots(main), d.x, d.y);
@@ -187,7 +183,7 @@ export class DragEngine {
         }
       }
     }
-    const stacks = Array.from(this.h.renderRoot.querySelectorAll<HTMLElement>("[data-stack]"))
+    const stacks = stackEls(this.h.renderRoot)
       .filter((el) => !el.closest(".drawer") && (!d.windowKey || el.dataset["win"] !== d.windowKey));
     // Prefer windows (topmost) over docked groups.
     const under = stacks.reverse().find((el) => contains(el.getBoundingClientRect(), d.x, d.y));
@@ -306,7 +302,7 @@ export class DragEngine {
     target.views.shown.delete(id);
     target.commit(next, "transfer");
     const detail = { id, from: this.h, to: target };
-    this.h.dispatchEvent(new CustomEvent("dockorama-transfer", { detail: { ...detail, direction: "out" }, bubbles: true, composed: true }));
-    target.dispatchEvent(new CustomEvent("dockorama-transfer", { detail: { ...detail, direction: "in" }, bubbles: true, composed: true }));
+    this.h.emit("dockorama-transfer", { ...detail, direction: "out" });
+    target.emit("dockorama-transfer", { ...detail, direction: "in" });
   }
 }

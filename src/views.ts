@@ -2,7 +2,7 @@ import { slotOf } from "./components/context.js";
 import { attr } from "./dom.js";
 import type { BeforeAddDetail } from "./events.js";
 import type { DockHost } from "./host.js";
-import type { DropZone, ViewContent, ViewInfo, ViewOptions } from "./model.js";
+import type { DropZone, ViewContent, ViewInfo, ViewOptions, ViewSpot } from "./model.js";
 import * as ops from "./ops.js";
 
 const isContent = (v: unknown): v is ViewContent =>
@@ -28,6 +28,12 @@ export class ViewRegistry {
 
   constructor(private readonly h: DockHost) {}
 
+  /** `at` with a `float` spot turned into a window box that fits this manager. */
+  resolveSpot(at: ViewSpot): Parameters<typeof ops.enlist>[3] {
+    const { h } = this;
+    return typeof at === "object" && "float" in at ? { float: h.fitBox({ ...h.defaultBox(), ...(at.float === true ? {} : at.float) }) } : (at as Exclude<ViewSpot, { float: unknown }>);
+  }
+
   /** The content element of a view (null if unknown, or lazy and not yet shown). */
   elementOf(id: string): Element | null {
     return this.h.outside.elementOf(id) ?? this.h.querySelector(`:scope > [data-view=${attr(id)}]`) ?? this.stash.get(id) ?? null;
@@ -52,7 +58,7 @@ export class ViewRegistry {
     const { at = "auto", preview, ...rest } = (extra ?? {}) as ViewOptions;
     const info: ViewInfo = { ...rest, title: rest.title ?? id };
     if (typeof content === "function") info.lazy = true;
-    const spot = typeof at === "object" && "float" in at ? { float: this.h.fitBox({ ...this.h.defaultBox(), ...(at.float === true ? {} : at.float) }) } : at;
+    const spot = this.resolveSpot(at);
     let next = ops.enlist(this.h._model, id, info, spot);
     if (preview) next = ops.setPreview(next, id).model;
     if (typeof content === "function") {

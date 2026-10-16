@@ -85,27 +85,14 @@ function withoutExtras(node: SplitNode): SplitNode {
 
 /** Remove a view from a tree. Prunes empty non-document stacks and collapses single-child splits. */
 function pluck(node: DockNode | null, id: string, keepEmpty: boolean): DockNode | null {
-  if (!node) return null;
-  if (node.kind === "stack") {
-    if (!node.views.includes(id)) return node;
-    const idx = node.views.indexOf(id);
-    const views = node.views.filter((v) => v !== id);
-    const current = node.current === id ? (views[Math.min(idx, views.length - 1)] ?? "") : node.current;
-    if (!views.length && !node.docs && !keepEmpty) return null;
-    return { ...node, views, current };
-  }
-  const children: DockNode[] = [];
-  const weights: number[] = [];
-  const from: number[] = [];
-  node.children.forEach((child, i) => {
-    const next = pluck(child, id, keepEmpty);
-    if (next) {
-      children.push(next);
-      weights.push(node.weights[i] ?? 1);
-      from.push(i);
-    }
+  return mapTree(node, (s) => {
+    const idx = s.views.indexOf(id);
+    if (idx < 0) return s;
+    const views = s.views.filter((v) => v !== id);
+    const current = s.current === id ? (views[Math.min(idx, views.length - 1)] ?? "") : s.current;
+    if (!views.length && !s.docs && !keepEmpty) return null;
+    return { ...s, views, current };
   });
-  return tidySplit({ ...withoutExtras(node), ...carryExtras(node, from), children, weights });
 }
 
 /** Collapse single-child splits and flatten nested same-axis splits. */
@@ -147,10 +134,12 @@ export function normalize(input: DockoramaModel): DockoramaModel {
   m.drawers = { start: d.start ?? [], end: d.end ?? [], top: d.top ?? [], bottom: d.bottom ?? [] };
   const known = (id: string) => id in m.views;
   const seen = new Set<string>();
+  /** True the first time a known view id is met (so each view is kept once). */
+  const firstKnown = (v: string) => known(v) && !seen.has(v) && (seen.add(v), true);
   const fix = (node: DockNode | null): DockNode | null => {
     if (!node) return null;
     if (node.kind === "stack") {
-      let views = node.views.filter((v) => known(v) && !seen.has(v) && (seen.add(v), true));
+      let views = node.views.filter(firstKnown);
       if (!views.length && !node.docs) return null;
       const out: StackNode = { ...node, views, current: views.includes(node.current) ? node.current : (views[0] ?? "") };
       if (node.preview && !views.includes(node.preview)) delete out.preview;
@@ -185,8 +174,8 @@ export function normalize(input: DockoramaModel): DockoramaModel {
   m.windows = m.windows
     .map((w) => ({ ...w, tree: fix(w.tree) as DockNode }))
     .filter((w) => w.tree && viewsIn(w.tree).length > 0);
-  for (const side of SIDES) m.drawers[side] = m.drawers[side].filter((v) => known(v) && !seen.has(v) && (seen.add(v), true));
-  m.parked = m.parked.filter((v) => known(v) && !seen.has(v) && (seen.add(v), true));
+  for (const side of SIDES) m.drawers[side] = m.drawers[side].filter(firstKnown);
+  m.parked = m.parked.filter(firstKnown);
   if (m.focus && !seen.has(m.focus)) delete m.focus;
   if (m.zoom && !seen.has(m.zoom)) delete m.zoom;
   if (m.outside) {
@@ -216,7 +205,7 @@ export function unplace(model: DockoramaModel, id: string, keepEmpty = false): D
   return m;
 }
 
-function mapTree(node: DockNode | null, fn: (s: StackNode) => DockNode): DockNode | null {
+function mapTree(node: DockNode | null, fn: (s: StackNode) => DockNode | null): DockNode | null {
   if (!node) return null;
   if (node.kind === "stack") return fn(node);
   const mapped = node.children.map((c) => mapTree(c, fn));

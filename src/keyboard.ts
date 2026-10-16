@@ -1,4 +1,4 @@
-import { pathOf } from "./dom.js";
+import { pathOf, stackEls } from "./dom.js";
 import { previewFor, rectOf } from "./geometry.js";
 import type { DockHost, DragState } from "./host.js";
 import type { DropZone, EdgeZone } from "./model.js";
@@ -27,7 +27,7 @@ export class KeyboardController {
     const where = ops.locate(this.h._model, id);
     const lone = where.place === "tree" && where.stack.views.length === 1 ? where.stack.views[0] : undefined;
     const out: MoveTarget[] = [];
-    for (const el of Array.from(this.h.renderRoot.querySelectorAll<HTMLElement>("[data-stack]"))) {
+    for (const el of stackEls(this.h.renderRoot)) {
       if (el.closest(".drawer")) continue;
       const empty = el.hasAttribute("data-empty");
       const view = empty ? "" : (el.querySelector<HTMLElement>(".tab")?.dataset["view"] ?? el.dataset["stack"]!);
@@ -168,7 +168,7 @@ export class KeyboardController {
 
   /** Move focus to the nearest visible group in a direction. */
   focusNeighbour(zone: DropZone): void {
-    const els = Array.from(this.h.renderRoot.querySelectorAll<HTMLElement>("[data-stack]"));
+    const els = stackEls(this.h.renderRoot);
     const cur = els.find((el) => el.hasAttribute("data-active"));
     if (!cur) {
       const first = els[0]?.dataset["stack"];

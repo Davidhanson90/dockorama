@@ -1,6 +1,6 @@
 import { html, nothing, type TemplateResult } from "lit";
 import type { MenuEntry, TabMenuItem } from "./components/index.js";
-import { attr } from "./dom.js";
+import { attr, stackEls } from "./dom.js";
 import type { CommandDetail, CommandSource } from "./events.js";
 import type { DockHost } from "./host.js";
 import type { TabCommand } from "./manager.js";
@@ -104,7 +104,7 @@ export class MenuController {
 
   openMenu(id: string): void {
     const host = this.h.getBoundingClientRect();
-    const stackEl = Array.from(this.h.renderRoot.querySelectorAll<HTMLElement>("[data-stack]")).find((el) =>
+    const stackEl = stackEls(this.h.renderRoot).find((el) =>
       el.querySelector(`[id=${attr(`t-${id}`)}], [id=${attr(`tab-${id}`)}]`));
     const anchor = stackEl?.querySelector<HTMLElement>('[part~="more"]') ?? this.h.renderRoot.querySelector<HTMLElement>(`[data-stack] [part~="more"]`);
     const r = anchor?.getBoundingClientRect();

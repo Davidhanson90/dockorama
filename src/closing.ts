@@ -62,7 +62,7 @@ export class ClosingController {
     if (dirty) this.dirtySet.add(id);
     else this.dirtySet.delete(id);
     if (dirty) this.h.promote(id);
-    this.h.dispatchEvent(new CustomEvent("dockorama-dirty", { detail: { id, dirty }, bubbles: true, composed: true }));
+    this.h.emit("dockorama-dirty", { id, dirty });
     this.h.requestUpdate();
   }
   isDirty(id: string): boolean {

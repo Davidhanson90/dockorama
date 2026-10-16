@@ -376,8 +376,7 @@ export class DockoramaManager extends LitElement {
     const info = this._model.views[id];
     if (!info || target === this) return;
     if (target.hasView(id)) throw new Error(`dockorama: the target already has a view with id "${id}"`);
-    const spot = typeof at === "object" && "float" in at ? { float: target.fitBox({ ...target.defaultBox(), ...(at.float === true ? {} : at.float) }) } : at;
-    const next = ops.enlist(target._model, id, ops.copy(info), spot);
+    const next = ops.enlist(target._model, id, ops.copy(info), target.views.resolveSpot(at));
     this.drag.handOver(id, target.host, next);
   }
 
@@ -418,7 +417,7 @@ export class DockoramaManager extends LitElement {
   }
 
   private emitBefore(type: string, detail: unknown): boolean {
-    return this.dispatchEvent(new CustomEvent(type, { detail, cancelable: true, bubbles: true, composed: true }));
+    return this.emit(type, detail, true);
   }
 
   private keepFocus = false;
@@ -436,10 +435,10 @@ export class DockoramaManager extends LitElement {
     if (reason !== "set") this.store.save(this._model);
     this.outside.reconcile(OPEN_ON.includes(reason));
     if (prev.focus !== next.focus && next.focus) {
-      this.dispatchEvent(new CustomEvent("dockorama-focus", { detail: { id: next.focus, previous: prev.focus }, bubbles: true, composed: true }));
+      this.emit("dockorama-focus", { id: next.focus, previous: prev.focus });
     }
     if (reason !== "focus") {
-      this.dispatchEvent(new CustomEvent("dockorama-change", { detail: { model: next, reason }, bubbles: true, composed: true }));
+      this.emit("dockorama-change", { model: next, reason });
     }
     if (reason !== "set") for (const ev of stateEvents(prev, next)) this.emit(ev.type, ev.detail);
     if (!SILENT.includes(reason) && reason !== "set") this._say = `${reason}`;

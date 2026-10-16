@@ -1,4 +1,5 @@
 import { attr } from "./dom.js";
+import { contains } from "./geometry.js";
 import type { DockHost } from "./host.js";
 import type { Box, OutsideWindow } from "./model.js";
 import * as ops from "./ops.js";
@@ -137,9 +138,14 @@ export class OutsideWindows {
   private adoptHome(win: Window): void {
     if (win.closed && !win.document) return;
     for (const el of Array.from(win.document.querySelectorAll<HTMLElement>(".dko-body > [data-view]"))) {
-      el.removeAttribute("data-outside-hidden");
-      this.h.append(el);
+      this.release(el);
     }
+  }
+
+  /** Put a content element back into the manager. */
+  private release(el: HTMLElement): void {
+    el.removeAttribute("data-outside-hidden");
+    this.h.append(el);
   }
 
   /** Make open outside windows match `model.outside`; optionally try to open missing ones. */
@@ -175,10 +181,7 @@ export class OutsideWindows {
     const tabs = doc.querySelector<HTMLElement>(".dko-tabs");
     if (!body || !tabs) return;
     for (const el of Array.from(body.querySelectorAll<HTMLElement>(":scope > [data-view]"))) {
-      if (!o.views.includes(el.dataset["view"] ?? "")) {
-        el.removeAttribute("data-outside-hidden");
-        this.h.append(el);
-      }
+      if (!o.views.includes(el.dataset["view"] ?? "")) this.release(el);
     }
     for (const id of o.views) {
       let el = this.h.getViewElement(id) as HTMLElement | null;
@@ -228,8 +231,8 @@ export class OutsideWindows {
   /** The open outside window whose screen rectangle contains a screen point. */
   at(sx: number, sy: number, except?: string): string | undefined {
     for (const [key, w] of this.wins) {
-      if (key === except || w.closed) continue;
-      if (sx >= w.screenX && sx <= w.screenX + w.outerWidth && sy >= w.screenY && sy <= w.screenY + w.outerHeight) return key;
+      const box = { left: w.screenX, top: w.screenY, width: w.outerWidth, height: w.outerHeight };
+      if (key !== except && !w.closed && contains(box, sx, sy)) return key;
     }
     return undefined;
   }
@@ -240,7 +243,7 @@ export class OutsideWindows {
     const sx0 = e.screenX;
     const sy0 = e.screenY;
     let moved = false;
-    const inside = (ev: PointerEvent) => ev.clientX >= 0 && ev.clientY >= 0 && ev.clientX <= win.innerWidth && ev.clientY <= win.innerHeight;
+    const inside = (ev: PointerEvent) => contains({ left: 0, top: 0, width: win.innerWidth, height: win.innerHeight }, ev.clientX, ev.clientY);
     const move = (ev: PointerEvent) => {
       if (!moved && Math.hypot(ev.screenX - sx0, ev.screenY - sy0) < 6) return;
       moved = true;
