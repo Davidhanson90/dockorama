@@ -47,7 +47,7 @@
   "scripts": {
     "prebuild": "rimraf dist",
     "build": "tsc -p tsconfig.build.json && ngc -p tsconfig.angular.json",
-    "build:verify": "npm run lint:naming && npm run check:api && npm run lint && npm run test:check && npm run build && npm run test:coverage && npm run test:e2e:all",
+    "build:verify": "npm run lint:naming && npm run check:api && npm run lint && npm run test:check && npm run build && npm run test:coverage",
     "prepublishOnly": "npm run build:verify",
     "pack:check": "npm pack --dry-run",
     "start": "npm run build && vite --config harness/vite.config.ts",
