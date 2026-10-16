@@ -79,9 +79,7 @@ test.describe("drag and drop", () => {
     expect((await dock.events("beforemove")).length).toBe(1);
   });
 
-  // KNOWN ISSUE: dockorama-drop reports moved:true although a beforemove veto kept the view in place.
   test("a vetoed drop reports moved:false in the drop event", async ({ dock, page }) => {
-    test.fail(true, "dockorama-drop says moved:true after a beforemove veto");
     await page.evaluate(() => { window.lab.dock().addEventListener("dockorama-beforemove", (e) => e.preventDefault()); });
     await dock.dragTabToZone("notes.md", "log", "right");
     expect((await dock.events("drop"))[0]!.detail).toMatchObject({ moved: false });

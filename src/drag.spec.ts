@@ -379,6 +379,18 @@ describe("drag and resize events", () => {
     expect(log.at(-1)).toBe("drop between true");
   });
 
+  it("reports moved: false when a beforemove listener vetoes the drop", async () => {
+    const el = await mount(createModel(views, row([stack(["a"]), stack(["b", "c"]), stack(["d"])])));
+    el.addEventListener("dockorama-beforemove", (e) => e.preventDefault());
+    const drops: boolean[] = [];
+    el.addEventListener("dockorama-drop", (e) => drops.push(e.detail.moved));
+    const placement = (): string[][] => (el.model.root as unknown as { children: Array<{ views: string[] }> }).children.map((c) => c.views);
+    const before = placement();
+    await dragTab(el, "b", [597, 300]);
+    expect(placement()).toEqual(before);
+    expect(drops).toEqual([false]);
+  });
+
   it("cancels a drag when dragstart is prevented", async () => {
     const el = await mount();
     const before = el.model.root;

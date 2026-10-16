@@ -961,7 +961,14 @@ export class DockoramaManager extends LitElement {
     try {
       const raw = localStorage.getItem(this.storageKey);
       if (!raw || raw === this.unusable) return undefined;
-      const parsed: unknown = JSON.parse(raw);
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(raw);
+      } catch (err) {
+        this.unusable = raw;
+        this.issue("storage", [`stored layout is not valid JSON: ${(err as Error).message}`], true);
+        return undefined;
+      }
       const ok = ops.isModel(parsed) ? this.prepare({ ...parsed, views: fallback.views }, "storage") : this.prepare(parsed, "storage");
       // Views come from the app (titles may have changed); placement comes from storage.
       if (!ok) this.unusable = raw;
@@ -1604,9 +1611,12 @@ export class DockoramaManager extends LitElement {
     this._drag = undefined;
     if (d.mode === "pending") return;
     const spot = this.spotOf(d);
+    // Reordering inside a strip changes the model during the drag; any other drop is judged against the layout at release,
+    // because the origin can already differ (pressing a tab selects it) and a vetoed drop must report moved: false.
+    const before = d.mode === "tab" ? d.origin : this._model;
     const done = this.finishDrop(d);
     const report = (): void => {
-      const detail: DropDetail = { ...spot, moved: this._model !== d.origin || done === true };
+      const detail: DropDetail = { ...spot, moved: this._model !== before || done === true };
       this.emit("dockorama-drop", detail);
     };
     if (done instanceof Promise) void done.then(report);

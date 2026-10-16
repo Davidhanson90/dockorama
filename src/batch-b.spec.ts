@@ -268,6 +268,20 @@ describe("<dockorama-manager> layout versions", () => {
     expect(issues[2]!.problems).toEqual(['focus "zz" is not placed']);
   });
 
+  it("reports unparseable stored JSON as a fatal layoutissue and uses the app layout", async () => {
+    const issues: Array<{ source: string; fatal: boolean; problems: string[] }> = [];
+    localStorage.setItem("dk-json", "{not json");
+    const el = await mount(layout(), (e) => {
+      e.storageKey = "dk-json";
+      e.addEventListener("dockorama-layoutissue", (ev) => issues.push(ev.detail));
+    });
+    expect(el.restored).toBe(false);
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({ source: "storage", fatal: true });
+    expect(issues[0]!.problems[0]).toMatch(/not valid JSON/);
+    expect(Object.keys(el.model.views)).toEqual(Object.keys(layout().views));
+  });
+
   it("falls back to the app layout when stored data cannot be upgraded", async () => {
     const issues: string[] = [];
     localStorage.setItem("dk-v2", JSON.stringify({ ...layout(), version: 0 }));

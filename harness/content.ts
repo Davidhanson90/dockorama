@@ -309,7 +309,7 @@ add({
   <table><tr><th>Group</th><th>Event</th><th>Detail</th><th>Cancellable</th><th>When</th></tr>
   <tr><td>Layout</td><td><code>dockorama-change</code></td><td><code>{ model, reason }</code></td><td></td><td>After every layout change (also fires alongside every state event below)</td></tr>
   <tr><td>Layout</td><td><code>dockorama-focus</code></td><td><code>{ id, previous? }</code></td><td></td><td>The active view changed</td></tr>
-  <tr><td>Layout</td><td><code>dockorama-layoutissue</code></td><td><code>{ source, problems, fatal }</code></td><td></td><td>An assigned, restored or stored layout had problems; <code>fatal</code>: it was not used</td></tr>
+  <tr><td>Layout</td><td><code>dockorama-layoutissue</code></td><td><code>{ source, problems, fatal }</code></td><td></td><td>An assigned, restored or stored layout had problems; <code>fatal</code>: it was not used (including stored text that is not valid JSON)</td></tr>
   <tr><td>Views</td><td><code>dockorama-beforeadd</code></td><td><code>{ id, title, at? }</code></td><td>✔</td><td>Before <code>addView</code> registers a view</td></tr>
   <tr><td>Views</td><td><code>dockorama-viewshow</code></td><td><code>{ id, first }</code></td><td></td><td>A view's content became visible (<code>first</code>: never shown before — lazy loading)</td></tr>
   <tr><td>Views</td><td><code>dockorama-viewhide</code></td><td><code>{ id }</code></td><td></td><td>A visible view's content was hidden (other tab, closed, stowed, zoomed away)</td></tr>
@@ -330,7 +330,7 @@ add({
   <tr><td>Drag</td><td><code>dockorama-dragstart</code></td><td><code>{ id, kind }</code></td><td>✔</td><td>A drag passed the move threshold; <code>kind</code>: <code>"tab" | "loose" | "window"</code>. Cancel to abort the drag</td></tr>
   <tr><td>Drag</td><td><code>dockorama-dragover</code></td><td><code>{ id, spot, target? }</code></td><td></td><td>The drop spot changed (fires once per change, not per pointer move)</td></tr>
   <tr><td>Drag</td><td><code>dockorama-beforemove</code></td><td><code>{ id, target?, zone }</code></td><td>✔</td><td>Before a dock/move is applied</td></tr>
-  <tr><td>Drag</td><td><code>dockorama-drop</code></td><td><code>{ id, spot, target?, moved }</code></td><td></td><td>The drag ended; <code>moved</code> is false if nothing changed or a move was vetoed</td></tr>
+  <tr><td>Drag</td><td><code>dockorama-drop</code></td><td><code>{ id, spot, target?, moved }</code></td><td></td><td>The drag ended; <code>moved</code> is false if nothing changed or a <code>dockorama-beforemove</code> listener vetoed the move</td></tr>
   <tr><td>Drag</td><td><code>dockorama-dragcancel</code></td><td><code>{ id }</code></td><td></td><td>A drag was cancelled (Esc or pointer cancel); layout restored</td></tr>
   <tr><td>Drag</td><td><code>dockorama-transfer</code></td><td><code>{ id, from, to, direction }</code></td><td></td><td>A view moved between two managers; fired on both</td></tr>
   <tr><td>Resize</td><td><code>dockorama-resizing</code></td><td><code>ResizeDetail</code></td><td></td><td>Live, at most once per animation frame while a splitter or window grip is dragged</td></tr>

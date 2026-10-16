@@ -54,9 +54,7 @@ test.describe("persistence, versions and workspaces", () => {
     await expect(d.stacks()).toHaveCount(4);
   });
 
-  // KNOWN GAP: a structurally invalid stored layout fires layoutissue, but unparseable JSON is dropped silently.
   test("unparseable stored JSON also reports a fatal layoutissue (source: storage)", async ({ page }) => {
-    test.fail(true, "no dockorama-layoutissue is fired for JSON that cannot be parsed");
     await openLab(page);
     await page.evaluate((k) => localStorage.setItem(k, "{not json"), KEY);
     const d = await Dock.mount(page, { attrs: { "storage-key": KEY } });
